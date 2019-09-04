@@ -104,14 +104,15 @@ On Linux and MacOS, compiling should be as simple as
 ```bash
 git clone --recursive https://github.com/mitsuba-renderer/mitsuba2
 cd mitsuba2
+mkdir build && cd build
 
 # Build using CMake & GNU Make (legacy)
-cmake -D MTS_ENABLE_AUTODIFF=ON . # include differentiable rendering support, or:
-cmake . # do not include differentiable rendering support.
-make -j 4
+cmake -D MTS_ENABLE_AUTODIFF=ON .. # include differentiable rendering support, or:
+cmake .. # do not include differentiable rendering support.
+make -j
 
 # OR: Build using CMake & Ninja (recommended, must install [Ninja](https://ninja-build.org/) first)
-cmake -GNinja .
+cmake -GNinja ..
 ninja
 ```
 
