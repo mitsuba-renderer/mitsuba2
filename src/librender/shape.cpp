@@ -124,6 +124,23 @@ MTS_VARIANT void Shape<Float, Spectrum>::fill_surface_interaction(const Ray3f & 
     NotImplementedError("fill_surface_interaction");
 }
 
+#if defined(MTS_ENABLE_OPTIX)
+MTS_VARIANT typename Shape<Float, Spectrum>::SurfaceInteraction3f
+Shape<Float, Spectrum>::differentiable_surface_interaction(const Ray3f & /*ray*/,
+                                                           const SurfaceInteraction3f & si,
+                                                           Mask /*active*/) const {
+    NotImplementedError("differentiable_surface_interaction");
+    return si;
+}
+
+MTS_VARIANT typename Shape<Float, Spectrum>::Point3f
+Shape<Float, Spectrum>::p_attached(const SurfaceInteraction3f & /*si*/, 
+                                   Mask /*active*/) const {
+    NotImplementedError("p_attached");
+    return Point3f();
+}
+#endif
+
 MTS_VARIANT typename Shape<Float, Spectrum>::SurfaceInteraction3f
 Shape<Float, Spectrum>::ray_intersect(const Ray3f &ray, Mask active) const {
     MTS_MASK_ARGUMENT(active);

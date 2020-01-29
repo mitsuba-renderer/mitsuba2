@@ -244,6 +244,27 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
                           fmsub(a00, b1y, a01 * b0y) * inv_det);
     }
 
+    void compute_differentiable_intersection(const Ray3f &ray) {
+
+        SurfaceInteraction<Float_, Spectrum_> si_tmp 
+            = shape->differentiable_surface_interaction(ray, *this, is_valid());
+
+        Mask active = neq(shape, nullptr);
+        masked(t, active)           = si_tmp.t;
+        masked(p, active)           = si_tmp.p;
+        masked(n, active)           = si_tmp.n;
+        masked(uv, active)          = si_tmp.uv;
+        masked(sh_frame.n, active)  = si_tmp.sh_frame.n;
+        masked(sh_frame.s, active)  = si_tmp.sh_frame.s;
+        masked(sh_frame.t, active)  = si_tmp.sh_frame.t;
+        masked(dp_du, active)       = si_tmp.dp_du;
+        masked(dp_dv, active)       = si_tmp.dp_dv;
+    }
+
+    Point3f p_attached() const {
+        return select(is_valid(), shape->p_attached(*this, is_valid()), Point3f(0));
+    }
+
     /**
      * \brief Converts a Mueller matrix defined in a local frame to world space
      *

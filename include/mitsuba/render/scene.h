@@ -10,7 +10,7 @@ NAMESPACE_BEGIN(mitsuba)
 template <typename Float, typename Spectrum>
 class MTS_EXPORT_RENDER Scene : public Object {
 public:
-    MTS_IMPORT_TYPES(BSDF, Emitter, Film, Sampler, Shape, Sensor, Integrator, Medium, MediumPtr)
+    MTS_IMPORT_TYPES(BSDF, Emitter, EmitterPtr, Film, Sampler, Shape, Sensor, Integrator, Medium, MediumPtr)
 
     /// Instantiate a scene from a \ref Properties object
     Scene(const Properties &props);
@@ -97,6 +97,31 @@ public:
                              const Point2f &sample,
                              bool test_visibility = true,
                              Mask active = true) const;
+
+
+    /**
+     * \brief Sample the emitters of the scene
+     *
+     * Given an arbitrary reference point in the scene, this method samples 
+     * an emitter.
+     *
+     * Ideally, the implementation should importance sample the product of
+     * the emission profile and the geometry term between the reference point
+     * and the position on the emitter.
+     *
+     * \param ref
+     *    A reference point somewhere within the scene
+     *
+     * \param sample
+     *    A uniformly distributed 2D vector
+     *
+     * \return
+     *    The sampled emitter and the sample probability.
+     */
+    std::pair<EmitterPtr, Float>
+    sample_emitter(const Interaction3f &ref,
+                   const Point2f &sample,
+                   Mask active = true) const;
 
     /**
      * \brief Evaluate the probability density of the  \ref

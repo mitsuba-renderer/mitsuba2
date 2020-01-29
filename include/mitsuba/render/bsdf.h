@@ -220,6 +220,9 @@ template <typename Float, typename Spectrum> struct BSDFSample3 {
     /// Stores the component index that was sampled by \ref BSDF::sample()
     UInt32 sampled_component;
 
+    /// Roughness of the sampled material (used in DiffPath)
+    Float sampled_roughness;
+
     //! @}
     // =============================================================
 
@@ -248,7 +251,7 @@ template <typename Float, typename Spectrum> struct BSDFSample3 {
     //! @}
     // =============================================================
 
-    ENOKI_STRUCT(BSDFSample3, wo, pdf, eta, sampled_type, sampled_component);
+    ENOKI_STRUCT(BSDFSample3, wo, pdf, eta, sampled_type, sampled_component, sampled_roughness);
 };
 
 
@@ -509,7 +512,7 @@ NAMESPACE_END(mitsuba)
 // -----------------------------------------------------------------------
 
 ENOKI_STRUCT_SUPPORT(mitsuba::BSDFSample3, wo, pdf, eta,
-                     sampled_type, sampled_component)
+                     sampled_type, sampled_component, sampled_roughness)
 
 //! @}
 // -----------------------------------------------------------------------

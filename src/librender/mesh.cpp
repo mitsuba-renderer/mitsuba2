@@ -326,6 +326,113 @@ MTS_VARIANT void Mesh<Float, Spectrum>::fill_surface_interaction(const Ray3f & /
     si.dp_dv[active] = dp_dv;
 }
 
+#if defined(MTS_ENABLE_OPTIX)
+MTS_VARIANT typename Mesh<Float, Spectrum>::SurfaceInteraction3f
+Mesh<Float, Spectrum>::differentiable_surface_interaction(const Ray3f &ray, 
+                                                          const SurfaceInteraction3f &si_, 
+                                                          Mask active) const {
+
+    SurfaceInteraction3f si(si_);
+
+    // recompute ray / triangle intersection
+    // get std::tuple with validity, u, v, t
+    auto si_diff = ray_intersect_triangle(si.prim_index, ray, active);
+
+    // Replace the data by differentiable data
+    Mask active_its = std::get<0>(si_diff);
+    masked(si.t, active_its) = std::get<3>(si_diff);
+    masked(si.p, active_its) = ray.o + si.t*ray.d;
+
+    // get differentiable barycentric coordinates
+    Float b1 = std::get<1>(si_diff);
+    Float b2 = std::get<2>(si_diff);
+    Float b0 = 1.f - b1 - b2;
+
+    auto fi = face_indices(si.prim_index, active);
+
+    Point3f p0 = vertex_position(fi[0], active),
+            p1 = vertex_position(fi[1], active),
+            p2 = vertex_position(fi[2], active);
+
+    Vector3f dp0 = p1 - p0,
+             dp1 = p2 - p0;
+
+    // Face normal
+    Normal3f n = normalize(cross(dp0, dp1));
+    masked(si.n, active) = n;
+
+    // Texture coordinates (if available)
+    auto [dp_du, dp_dv] = coordinate_system(n);
+    Point2f uv(b1, b2);
+    if (has_vertex_texcoords()) {
+        Point2f uv0 = vertex_texcoord(fi[0], active),
+                uv1 = vertex_texcoord(fi[1], active),
+                uv2 = vertex_texcoord(fi[2], active);
+
+        uv = uv0 * b0 + uv1 * b1 + uv2 * b2;
+
+        Vector2f duv0 = uv1 - uv0,
+                 duv1 = uv2 - uv0;
+
+        Float det     = fmsub(duv0.x(), duv1.y(), duv0.y() * duv1.x()),
+              inv_det = rcp(det);
+
+        Mask valid = neq(det, 0.f);
+
+        masked(dp_du, valid) = fmsub( duv1.y(), dp0, duv0.y() * dp1) * inv_det;
+        masked(dp_dv, valid) = fnmadd(duv1.x(), dp0, duv0.x() * dp1) * inv_det;
+    }
+    si.uv[active] = uv;
+
+    // Shading normal (if available)
+    if (has_vertex_normals()) {
+        Normal3f n0 = vertex_normal(fi[0], active),
+                 n1 = vertex_normal(fi[1], active),
+                 n2 = vertex_normal(fi[2], active);
+
+        n = normalize(n0 * b0 + n1 * b1 + n2 * b2);
+    }
+
+    masked(si.sh_frame.n, active) = n;
+
+    // Tangents
+    masked(si.dp_du, active) = dp_du;
+    masked(si.dp_dv, active) = dp_dv;
+    
+    masked(si.sh_frame.s, active) = normalize(
+        fnmadd(si.sh_frame.n, dot(si.sh_frame.n, si.dp_du), si.dp_du));
+    masked(si.sh_frame.t, active) = cross(si.sh_frame.n, si.sh_frame.s);
+
+    return si;
+}
+
+MTS_VARIANT typename Mesh<Float, Spectrum>::Point3f
+Mesh<Float, Spectrum>::p_attached(const SurfaceInteraction3f &si, Mask active) const {
+
+    auto fi = face_indices(si.prim_index, active);
+
+    Point3f p0 = vertex_position(fi[0], active),
+            p1 = vertex_position(fi[1], active),
+            p2 = vertex_position(fi[2], active);
+
+    Vector3f v0 = p1 - p0, v1 = p2 - p0, v2 = si.p - p0;
+    Float d00 = dot(v0, v0);
+    Float d01 = dot(v0, v1);
+    Float d11 = dot(v1, v1);
+    Float d20 = dot(v2, v0);
+    Float d21 = dot(v2, v1);
+    Float denom = d00 * d11 - d01 * d01;
+
+    // TODO test
+    Float b1 = (d11 * d20 - d01 * d21) / denom;
+    Float b2 = (d00 * d21 - d01 * d20) / denom;
+    Float b0 = 1.0f - b1 - b2;
+
+    return p0 * detach(b0) + p1 * detach(b1) + p2 * detach(b2);
+}
+
+#endif
+
 MTS_VARIANT std::pair<typename Mesh<Float, Spectrum>::Vector3f, typename Mesh<Float, Spectrum>::Vector3f>
 Mesh<Float, Spectrum>::normal_derivative(const SurfaceInteraction3f &si, bool shading_frame,
                                          Mask active) const {

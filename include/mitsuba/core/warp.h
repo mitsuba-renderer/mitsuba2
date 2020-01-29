@@ -554,9 +554,9 @@ MTS_INLINE Value square_to_beckmann_pdf(const Vector<Value, 3> &m,
 // =======================================================================
 
 /// Warp a uniformly distributed square sample to a von Mises Fisher distribution
-template <typename Value>
+template <typename Value, typename KappaValue = scalar_t<Value>>
 MTS_INLINE Vector<Value, 3> square_to_von_mises_fisher(const Point<Value, 2> &sample,
-                                                       const scalar_t<Value> &kappa) {
+                                                       const KappaValue &kappa) {
 #if 0
     // Approach 1: warping method based on standard disk mapping
 
@@ -595,8 +595,8 @@ MTS_INLINE Vector<Value, 3> square_to_von_mises_fisher(const Point<Value, 2> &sa
 }
 
 /// Inverse of the mapping \ref von_mises_fisher_to_square
-template <typename Value>
-MTS_INLINE Point<Value, 2> von_mises_fisher_to_square(const Vector<Value, 3> &v, scalar_t<Value> kappa) {
+template <typename Value, typename KappaValue = scalar_t<Value>>
+MTS_INLINE Point<Value, 2> von_mises_fisher_to_square(const Vector<Value, 3> &v, KappaValue kappa) {
     Value expm2k = exp(-2.f * kappa),
           t      = exp((v.z() - 1.f) * kappa),
           sy     = (expm2k - t) / (expm2k - 1.f),
@@ -607,17 +607,15 @@ MTS_INLINE Point<Value, 2> von_mises_fisher_to_square(const Vector<Value, 3> &v,
 }
 
 /// Probability density of \ref square_to_von_mises_fisher()
-template <typename Value>
-MTS_INLINE Value square_to_von_mises_fisher_pdf(const Vector<Value, 3> &v, scalar_t<Value> kappa) {
+template <typename Value, typename KappaValue = scalar_t<Value>>
+MTS_INLINE Value square_to_von_mises_fisher_pdf(const Vector<Value, 3> &v, KappaValue kappa) {
     /* Stable algorithm for evaluating the von Mises Fisher distribution
        https://www.mitsuba-renderer.org/~wenzel/files/vmf.pdf */
 
-    assert(kappa >= 0);
-    if (unlikely(kappa == 0))
-        return math::InvFourPi<Value>;
-    else
-        return exp(kappa * (v.z() - 1.f)) * (kappa * math::InvTwoPi<Value>) /
+    Value result = exp(kappa * (v.z() - 1.f)) * (kappa * math::InvTwoPi<Value>) /
                (1.f - exp(-2.f * kappa));
+    masked(result, eq(kappa, 0.f)) = math::InvFourPi<Value>;
+    return result;
 }
 
 // =======================================================================
