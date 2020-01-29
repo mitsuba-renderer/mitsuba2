@@ -78,6 +78,7 @@ extern "C" __global__ void __closesthit__cylinder() {
 
         Vector3f p = fmaf(t, ray_d, ray_o);
 
+
         Vector3f local = cylinder->to_object.transform_point(p);
 
         float phi = atan2(local.y(), local.x());
@@ -86,20 +87,23 @@ extern "C" __global__ void __closesthit__cylinder() {
 
         Vector2f uv = Vector2f(phi / (2.f * M_PI), local.z() / cylinder->length);
 
-        Vector3f dp_du = 2.f * M_PI * Vector3f(-local.y(), local.x(), 0.f);
-        Vector3f dp_dv = Vector3f(0.f, 0.f, cylinder->length);
-        dp_du = cylinder->to_world.transform_vector(dp_du);
-        dp_dv = cylinder->to_world.transform_vector(dp_dv);
-        Vector3f ns = Vector3f(normalize(cross(dp_du, dp_dv)));
+        Vector3f ng, ns, dp_du, dp_dv;
+        if (params.fill_surface_interaction) {
+            dp_du = 2.f * M_PI * Vector3f(-local.y(), local.x(), 0.f);
+            dp_dv = Vector3f(0.f, 0.f, cylinder->length);
+            dp_du = cylinder->to_world.transform_vector(dp_du);
+            dp_dv = cylinder->to_world.transform_vector(dp_dv);
+            ns = Vector3f(normalize(cross(dp_du, dp_dv)));
 
-        /* Mitigate roundoff error issues by a normal shift of the computed
-           intersection point */
-        p += ns * (cylinder->radius - norm(Vector2f(local.x(), local.y())));
+            /* Mitigate roundoff error issues by a normal shift of the computed
+            intersection point */
+            p += ns * (cylinder->radius - norm(Vector2f(local.x(), local.y())));
 
-        if (cylinder->flip_normals)
-            ns *= -1.f;
+            if (cylinder->flip_normals)
+                ns *= -1.f;
 
-        Vector3f ng = ns;
+            ng = ns;
+        }
 
         write_output_params(params, launch_index,
                             sbt_data->shape_ptr,

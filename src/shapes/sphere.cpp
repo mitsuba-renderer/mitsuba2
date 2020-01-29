@@ -326,16 +326,19 @@ public:
         return solution_found && !out_bounds && !in_bounds && active;
     }
 
-    void fill_surface_interaction(const Ray3f &ray, const Float * /*cache*/,
-                                  SurfaceInteraction3f &si_out, Mask active) const override {
+    SurfaceInteraction3f fill_surface_interaction(const Ray3f &ray,
+                                                  const Float * /*cache*/,
+                                                  const UInt32 & /*cache_indices*/,
+                                                  SurfaceInteraction3f si,
+                                                  Mask active) const override {
         MTS_MASK_ARGUMENT(active);
 
-        SurfaceInteraction3f si(si_out);
+        // TODO: make si differentiable w.r.t. shape parameters if necessary
 
-        si.sh_frame.n = normalize(ray(si.t) - m_center);
+        si.sh_frame.n[active] = normalize(ray(si.t) - m_center);
 
         // Re-project onto the sphere to improve accuracy
-        si.p = fmadd(si.sh_frame.n, m_radius, m_center);
+        si.p[active] = fmadd(si.sh_frame.n, m_radius, m_center);
 
         Vector3f local = m_to_object.transform_affine(si.p);
 
@@ -345,32 +348,46 @@ public:
 
         masked(phi, phi < 0.f) += 2.f * math::Pi<Float>;
 
-        si.uv = Point2f(phi * math::InvTwoPi<Float>, theta * math::InvPi<Float>);
-        si.dp_du = Vector3f(-local.y(), local.x(), 0.f);
+        si.uv[active] = Point2f(phi * math::InvTwoPi<Float>, theta * math::InvPi<Float>);
+        si.dp_du[active] = Vector3f(-local.y(), local.x(), 0.f);
 
         Float rd      = sqrt(rd_2),
               inv_rd  = rcp(rd),
               cos_phi = local.x() * inv_rd,
               sin_phi = local.y() * inv_rd;
 
-        si.dp_dv = Vector3f(local.z() * cos_phi,
-                            local.z() * sin_phi,
-                            -rd);
+        si.dp_dv[active] = Vector3f(local.z() * cos_phi,
+                                    local.z() * sin_phi,
+                                    -rd);
 
         Mask singularity_mask = active && eq(rd, 0.f);
         if (unlikely(any(singularity_mask)))
             si.dp_dv[singularity_mask] = Vector3f(1.f, 0.f, 0.f);
 
-        si.dp_du = m_to_world * si.dp_du * (2.f * math::Pi<Float>);
-        si.dp_dv = m_to_world * si.dp_dv * math::Pi<Float>;
+        si.dp_du[active] = m_to_world * si.dp_du * (2.f * math::Pi<Float>);
+        si.dp_dv[active] = m_to_world * si.dp_dv * math::Pi<Float>;
 
         if (m_flip_normals)
-            si.sh_frame.n = -si.sh_frame.n;
+            si.sh_frame.n[active] = -si.sh_frame.n;
 
-        si.n = si.sh_frame.n;
-        si.time = ray.time;
+        si.n[active] = si.sh_frame.n;
+        masked(si.time, active) = ray.time;
 
-        si_out[active] = si;
+        return si;
+    }
+
+    std::pair<Point3f, Normal3f> differentiable_position(const SurfaceInteraction3f &si,
+                                                         Mask /*active*/) const override {
+        Float phi   = si.uv.x() * math::TwoPi<Float>,
+              theta = si.uv.y() * math::Pi<Float>;
+
+        auto [s_theta, c_theta] = sincos(theta);
+        auto [s_phi, c_phi] = sincos(phi);
+
+        Point3f p = Point3f(s_theta * c_phi, s_theta * s_phi, c_theta);
+        Normal3f n = p;
+
+        return { m_to_world.transform_affine(p), m_to_world.transform_affine(n) };
     }
 
     std::pair<Vector3f, Vector3f> normal_derivative(const SurfaceInteraction3f &si,

@@ -87,12 +87,6 @@ class ParameterMap:
 
         return ParameterMapItemIterator(self)
 
-    def all_differentiable(self):
-        for k in self.keys():
-            if not is_differentiable(self[k]):
-                return False
-        return True
-
     def torch(self) -> dict:
         """
         Converts all Enoki arrays into PyTorch arrays and return them as a

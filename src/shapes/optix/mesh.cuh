@@ -47,41 +47,44 @@ extern "C" __global__ void __closesthit__mesh() {
                  p1 = load_3d(mesh->vertex_positions, face.y()),
                  p2 = load_3d(mesh->vertex_positions, face.z());
 
-        Vector3f dp0 = p1 - p0,
-                 dp1 = p2 - p0;
 
         Vector3f p = p0 * uv0 + p1 * uv1 + p2 * uv2;
 
-        Vector3f ng = normalize(cross(dp0, dp1));
-        Vector3f dp_du, dp_dv;
-        coordinate_system(ng, dp_du, dp_dv);
+        Vector3f ng, ns, dp_du, dp_dv;
 
-        Vector3f ns;
-        if (mesh->vertex_normals != nullptr) {
-            Vector3f n0 =  load_3d(mesh->vertex_normals, face.x()),
-                     n1 =  load_3d(mesh->vertex_normals, face.y()),
-                     n2 =  load_3d(mesh->vertex_normals, face.z());
+        if (params.fill_surface_interaction) {
+            Vector3f dp0 = p1 - p0,
+                     dp1 = p2 - p0;
 
-            ns = normalize(n0 * uv0 + n1 * uv1 + n2 * uv2);
-        } else {
-            ns = ng;
-        }
+            ng = normalize(cross(dp0, dp1));
+            coordinate_system(ng, dp_du, dp_dv);
 
-        if (mesh->vertex_texcoords != nullptr) {
-            Vector2f t0 = load_2d(mesh->vertex_texcoords, face.x()),
-                     t1 = load_2d(mesh->vertex_texcoords, face.y()),
-                     t2 = load_2d(mesh->vertex_texcoords, face.z());
+            if (mesh->vertex_normals != nullptr) {
+                Vector3f n0 =  load_3d(mesh->vertex_normals, face.x()),
+                         n1 =  load_3d(mesh->vertex_normals, face.y()),
+                         n2 =  load_3d(mesh->vertex_normals, face.z());
 
-            uv = t0 * uv0 + t1 * uv1 + t2 * uv2;
+                ns = normalize(n0 * uv0 + n1 * uv1 + n2 * uv2);
+            } else {
+                ns = ng;
+            }
 
-            Vector2f dt0 = t1 - t0,
-                     dt1 = t2 - t0;
-            float det = dt0.x() * dt1.y() - dt0.y() * dt1.x();
+            if (mesh->vertex_texcoords != nullptr) {
+                Vector2f t0 = load_2d(mesh->vertex_texcoords, face.x()),
+                         t1 = load_2d(mesh->vertex_texcoords, face.y()),
+                         t2 = load_2d(mesh->vertex_texcoords, face.z());
 
-            if (det != 0.f) {
-                float inv_det = 1.f / det;
-                dp_du = ( dt1.y() * dp0 - dt0.y() * dp1) * inv_det;
-                dp_dv = (-dt1.x() * dp0 + dt0.x() * dp1) * inv_det;
+                uv = t0 * uv0 + t1 * uv1 + t2 * uv2;
+
+                Vector2f dt0 = t1 - t0,
+                         dt1 = t2 - t0;
+                float det = dt0.x() * dt1.y() - dt0.y() * dt1.x();
+
+                if (det != 0.f) {
+                    float inv_det = 1.f / det;
+                    dp_du = ( dt1.y() * dp0 - dt0.y() * dp1) * inv_det;
+                    dp_dv = (-dt1.x() * dp0 + dt0.x() * dp1) * inv_det;
+                }
             }
         }
 

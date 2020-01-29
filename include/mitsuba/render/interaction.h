@@ -244,6 +244,37 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
                           fmsub(a00, b1y, a01 * b0y) * inv_det);
     }
 
+    /// Fill with detailed information describing the intersection
+    void fill_surface_interaction(const Ray3f &ray,
+                                  const void *cache, // TODO should be Float* but can't because of ENOKI_STRUCT_SUPPORT (pointer to reference issue)
+                                  Mask active = true) {
+        ShapePtr target = select(neq(instance, nullptr), instance, shape);
+
+        auto si = target->fill_surface_interaction(ray, (Float *) cache,
+                                                   arange<UInt32>(slices(ray)),
+                                                   *this, is_valid() && active);
+
+        // Keep this->t == INF if interaction isn't valid
+        masked(t, is_valid()) = si.t;
+        p  = si.p;
+        n  = si.n;
+        uv = si.uv;
+        sh_frame.n = si.sh_frame.n;
+        sh_frame.s = si.sh_frame.s;
+        sh_frame.t = si.sh_frame.t;
+        dp_du = si.dp_du;
+        dp_dv = si.dp_dv;
+    }
+
+    /**
+     * Calls the \ref Shape::differentiable_position method on the shape in order
+     * to re-compute \c p and \c n with respect to the shape parameters only.
+     */
+    void compute_differentiable_shape_position(Mask active) {
+        ShapePtr target = select(neq(instance, nullptr), instance, shape);
+        std::tie(p, n) = target->differentiable_position(*this, active);
+    }
+
     /**
      * \brief Converts a Mueller matrix defined in a local frame to world space
      *

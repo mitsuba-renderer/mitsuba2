@@ -31,6 +31,7 @@ struct OptixParams {
     bool *out_hit;
 
     OptixTraversableHandle handle;
+    bool fill_surface_interaction;
 };
 
 #ifdef __CUDACC__
@@ -58,25 +59,28 @@ __device__ void write_output_params(OptixParams &params,
     params.out_u[launch_index] = uv.x();
     params.out_v[launch_index] = uv.y();
 
-    params.out_ng_x[launch_index] = ng.x();
-    params.out_ng_y[launch_index] = ng.y();
-    params.out_ng_z[launch_index] = ng.z();
-
-    params.out_ns_x[launch_index] = ns.x();
-    params.out_ns_y[launch_index] = ns.y();
-    params.out_ns_z[launch_index] = ns.z();
-
     params.out_p_x[launch_index] = p.x();
     params.out_p_y[launch_index] = p.y();
     params.out_p_z[launch_index] = p.z();
 
-    params.out_dp_du_x[launch_index] = dp_du.x();
-    params.out_dp_du_y[launch_index] = dp_du.y();
-    params.out_dp_du_z[launch_index] = dp_du.z();
+    if (params.fill_surface_interaction) {
+        params.out_ng_x[launch_index] = ng.x();
+        params.out_ng_y[launch_index] = ng.y();
+        params.out_ng_z[launch_index] = ng.z();
 
-    params.out_dp_dv_x[launch_index] = dp_dv.x();
-    params.out_dp_dv_y[launch_index] = dp_dv.y();
-    params.out_dp_dv_z[launch_index] = dp_dv.z();
+        params.out_ns_x[launch_index] = ns.x();
+        params.out_ns_y[launch_index] = ns.y();
+        params.out_ns_z[launch_index] = ns.z();
+
+
+        params.out_dp_du_x[launch_index] = dp_du.x();
+        params.out_dp_du_y[launch_index] = dp_du.y();
+        params.out_dp_du_z[launch_index] = dp_du.z();
+
+        params.out_dp_dv_x[launch_index] = dp_dv.x();
+        params.out_dp_dv_y[launch_index] = dp_dv.y();
+        params.out_dp_dv_z[launch_index] = dp_dv.z();
+    }
 
     params.out_t[launch_index] = t;
 }

@@ -31,7 +31,7 @@ MTS_PY_EXPORT(Spectrum) {
     m.def("xyz_to_srgb", vectorize(&xyz_to_srgb<Float>),
           "rgb"_a, "active"_a = true, D(xyz_to_srgb));
 
-    if constexpr (is_rgb_v<Spectrum>) {
+    if constexpr (is_rgb_v<Spectrum> || is_spectral_v<Spectrum>) {
         m.def("srgb_to_xyz", vectorize(&srgb_to_xyz<Float>),
               "rgb"_a, "active"_a = true, D(srgb_to_xyz));
     }

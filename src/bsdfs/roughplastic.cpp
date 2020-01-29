@@ -225,12 +225,14 @@ public:
             masked(bs.wo, sample_specular) = reflect(si.wi, m);
             masked(bs.sampled_component, sample_specular) = 0;
             masked(bs.sampled_type, sample_specular) = +BSDFFlags::GlossyReflection;
+            masked(bs.sampled_roughness, sample_specular) = (distr.alpha_u() + distr.alpha_v())/2;
         }
 
         if (any_or<true>(sample_diffuse)) {
             masked(bs.wo, sample_diffuse) = warp::square_to_cosine_hemisphere(sample2);
             masked(bs.sampled_component, sample_diffuse) = 1;
             masked(bs.sampled_type, sample_diffuse) = +BSDFFlags::DiffuseReflection;
+            masked(bs.sampled_roughness, sample_diffuse) = math::Infinity<Float>;
         }
 
         bs.pdf = pdf(ctx, si, bs.wo, active);

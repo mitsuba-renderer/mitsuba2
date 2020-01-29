@@ -296,11 +296,19 @@ MTS_VARIANT typename Shape<Float, Spectrum>::Mask Shape<Float, Spectrum>::ray_te
     return ray_intersect(ray, unused).first;
 }
 
-MTS_VARIANT void Shape<Float, Spectrum>::fill_surface_interaction(const Ray3f & /*ray*/,
-                                                                  const Float * /*cache*/,
-                                                                  SurfaceInteraction3f & /*si*/,
-                                                                  Mask /*active*/) const {
+MTS_VARIANT typename Shape<Float, Spectrum>::SurfaceInteraction3f
+Shape<Float, Spectrum>::fill_surface_interaction(const Ray3f & /*ray*/,
+                                                 const Float * /*cache*/,
+                                                 const UInt32 & /*cache_indices*/,
+                                                 SurfaceInteraction3f /*si*/,
+                                                 Mask /*active*/) const {
     NotImplementedError("fill_surface_interaction");
+}
+
+MTS_VARIANT std::pair<typename Shape<Float, Spectrum>::Point3f, typename Shape<Float, Spectrum>::Normal3f>
+Shape<Float, Spectrum>::differentiable_position(const SurfaceInteraction3f & /*si*/,
+                                                Mask /*active*/) const {
+    NotImplementedError("differentiable_position");
 }
 
 MTS_VARIANT typename Shape<Float, Spectrum>::SurfaceInteraction3f
@@ -314,7 +322,7 @@ Shape<Float, Spectrum>::ray_intersect(const Ray3f &ray, Mask active) const {
     si.t = select(active, t,  math::Infinity<Float>);
 
     if (any(active))
-        fill_surface_interaction(ray, cache, si, active);
+        si = fill_surface_interaction(ray, cache, arange<UInt32>(slices(ray)), si, active);
     return si;
 }
 

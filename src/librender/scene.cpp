@@ -110,7 +110,17 @@ Scene<Float, Spectrum>::ray_intersect(const Ray3f &ray, Mask active) const {
     MTS_MASKED_FUNCTION(ProfilerPhase::RayIntersect, active);
 
     if constexpr (is_cuda_array_v<Float>)
-        return ray_intersect_gpu(ray, active);
+        return ray_intersect_gpu(ray, HitComputeMode::Default, active);
+    else
+        return ray_intersect_cpu(ray, active);
+}
+
+MTS_VARIANT typename Scene<Float, Spectrum>::SurfaceInteraction3f
+Scene<Float, Spectrum>::ray_intersect(const Ray3f &ray, HitComputeMode mode, Mask active) const {
+    MTS_MASKED_FUNCTION(ProfilerPhase::RayIntersect, active);
+
+    if constexpr (is_cuda_array_v<Float>)
+        return ray_intersect_gpu(ray, mode, active);
     else
         return ray_intersect_cpu(ray, active);
 }
@@ -138,6 +148,32 @@ Scene<Float, Spectrum>::ray_test(const Ray3f &ray, Mask active) const {
         return ray_test_cpu(ray, active);
 }
 
+MTS_VARIANT std::pair<typename Scene<Float, Spectrum>::EmitterPtr, Float>
+Scene<Float, Spectrum>::sample_emitter(const Interaction3f &/*ref*/,
+                                       const Float &sample,
+                                       Mask active) const {
+
+    ScalarFloat emitter_pdf(1.f);
+    EmitterPtr emitter;
+    if (likely(!m_emitters.empty())) {
+        if (m_emitters.size() == 1) {
+            // Fast path if there is only one emitter
+            emitter = (const Emitter *) m_emitters[0];
+            if constexpr (is_cuda_array_v<EmitterPtr>) {
+                set_slices(emitter, slices(sample));
+            }
+        } else {
+            // Randomly pick an emitter according to the precomputed emitter distribution
+            UInt32 index = min(UInt32(sample * (ScalarFloat) m_emitters.size()), (uint32_t) m_emitters.size()-1);
+            emitter_pdf = 1.f / m_emitters.size();
+            emitter = gather<EmitterPtr>(m_emitters.data(), index, active);
+        }
+    } else {
+        Throw("Scene::sample_emitter_impl: Not implemented, scene must have emitters.");
+    }
+    return { emitter, emitter_pdf };
+}
+
 MTS_VARIANT std::pair<typename Scene<Float, Spectrum>::DirectionSample3f, Spectrum>
 Scene<Float, Spectrum>::sample_emitter_direction(const Interaction3f &ref, const Point2f &sample_,
                                                  bool test_visibility, Mask active) const {
@@ -160,7 +196,7 @@ Scene<Float, Spectrum>::sample_emitter_direction(const Interaction3f &ref, const
             UInt32 index = min(UInt32(sample.x() * (ScalarFloat) m_emitters.size()), (uint32_t) m_emitters.size()-1);
 
             // Rescale sample.x() to lie in [0,1) again
-            sample.x() = (sample.x() - index*emitter_pdf) * m_emitters.size();
+            sample.x() = (sample.x() - index * emitter_pdf) * m_emitters.size();
 
             EmitterPtr emitter = gather<EmitterPtr>(m_emitters.data(), index, active);
 
@@ -214,9 +250,26 @@ MTS_VARIANT void Scene<Float, Spectrum>::traverse(TraversalCallback *callback) {
     }
 }
 
-MTS_VARIANT void Scene<Float, Spectrum>::parameters_changed(const std::vector<std::string> &/*keys*/) {
+MTS_VARIANT void Scene<Float, Spectrum>::parameters_changed(const std::vector<std::string> &keys) {
     if (m_environment)
         m_environment->set_scene(this); // TODO use parameters_changed({"scene"})
+
+
+    bool update_accel = false;
+    for (auto &s : m_shapes) {
+        if (string::contains(keys, s->id()) || string::contains(keys, s->class_()->name())) {
+            update_accel = true;
+            break;
+        }
+    }
+
+    if (update_accel) {
+        if constexpr (is_cuda_array_v<Float>)
+            accel_parameters_changed_gpu();
+        else {
+            // TODO update Embree BVH or Mitsuba kdtree if necessary
+        }
+    }
 }
 
 MTS_VARIANT std::string Scene<Float, Spectrum>::to_string() const {
