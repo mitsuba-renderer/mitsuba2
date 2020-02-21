@@ -14,9 +14,9 @@
 
 #if defined(MTS_ENABLE_OPTIX)
     #include <optix.h>
-    #include <optix_cuda_interop.h>
+    #include <optix_stubs.h>
+    #include <optix_function_table_definition.h>
 #endif
-
 
 NAMESPACE_BEGIN(mitsuba)
 
@@ -205,8 +205,6 @@ Mesh<Float, Spectrum>::surface_area() const {
 
 MTS_VARIANT typename Mesh<Float, Spectrum>::PositionSample3f
 Mesh<Float, Spectrum>::sample_position(Float time, const Point2f &sample_, Mask active) const {
-    MTS_MASK_ARGUMENT(active);
-
     area_distr_ensure();
 
     using Index = replace_scalar_t<Float, ScalarIndex>;
@@ -252,9 +250,7 @@ Mesh<Float, Spectrum>::sample_position(Float time, const Point2f &sample_, Mask 
     return ps;
 }
 
-MTS_VARIANT Float Mesh<Float, Spectrum>::pdf_position(const PositionSample3f &, Mask active) const {
-    MTS_MASK_ARGUMENT(active);
-
+MTS_VARIANT Float Mesh<Float, Spectrum>::pdf_position(const PositionSample3f &, Mask) const {
     area_distr_ensure();
     return m_area_distr.normalization();
 }
@@ -263,8 +259,6 @@ MTS_VARIANT void Mesh<Float, Spectrum>::fill_surface_interaction(const Ray3f & /
                                                                  const Float *cache,
                                                                  SurfaceInteraction3f &si,
                                                                  Mask active) const {
-    MTS_MASK_ARGUMENT(active);
-
     // Barycentric coordinates within triangle
     Float b1 = cache[0],
           b2 = cache[1];
@@ -329,8 +323,6 @@ MTS_VARIANT void Mesh<Float, Spectrum>::fill_surface_interaction(const Ray3f & /
 MTS_VARIANT std::pair<typename Mesh<Float, Spectrum>::Vector3f, typename Mesh<Float, Spectrum>::Vector3f>
 Mesh<Float, Spectrum>::normal_derivative(const SurfaceInteraction3f &si, bool shading_frame,
                                          Mask active) const {
-    MTS_MASK_ARGUMENT(active);
-
     Assert(has_vertex_normals());
 
     if (!shading_frame)
@@ -516,7 +508,7 @@ MTS_VARIANT RTCGeometry Mesh<Float, Spectrum>::embree_geometry(RTCDevice device)
 #if defined(MTS_ENABLE_OPTIX)
 #define rt_check(err)  __rt_check(m_optix->context, err, __FILE__, __LINE__)
 
-extern void __rt_check(RTcontext context, RTresult errval, const char *file,
+extern void __rt_check(OptixDeviceContext context, OptixResult errval, const char *file,
                        const int line);
 
 MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed() {
@@ -529,20 +521,22 @@ MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed() {
         uint32_t *faces_ptr = nullptr;
         float *vertex_positions_ptr = nullptr;
 
-        rt_check(rtBufferGetDevicePointer(m_optix->faces_buf, 0, (void **) &faces_ptr));
+        // rt_check(rtBufferGetDevicePointer(m_optix->faces_buf, 0, (void **) &faces_ptr));
+        faces_ptr = (uint32_t*)m_optix->faces_buf;
         for (size_t i = 0; i < 3; ++i)
             scatter(faces_ptr + i, m_optix->faces[i], face_range_3);
 
-        rt_check(rtBufferGetDevicePointer(m_optix->vertex_positions_buf, 0,
-                                          (void **) &vertex_positions_ptr));
-
+        // rt_check(rtBufferGetDevicePointer(m_optix->vertex_positions_buf, 0,
+                                          // (void **) &vertex_positions_ptr));
+        vertex_positions_ptr = (float*)m_optix->vertex_positions_buf;
         for (size_t i = 0; i < 3; ++i)
             scatter(vertex_positions_ptr + i, m_optix->vertex_positions[i], vertex_range_3);
 
         if (has_vertex_texcoords()) {
             float *vertex_texcoords_ptr = nullptr;
-            rt_check(rtBufferGetDevicePointer(m_optix->vertex_texcoords_buf, 0,
-                                            (void **) &vertex_texcoords_ptr));
+            // rt_check(rtBufferGetDevicePointer(m_optix->vertex_texcoords_buf, 0,
+                                            // (void **) &vertex_texcoords_ptr));
+            vertex_texcoords_ptr = (float*)m_optix->vertex_texcoords_buf;
             for (size_t i = 0; i < 2; ++i)
                 scatter(vertex_texcoords_ptr + i, m_optix->vertex_texcoords[i], vertex_range_2);
         }
@@ -570,21 +564,23 @@ MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed() {
             }
 
             float *vertex_normals_ptr = nullptr;
-            rt_check(rtBufferGetDevicePointer(m_optix->vertex_normals_buf, 0,
-                                            (void **) &vertex_normals_ptr));
+            // rt_check(rtBufferGetDevicePointer(m_optix->vertex_normals_buf, 0,
+            //                                 (void **) &vertex_normals_ptr));
+            vertex_normals_ptr = (float*)m_optix->vertex_normals_buf;
             for (size_t i = 0; i < 3; ++i)
                 scatter(vertex_normals_ptr + i, m_optix->vertex_normals[i], vertex_range_3);
         }
 
+        // TODO: change this
         if (m_optix->ready) {
             // Mark acceleration data structure dirty
-            RTcontext context;
-            RTvariable accel_var;
-            RTacceleration accel;
-            rt_check(rtGeometryTrianglesGetContext(m_optix->geometry, &context));
-            rt_check(rtContextQueryVariable(context, "accel", &accel_var));
-            rt_check(rtVariableGetUserData(accel_var, sizeof(void *), (void *) &accel));
-            rt_check(rtAccelerationMarkDirty(accel));
+            // RTcontext context;
+            // RTvariable accel_var;
+            // RTacceleration accel;
+            // rt_check(rtGeometryTrianglesGetContext(m_optix->geometry, &context));
+            // rt_check(rtContextQueryVariable(context, "accel", &accel_var));
+            // rt_check(rtVariableGetUserData(accel_var, sizeof(void *), (void *) &accel));
+            // rt_check(rtAccelerationMarkDirty(accel));
         }
 
         if (m_area_distr.empty())
@@ -617,7 +613,7 @@ Result cuda_upload(size_t size, Func func) {
     return result;
 }
 
-MTS_VARIANT RTgeometrytriangles Mesh<Float, Spectrum>::optix_geometry(RTcontext context) {
+MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry(OptixDeviceContext context) {
     if constexpr (is_cuda_array_v<Float>) {
         using Index = replace_scalar_t<Float, ScalarIndex>;
         if (m_optix != nullptr)
@@ -626,69 +622,102 @@ MTS_VARIANT RTgeometrytriangles Mesh<Float, Spectrum>::optix_geometry(RTcontext 
         m_optix->context = context;
 
         /// Face indices
-        rt_check(rtBufferCreate(context, RT_BUFFER_INPUT, &m_optix->faces_buf));
-        rt_check(rtBufferSetFormat(m_optix->faces_buf, RT_FORMAT_UNSIGNED_INT3));
-        rt_check(rtBufferSetSize1D(m_optix->faces_buf, m_face_count));
+        m_optix->faces_buf = cuda_malloc(m_face_count * 3 * sizeof(uint32_t));
         m_optix->faces = cuda_upload<Index, 3>(
             m_face_count, [this](ScalarIndex i) { return face_indices(i); });
-
+    
         // Vertex positions
-        rt_check(rtBufferCreate(context, RT_BUFFER_INPUT, &m_optix->vertex_positions_buf));
-        rt_check(rtBufferSetFormat(m_optix->vertex_positions_buf, RT_FORMAT_FLOAT3));
-        rt_check(rtBufferSetSize1D(m_optix->vertex_positions_buf, m_vertex_count));
+        m_optix->vertex_positions_buf = cuda_malloc(m_vertex_count * 3 * sizeof(float));
         m_optix->vertex_positions = cuda_upload<Float, 3>(
             m_vertex_count, [this](ScalarIndex i) { return vertex_position(i); });
 
         // Vertex texture coordinates
-        rt_check(rtBufferCreate(context, RT_BUFFER_INPUT, &m_optix->vertex_texcoords_buf));
-        rt_check(rtBufferSetFormat(m_optix->vertex_texcoords_buf, RT_FORMAT_FLOAT2));
-        rt_check(rtBufferSetSize1D(
-            m_optix->vertex_texcoords_buf, has_vertex_texcoords() ? m_vertex_count : 0));
+        m_optix->vertex_texcoords_buf = cuda_malloc(has_vertex_texcoords() ? m_vertex_count * 2 * sizeof(float) : 0);
         if (has_vertex_texcoords())
             m_optix->vertex_texcoords = cuda_upload<Float, 2>(
                 m_vertex_count, [this](ScalarIndex i) { return vertex_texcoord(i); });
 
         // Vertex normals
-        rt_check(rtBufferCreate(context, RT_BUFFER_INPUT, &m_optix->vertex_normals_buf));
-        rt_check(rtBufferSetFormat(m_optix->vertex_normals_buf, RT_FORMAT_FLOAT3));
-        rt_check(rtBufferSetSize1D(
-            m_optix->vertex_normals_buf, has_vertex_normals() ? m_vertex_count : 0));
+        m_optix->vertex_normals_buf = cuda_malloc(has_vertex_normals() ? m_vertex_count * 3 * sizeof(float) : 0);
         if (has_vertex_normals())
             m_optix->vertex_normals = cuda_upload<Float, 3>(
                 m_vertex_count, [this](ScalarIndex i) { return vertex_normal(i); });
 
-        rt_check(rtGeometryTrianglesCreate(context, &m_optix->geometry));
-        rt_check(rtGeometryTrianglesSetPrimitiveCount(m_optix->geometry, m_face_count));
-
         parameters_changed();
 
-        rt_check(rtGeometryTrianglesSetTriangleIndices(
-            m_optix->geometry, m_optix->faces_buf, 0, 3 * sizeof(unsigned int),
-            RT_FORMAT_UNSIGNED_INT3));
+        OptixAccelBuildOptions accel_options = {};
+        accel_options.buildFlags = OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
+        accel_options.operation  = OPTIX_BUILD_OPERATION_BUILD;
 
-        rt_check(rtGeometryTrianglesSetVertices(
-            m_optix->geometry, m_vertex_count, m_optix->vertex_positions_buf, 0,
-            3 * sizeof(float), RT_FORMAT_FLOAT3));
+        OptixBuildInput build_input = {};
+        const uint32_t triangle_input_flags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
+        build_input.type                           = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
+        build_input.triangleArray.vertexFormat     = OPTIX_VERTEX_FORMAT_FLOAT3;
+        build_input.triangleArray.indexFormat      = OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
+        build_input.triangleArray.numVertices      = m_vertex_count;
+        build_input.triangleArray.vertexBuffers    = (CUdeviceptr*)&m_optix->vertex_positions_buf;
+        build_input.triangleArray.numIndexTriplets = m_face_count;
+        build_input.triangleArray.indexBuffer      = (CUdeviceptr)m_optix->faces_buf;
+        build_input.triangleArray.flags            = triangle_input_flags;
+        build_input.triangleArray.numSbtRecords    = 1;          
 
-        RTvariable faces_var, vertex_positions_var, vertex_normals_var, vertex_texcoords_var;
-        rt_check(rtGeometryTrianglesDeclareVariable(m_optix->geometry, "faces", &faces_var));
-        rt_check(rtGeometryTrianglesDeclareVariable(m_optix->geometry, "vertex_positions", &vertex_positions_var));
-        rt_check(rtGeometryTrianglesDeclareVariable(m_optix->geometry, "vertex_normals", &vertex_normals_var));
-        rt_check(rtGeometryTrianglesDeclareVariable(m_optix->geometry, "vertex_texcoords", &vertex_texcoords_var));
+        OptixAccelBufferSizes gas_buffer_sizes;
+        rt_check(optixAccelComputeMemoryUsage(context, &accel_options, &build_input,
+                                                   1,  // Number of build input
+                                                   &gas_buffer_sizes));
+        void* d_temp_buffer_gas = cuda_malloc(gas_buffer_sizes.tempSizeInBytes);
 
-        rt_check(rtVariableSetObject(faces_var, m_optix->faces_buf));
-        rt_check(rtVariableSetObject(vertex_positions_var, m_optix->vertex_positions_buf));
-        rt_check(rtVariableSetObject(vertex_normals_var, m_optix->vertex_normals_buf));
-        rt_check(rtVariableSetObject(vertex_texcoords_var, m_optix->vertex_texcoords_buf));
+        // non-compacted output
+        // TODO: check that this allocation logic works
+        void* d_buffer_temp_output_gas_and_compacted_size = cuda_malloc(gas_buffer_sizes.outputSizeInBytes + 8);
 
-        rt_check(rtGeometryTrianglesSetMaterialCount(m_optix->geometry, 1));
-        rt_check(rtGeometryTrianglesSetFlagsPerMaterial(m_optix->geometry, 0, RT_GEOMETRY_FLAG_DISABLE_ANYHIT));
+        OptixAccelEmitDesc emitProperty = {};
+        emitProperty.type = OPTIX_PROPERTY_TYPE_COMPACTED_SIZE;
+        emitProperty.result = (CUdeviceptr)((char*)d_buffer_temp_output_gas_and_compacted_size + gas_buffer_sizes.outputSizeInBytes);
+
+        rt_check(optixAccelBuild(
+            context,
+            0,              // CUDA stream
+            &accel_options,
+            &build_input,
+            1,              // num build inputs
+            (CUdeviceptr)d_temp_buffer_gas,
+            gas_buffer_sizes.tempSizeInBytes,
+            (CUdeviceptr)d_buffer_temp_output_gas_and_compacted_size,
+            gas_buffer_sizes.outputSizeInBytes,
+            &m_optix->gas_handle,
+            &emitProperty,  // emitted property list
+            1               // num emitted properties
+        ));
+
+        cuda_free((void*)d_temp_buffer_gas);
+
+        // TODO: should free all ressources...
+        // size_t compacted_gas_size;
+        // cuda_memcpy_from_device(&compacted_gas_size, (void*)emitProperty.result, sizeof(size_t));
+
+        // if (compacted_gas_size < gas_buffer_sizes.outputSizeInBytes) {
+        //     m_optix->gas_buffer = cuda_malloc(compacted_gas_size);
+
+        //     // use handle as input and output
+        //     rt_check(optixAccelCompact(context, 0, m_optix->gas_handle, (CUdeviceptr)m_optix->gas_buffer, compacted_gas_size, &m_optix->gas_handle));
+
+        //     cuda_free((void*)d_buffer_temp_output_gas_and_compacted_size);
+        // } else {
+        //     m_optix->gas_buffer = d_buffer_temp_output_gas_and_compacted_size;
+        // }
+        m_optix->gas_buffer = d_buffer_temp_output_gas_and_compacted_size;
+
+        m_optix->hitgroup.shape_ptr           = (uintptr_t) this;
+        m_optix->hitgroup.faces               = m_optix->faces_buf;
+        m_optix->hitgroup.vertex_positions    = m_optix->vertex_positions_buf;
+        m_optix->hitgroup.vertex_normals      = m_optix->vertex_normals_buf;
+        m_optix->hitgroup.vertex_texcoords    = m_optix->vertex_texcoords_buf;
 
         m_optix->ready = true;
-        return m_optix->geometry;
+        // return m_optix->gas_handle;
     } else {
-        ENOKI_MARK_USED(context);
-        return nullptr;
+        return;
     }
 }
 

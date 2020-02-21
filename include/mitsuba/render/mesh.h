@@ -279,7 +279,27 @@ public:
 
 #if defined(MTS_ENABLE_OPTIX)
     /// Return the OptiX version of this shape
-    virtual RTgeometrytriangles optix_geometry(RTcontext context) override;
+    virtual void optix_geometry(OptixDeviceContext context) override;
+    virtual OptixTraversableHandle optix_traversable_handle() override
+    {
+      if constexpr (is_cuda_array_v<Float>) {
+        if (m_optix == nullptr)
+            throw std::runtime_error("OptiX geometry was not already created!");
+        return m_optix->gas_handle;
+      } else {
+        return 0ull;
+      }
+    }
+    virtual const HitGroupData& optix_hit_group_data() const override
+    {
+      if constexpr (is_cuda_array_v<Float>) {
+        if (m_optix == nullptr)
+            throw std::runtime_error("OptiX geometry was not already created!");
+        return m_optix->hitgroup;
+      } else {
+        throw std::runtime_error("Shouldn't call optix_hit_group_data on non-cuda mesh!");
+      }
+    }
 #endif
 
     /// @}
@@ -340,12 +360,24 @@ protected:
         Normal3f vertex_normals;
         Point2f  vertex_texcoords;
 
-        RTcontext context = nullptr;
-        RTgeometrytriangles geometry = nullptr;
-        RTbuffer faces_buf = nullptr;
-        RTbuffer vertex_positions_buf = nullptr;
-        RTbuffer vertex_normals_buf = nullptr;
-        RTbuffer vertex_texcoords_buf = nullptr;
+        // RTcontext context = nullptr;
+        // RTgeometrytriangles geometry = nullptr;
+        // RTbuffer faces_buf = nullptr;
+        // RTbuffer vertex_positions_buf = nullptr;
+        // RTbuffer vertex_normals_buf = nullptr;
+        // RTbuffer vertex_texcoords_bufOptixTraversableHandle = nullptr;
+
+        OptixDeviceContext context;
+        OptixTraversableHandle gas_handle;
+        HitGroupData hitgroup;
+        // TODO: release this when not needed anymore...
+        void* gas_buffer;
+
+        void* faces_buf = nullptr;
+        void* vertex_positions_buf = nullptr;
+        void* vertex_normals_buf = nullptr;
+        void* vertex_texcoords_buf = nullptr;
+
         bool ready = false;
     };
 

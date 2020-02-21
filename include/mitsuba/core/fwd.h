@@ -309,8 +309,10 @@ extern "C" {
 
 #if defined(MTS_ENABLE_OPTIX)
     // Forward declarations for OptiX
-    typedef struct RTcontext_api *RTcontext;
-    typedef struct RTgeometrytriangles_api *RTgeometrytriangles;
-    typedef struct RTbuffer_api *RTbuffer;
+    // typedef struct RTcontext_api *RTcontext;
+    // typedef struct RTgeometrytriangles_api *RTgeometrytriangles;
+    // typedef struct RTbuffer_api *RTbuffer;
+    typedef struct OptixDeviceContext_t* OptixDeviceContext;
+    typedef unsigned long long OptixTraversableHandle;
 #endif
 };
