@@ -521,21 +521,16 @@ MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed() {
         uint32_t *faces_ptr = nullptr;
         float *vertex_positions_ptr = nullptr;
 
-        // rt_check(rtBufferGetDevicePointer(m_optix->faces_buf, 0, (void **) &faces_ptr));
         faces_ptr = (uint32_t*)m_optix->faces_buf;
         for (size_t i = 0; i < 3; ++i)
             scatter(faces_ptr + i, m_optix->faces[i], face_range_3);
 
-        // rt_check(rtBufferGetDevicePointer(m_optix->vertex_positions_buf, 0,
-                                          // (void **) &vertex_positions_ptr));
         vertex_positions_ptr = (float*)m_optix->vertex_positions_buf;
         for (size_t i = 0; i < 3; ++i)
             scatter(vertex_positions_ptr + i, m_optix->vertex_positions[i], vertex_range_3);
 
         if (has_vertex_texcoords()) {
             float *vertex_texcoords_ptr = nullptr;
-            // rt_check(rtBufferGetDevicePointer(m_optix->vertex_texcoords_buf, 0,
-                                            // (void **) &vertex_texcoords_ptr));
             vertex_texcoords_ptr = (float*)m_optix->vertex_texcoords_buf;
             for (size_t i = 0; i < 2; ++i)
                 scatter(vertex_texcoords_ptr + i, m_optix->vertex_texcoords[i], vertex_range_2);
@@ -564,8 +559,6 @@ MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed() {
             }
 
             float *vertex_normals_ptr = nullptr;
-            // rt_check(rtBufferGetDevicePointer(m_optix->vertex_normals_buf, 0,
-            //                                 (void **) &vertex_normals_ptr));
             vertex_normals_ptr = (float*)m_optix->vertex_normals_buf;
             for (size_t i = 0; i < 3; ++i)
                 scatter(vertex_normals_ptr + i, m_optix->vertex_normals[i], vertex_range_3);
@@ -668,7 +661,6 @@ MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry(OptixDeviceContext contex
         void* d_temp_buffer_gas = cuda_malloc(gas_buffer_sizes.tempSizeInBytes);
 
         // non-compacted output
-        // TODO: check that this allocation logic works
         void* d_buffer_temp_output_gas_and_compacted_size = cuda_malloc(gas_buffer_sizes.outputSizeInBytes + 8);
 
         OptixAccelEmitDesc emitProperty = {};
@@ -715,9 +707,6 @@ MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry(OptixDeviceContext contex
         m_optix->hitgroup.vertex_texcoords    = m_optix->vertex_texcoords_buf;
 
         m_optix->ready = true;
-        // return m_optix->gas_handle;
-    } else {
-        return;
     }
 }
 

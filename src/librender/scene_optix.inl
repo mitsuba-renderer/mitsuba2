@@ -37,6 +37,8 @@ constexpr int kDeviceID = 0;
 struct OptixState {
     OptixDeviceContext context;
     OptixPipeline pipeline = nullptr;
+    OptixModule module = nullptr;
+    OptixProgramGroup program_groups[4];
     OptixShaderBindingTable sbt = {};
     OptixTraversableHandle accel;
     void* accel_buffer;
@@ -70,8 +72,6 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
     rt_check(optixDeviceContextCreate(cuCtx, &options, &s.context));
 
     // Pipeline generation
-    OptixProgramGroup program_groups[4];
-    OptixModule module = nullptr;
     {
         OptixPipelineCompileOptions pipeline_compile_options = {};
         OptixModuleCompileOptions module_compile_options = {};
@@ -93,25 +93,24 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
             optix_rt_ptx_size,
             nullptr,
             nullptr,
-            &module
+            &s.module
         ));
 
         OptixProgramGroupOptions program_group_options   = {}; // Initialize to zeros
 
-        // TODO: what to do with the to different ray_gen programs???
         OptixProgramGroupDesc prog_group_descs[4];
         memset(prog_group_descs, 0, sizeof(prog_group_descs));
 
         prog_group_descs[0].kind                     = OPTIX_PROGRAM_GROUP_KIND_RAYGEN;
-        prog_group_descs[0].raygen.module            = module;
+        prog_group_descs[0].raygen.module            = s.module;
         prog_group_descs[0].raygen.entryFunctionName = "__raygen__rg";
 
         prog_group_descs[1].kind                   = OPTIX_PROGRAM_GROUP_KIND_MISS;
-        prog_group_descs[1].miss.module            = module;
+        prog_group_descs[1].miss.module            = s.module;
         prog_group_descs[1].miss.entryFunctionName = "__miss__ms";
 
         prog_group_descs[2].kind                         = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
-        prog_group_descs[2].hitgroup.moduleCH            = module;
+        prog_group_descs[2].hitgroup.moduleCH            = s.module;
         prog_group_descs[2].hitgroup.entryFunctionNameCH = "__closesthit__ch";
 
 #if !defined(MTS_OPTIX_DEBUG)
@@ -126,7 +125,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
             | OPTIX_EXCEPTION_FLAG_DEBUG;
 
         prog_group_descs[3].kind                         = OPTIX_PROGRAM_GROUP_KIND_EXCEPTION;
-        prog_group_descs[3].hitgroup.moduleCH            = module;
+        prog_group_descs[3].hitgroup.moduleCH            = s.module;
         prog_group_descs[3].hitgroup.entryFunctionNameCH = "__exception__err";
         const unsigned int num_program_groups = 4;
 #endif
@@ -138,7 +137,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
             &program_group_options,
             nullptr,
             nullptr,
-            program_groups
+            s.program_groups
         ));
 
         OptixPipelineLinkOptions pipeline_link_options = {};
@@ -149,14 +148,12 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
             s.context,
             &pipeline_compile_options,
             &pipeline_link_options,
-            program_groups,
+            s.program_groups,
             num_program_groups,
             nullptr,
             nullptr,
             &s.pipeline
         ));
-
-        // rt_check(optixModuleDestroy(module));
     } // end pipeline generation
 
     // Shader Binding Table generation and acceleration data structure building
@@ -164,12 +161,12 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         void* records = cuda_malloc(sizeof(RayGenSbtRecord) + sizeof(MissSbtRecord) + sizeof(HitGroupSbtRecord) * m_shapes.size());
 
         RayGenSbtRecord raygen_sbt;
-        rt_check(optixSbtRecordPackHeader( program_groups[0], &raygen_sbt));
+        rt_check(optixSbtRecordPackHeader( s.program_groups[0], &raygen_sbt));
         void* raygen_record = records;
         cuda_memcpy_to_device(raygen_record, &raygen_sbt, sizeof(RayGenSbtRecord));
 
         MissSbtRecord miss_sbt;
-        rt_check(optixSbtRecordPackHeader(program_groups[1], &miss_sbt));
+        rt_check(optixSbtRecordPackHeader(s.program_groups[1], &miss_sbt));
         void* miss_record = (char*)records + sizeof(RayGenSbtRecord);
         cuda_memcpy_to_device(miss_record, &miss_sbt, sizeof(MissSbtRecord));
 
@@ -178,7 +175,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
 
         // Setup header of hit group record
         HitGroupSbtRecord hg_sbt;
-        rt_check(optixSbtRecordPackHeader(program_groups[2], &hg_sbt));
+        rt_check(optixSbtRecordPackHeader(s.program_groups[2], &hg_sbt));
 
         // Create build input of instances
         OptixBuildInput instances_build_input = {};
@@ -275,13 +272,6 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         // } else {
         //     s.accel_buffer = d_buffer_temp_output_gas_and_compacted_size;
         // }
-
-//         rt_check(optixProgramGroupDestroy(program_groups[0]));
-//         rt_check(optixProgramGroupDestroy(program_groups[1]));
-//         rt_check(optixProgramGroupDestroy(program_groups[2]));
-// #if !defined(MTS_OPTIX_DEBUG)
-//         rt_check(optixProgramGroupDestroy(program_groups[3]));
-// #endif
     } // end shader binding table generation and acceleration data structure building
 
     // This will trigger the scatter calls to upload geometry to the device
@@ -307,6 +297,13 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_release_gpu() {
     // TODO: make sure if we realeased everything
     cuda_free(s.accel_buffer);
     rt_check(optixPipelineDestroy(s.pipeline));
+    rt_check(optixProgramGroupDestroy(s.program_groups[0]));
+    rt_check(optixProgramGroupDestroy(s.program_groups[1]));
+    rt_check(optixProgramGroupDestroy(s.program_groups[2]));
+#if defined(MTS_OPTIX_DEBUG)
+    rt_check(optixProgramGroupDestroy(s.program_groups[3]));
+#endif
+    rt_check(optixModuleDestroy(s.module));
     rt_check(optixDeviceContextDestroy(s.context));
     delete (OptixState *) m_accel;
     m_accel = nullptr;
@@ -389,7 +386,6 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const 
         void* d_param = cuda_malloc(sizeof(Params));
         cuda_memcpy_to_device(d_param, &params, sizeof( params ));
 
-        // TODO: make pipeline and sbt
         OptixResult rt = optixLaunch(
             s.pipeline,
             0, // default cuda stream
@@ -487,7 +483,6 @@ Scene<Float, Spectrum>::ray_test_gpu(const Ray3f &ray_, Mask active) const {
         void* d_param = cuda_malloc(sizeof(Params));
         cuda_memcpy_to_device(d_param, &params, sizeof( params ));
 
-        // TODO: make pipeline and sbt
         OptixResult rt = optixLaunch(
             s.pipeline,
             0, // default cuda stream
