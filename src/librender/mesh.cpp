@@ -606,6 +606,13 @@ Result cuda_upload(size_t size, Func func) {
     return result;
 }
 
+#define CHECKPOINT()\
+    do {\
+        std::cerr << "Reached line " << __LINE__ << " in file" << __FILE__ << "...";\
+        cuda_eval(); cuda_sync();\
+        std::cerr << "(done)" << std::endl;\
+    } while(0)
+
 MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry(OptixDeviceContext context) {
     if constexpr (is_cuda_array_v<Float>) {
         using Index = replace_scalar_t<Float, ScalarIndex>;
@@ -637,6 +644,7 @@ MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry(OptixDeviceContext contex
                 m_vertex_count, [this](ScalarIndex i) { return vertex_normal(i); });
 
         parameters_changed();
+        cuda_eval(); cuda_sync();
 
         OptixAccelBuildOptions accel_options = {};
         accel_options.buildFlags = OPTIX_BUILD_FLAG_ALLOW_COMPACTION;

@@ -60,6 +60,13 @@ typedef EmptySbtRecord RayGenSbtRecord;
 typedef EmptySbtRecord MissSbtRecord;
 typedef SbtRecord<HitGroupData>   HitGroupSbtRecord;
 
+#define CHECKPOINT()\
+    do {\
+        std::cerr << "Reached line " << __LINE__ << " in file" << __FILE__ << "...";\
+        cuda_eval(); cuda_sync();\
+        std::cerr << "(done)" << std::endl;\
+    } while(0)
+
 MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*props*/) {
     m_accel = new OptixState();
     OptixState &s = *(OptixState *) m_accel;
@@ -154,6 +161,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
             nullptr,
             &s.pipeline
         ));
+        // rt_check(optixModuleDestroy(module));
     } // end pipeline generation
 
     // Shader Binding Table generation and acceleration data structure building
@@ -173,10 +181,6 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         // Allocate hitgroup records array
         void* hitgroup_records = (char*)records + sizeof(RayGenSbtRecord) + sizeof(MissSbtRecord);
 
-        // Setup header of hit group record
-        HitGroupSbtRecord hg_sbt;
-        rt_check(optixSbtRecordPackHeader(s.program_groups[2], &hg_sbt));
-
         // Create build input of instances
         OptixBuildInput instances_build_input = {};
         instances_build_input.type = OPTIX_BUILD_INPUT_TYPE_INSTANCES;
@@ -195,28 +199,31 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         };
 
         uint32_t shape_index = 0;
+        uint32_t shapes_count = m_shapes.size();
+        std::vector<HitGroupSbtRecord> hg_sbts(shapes_count);
+        std::vector<OptixInstance> instances(shapes_count);
+
         for (Shape* shape: m_shapes) {
             // compute optix geometry for this shape
             shape->optix_geometry(s.context);
 
             // Setup the hitgroup record and copy it to the hitgroup records array
-            memcpy(&hg_sbt.data, &shape->optix_hit_group_data(), sizeof(HitGroupData));
-            cuda_memcpy_to_device(
-                    (char*)hitgroup_records + sizeof(HitGroupSbtRecord)*shape_index,
-                    &hg_sbt, sizeof(HitGroupSbtRecord)
-            );
+            rt_check(optixSbtRecordPackHeader(program_groups[2], &hg_sbts[shape_index]));
+            memcpy(&hg_sbts[shape_index].data, &shape->optix_hit_group_data(), sizeof(HitGroupData));
 
             // Setup instance for this shape and copy it into the instances array
             inst.instanceId = shape_index;
             inst.sbtOffset = shape_index;
             inst.traversableHandle = shape->optix_traversable_handle();
-            cuda_memcpy_to_device(
-                (char*)instances_build_input.instanceArray.instances + sizeof(OptixInstance) * shape_index,
-                &inst, sizeof(OptixInstance)
-            );
+            memcpy(&instances[shape_index], &inst, sizeof(OptixInstance));
 
             ++shape_index;
         }
+        // Copy HitGroupRecords to the GPU
+        cuda_memcpy_to_device(hitgroup_records, hg_sbts.data(), sizeof(HitGroupSbtRecord) * shapes_count);
+        // Copy Instances to GPU
+        cuda_memcpy_to_device((void*)instances_build_input.instanceArray.instances, instances.data(), sizeof(OptixInstance) * shapes_count);
+
         s.sbt.raygenRecord                = (CUdeviceptr)raygen_record;
         s.sbt.missRecordBase              = (CUdeviceptr)miss_record;
         s.sbt.missRecordStrideInBytes     = sizeof(MissSbtRecord);
@@ -282,14 +289,14 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
     // rt_check(rtContextValidate(s.context));
 
     // TODO: check if dummy param good enough
-    void* d_param = cuda_malloc(sizeof(Params));
+    // void* d_param = cuda_malloc(sizeof(Params));
 
-    OptixResult rt = optixLaunch(s.pipeline, 0, (CUdeviceptr)d_param, sizeof(Params), &s.sbt, 0, 0, 0);
-    if (rt == OPTIX_ERROR_HOST_OUT_OF_MEMORY) {
-        cuda_malloc_trim();
-        rt = optixLaunch(s.pipeline, 0, (CUdeviceptr)d_param, sizeof(Params), &s.sbt, 0, 0, 0);
-    }
-    rt_check(rt);
+    // OptixResult rt = optixLaunch(s.pipeline, 0, (CUdeviceptr)d_param, sizeof(Params), &s.sbt, 1, 1, 0);
+    // if (rt == OPTIX_ERROR_HOST_OUT_OF_MEMORY) {
+    //     cuda_malloc_trim();
+    //     rt = optixLaunch(s.pipeline, 0, (CUdeviceptr)d_param, sizeof(Params), &s.sbt, 1, 1, 0);
+    // }
+    // rt_check(rt);
 }
 
 MTS_VARIANT void Scene<Float, Spectrum>::accel_release_gpu() {
@@ -384,7 +391,7 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const 
         };
 
         void* d_param = cuda_malloc(sizeof(Params));
-        cuda_memcpy_to_device(d_param, &params, sizeof( params ));
+        cuda_memcpy_to_device(d_param, &params, sizeof(Params));
 
         OptixResult rt = optixLaunch(
             s.pipeline,
@@ -411,6 +418,7 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const 
         }
         rt_check(rt);
 
+CHECKPOINT();
         si.time = ray.time;
         si.wavelengths = ray.wavelengths;
         si.instance = nullptr;
@@ -424,6 +432,7 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const 
         // Incident direction in local coordinates
         si.wi = select(si.is_valid(), si.to_local(-ray.d), -ray.d);
 
+CHECKPOINT();
         return si;
     } else {
         ENOKI_MARK_USED(ray_);

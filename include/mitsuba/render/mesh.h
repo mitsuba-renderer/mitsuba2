@@ -360,13 +360,6 @@ protected:
         Normal3f vertex_normals;
         Point2f  vertex_texcoords;
 
-        // RTcontext context = nullptr;
-        // RTgeometrytriangles geometry = nullptr;
-        // RTbuffer faces_buf = nullptr;
-        // RTbuffer vertex_positions_buf = nullptr;
-        // RTbuffer vertex_normals_buf = nullptr;
-        // RTbuffer vertex_texcoords_bufOptixTraversableHandle = nullptr;
-
         OptixDeviceContext context;
         OptixTraversableHandle gas_handle;
         HitGroupData hitgroup;
