@@ -1,7 +1,7 @@
 #include <optix.h>
+#include <iostream>
 #include "vector.cuh"
-// #include <optix_world.h>
-// #include <math_constants.h>
+#include <math_constants.h>
 
 struct Params
 {
@@ -72,18 +72,16 @@ __device__ void ray_attr(
     Vector3f &dp_dv) {
     float2 float2_uv = optixGetTriangleBarycentrics();
     uv = Vector2f(float2_uv.x, float2_uv.y);
-    // uv = rtGetTriangleBarycentrics();
     float uv0 = 1.f - uv.x() - uv.y(),
           uv1 = uv.x(),
           uv2 = uv.y();
 
-    const Vector3ui* faces              = sbt_data->faces;
+    const Vector3ui* faces            = sbt_data->faces;
     const Vector3f* vertex_positions  = sbt_data->vertex_positions;
     const Vector3f* vertex_normals    = sbt_data->vertex_normals;
     const Vector2f* vertex_texcoords  = sbt_data->vertex_texcoords;
 
     Vector3ui face = faces[optixGetPrimitiveIndex()];
-    // Vector3ui face = faces[rtGetPrimitiveIndex()];
 
     Vector3f p0 = vertex_positions[face.x()],
            p1 = vertex_positions[face.y()],
@@ -149,13 +147,13 @@ extern "C" __global__ void __raygen__rg() {
                 mint, maxt, 0.0f,
                 OptixVisibilityMask( 1 ),
                 OPTIX_RAY_FLAG_TERMINATE_ON_FIRST_HIT,
-                0, 0, 0
+                0, 1, 0
                 );
         }
     } else {
         if (!params.in_mask[launch_index]) {
             params.out_shape_ptr[launch_index] = 0;
-            params.out_t[launch_index] = 1000000000.f; // Todo: find CUDART_INF_F replacement;
+            params.out_t[launch_index] = CUDART_INF_F;
         } else {
             optixTrace(
                 params.handle,
@@ -163,7 +161,7 @@ extern "C" __global__ void __raygen__rg() {
                 mint, maxt, 0.0f,
                 OptixVisibilityMask( 1 ),
                 OPTIX_RAY_FLAG_NONE,
-                0, 0, 0
+                0, 1, 0
                 );
         }
     }
@@ -177,7 +175,7 @@ extern "C" __global__ void __closesthit__ch() {
     uint3 launch_dims = optixGetLaunchDimensions();
     uint3 launch_index3 = optixGetLaunchIndex();
     unsigned int launch_index = launch_index3.x + (launch_index3.y + launch_index3.z * launch_dims.y) * launch_dims.x;
-    
+
     if (params.out_hit != nullptr) {
         params.out_hit[launch_index] = true;
     } else {
@@ -234,12 +232,16 @@ extern "C" __global__ void __miss__ms() {
         params.out_hit[launch_index] = false;
     } else {
         params.out_shape_ptr[launch_index] = 0;
-        params.out_t[launch_index] = 1000000000.f; // Todo: find CUDART_INF_F replacement;
+        params.out_t[launch_index] = CUDART_INF_F;
     }
 }
 
 extern "C" __global__ void __exception__err() {
+    uint3 launch_dims = optixGetLaunchDimensions();
+    uint3 launch_index3 = optixGetLaunchIndex();
+    unsigned int launch_index = launch_index3.x + (launch_index3.y + launch_index3.z * launch_dims.y) * launch_dims.x;
     // TODO: do something about exceptions
     int ex_code = optixGetExceptionCode();
+    printf("__exception__err %u (%d)\n", launch_index, ex_code);
     // rtPrintExceptionDetails();
 }

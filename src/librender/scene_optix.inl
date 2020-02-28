@@ -87,7 +87,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         module_compile_options.debugLevel           = OPTIX_COMPILE_DEBUG_LEVEL_LINEINFO;
 
         pipeline_compile_options.usesMotionBlur        = false;
-        pipeline_compile_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
+        pipeline_compile_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_ANY; // TODO: ??
         pipeline_compile_options.numPayloadValues      = 3; // TODO: ??
         pipeline_compile_options.numAttributeValues    = 3; // TODO: ??
         pipeline_compile_options.pipelineLaunchParamsVariableName = "params";
@@ -166,7 +166,8 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
 
     // Shader Binding Table generation and acceleration data structure building
     {
-        void* records = cuda_malloc(sizeof(RayGenSbtRecord) + sizeof(MissSbtRecord) + sizeof(HitGroupSbtRecord) * m_shapes.size());
+        uint32_t shapes_count = m_shapes.size();
+        void* records = cuda_malloc(sizeof(RayGenSbtRecord) + sizeof(MissSbtRecord) + sizeof(HitGroupSbtRecord) * shapes_count);
 
         RayGenSbtRecord raygen_sbt;
         rt_check(optixSbtRecordPackHeader( s.program_groups[0], &raygen_sbt));
@@ -184,8 +185,8 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         // Create build input of instances
         OptixBuildInput instances_build_input = {};
         instances_build_input.type = OPTIX_BUILD_INPUT_TYPE_INSTANCES;
-        instances_build_input.instanceArray.numInstances  = m_shapes.size();
-        instances_build_input.instanceArray.instances     = (CUdeviceptr)cuda_malloc(sizeof(OptixInstance) * m_shapes.size());
+        instances_build_input.instanceArray.numInstances  = shapes_count;
+        instances_build_input.instanceArray.instances     = (CUdeviceptr)cuda_malloc(sizeof(OptixInstance) * shapes_count);
 
         // Setup template instance
         OptixInstance inst = {
@@ -199,7 +200,6 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         };
 
         uint32_t shape_index = 0;
-        uint32_t shapes_count = m_shapes.size();
         std::vector<HitGroupSbtRecord> hg_sbts(shapes_count);
         std::vector<OptixInstance> instances(shapes_count);
 
@@ -208,7 +208,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
             shape->optix_geometry(s.context);
 
             // Setup the hitgroup record and copy it to the hitgroup records array
-            rt_check(optixSbtRecordPackHeader(program_groups[2], &hg_sbts[shape_index]));
+            rt_check(optixSbtRecordPackHeader(s.program_groups[2], &hg_sbts[shape_index]));
             memcpy(&hg_sbts[shape_index].data, &shape->optix_hit_group_data(), sizeof(HitGroupData));
 
             // Setup instance for this shape and copy it into the instances array
@@ -230,7 +230,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         s.sbt.missRecordCount             = 1;
         s.sbt.hitgroupRecordBase          = (CUdeviceptr)hitgroup_records;
         s.sbt.hitgroupRecordStrideInBytes = sizeof(HitGroupSbtRecord);
-        s.sbt.hitgroupRecordCount         = m_shapes.size();
+        s.sbt.hitgroupRecordCount         = shapes_count;
 
         OptixAccelBuildOptions accel_options = {};
         accel_options.buildFlags = OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
@@ -418,7 +418,6 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const 
         }
         rt_check(rt);
 
-CHECKPOINT();
         si.time = ray.time;
         si.wavelengths = ray.wavelengths;
         si.instance = nullptr;
@@ -432,7 +431,6 @@ CHECKPOINT();
         // Incident direction in local coordinates
         si.wi = select(si.is_valid(), si.to_local(-ray.d), -ray.d);
 
-CHECKPOINT();
         return si;
     } else {
         ENOKI_MARK_USED(ray_);
