@@ -236,11 +236,23 @@ extern "C" __global__ void __miss__ms() {
     }
 }
 
+struct OptixException
+{
+    int code;
+    const char* string;
+};
+
+__constant__ OptixException exceptions[] = {
+    { OPTIX_EXCEPTION_CODE_STACK_OVERFLOW, "OPTIX_EXCEPTION_CODE_STACK_OVERFLOW" },
+    { OPTIX_EXCEPTION_CODE_TRACE_DEPTH_EXCEEDED, "OPTIX_EXCEPTION_CODE_TRACE_DEPTH_EXCEEDED" },
+    { OPTIX_EXCEPTION_CODE_TRAVERSAL_DEPTH_EXCEEDED, "OPTIX_EXCEPTION_CODE_TRAVERSAL_DEPTH_EXCEEDED" },
+    { OPTIX_EXCEPTION_CODE_TRAVERSAL_INVALID_TRAVERSABLE, "OPTIX_EXCEPTION_CODE_TRAVERSAL_INVALID_TRAVERSABLE" },
+    { OPTIX_EXCEPTION_CODE_TRAVERSAL_INVALID_MISS_SBT, "OPTIX_EXCEPTION_CODE_TRAVERSAL_INVALID_MISS_SBT" },
+    { OPTIX_EXCEPTION_CODE_TRAVERSAL_INVALID_HIT_SBT, "OPTIX_EXCEPTION_CODE_TRAVERSAL_INVALID_HIT_SBT" }
+};
+
 extern "C" __global__ void __exception__err() {
-    uint3 launch_dims = optixGetLaunchDimensions();
-    uint3 launch_index3 = optixGetLaunchIndex();
-    unsigned int launch_index = launch_index3.x + (launch_index3.y + launch_index3.z * launch_dims.y) * launch_dims.x;
-    // TODO: do something about exceptions
     int ex_code = optixGetExceptionCode();
-    printf("__exception__err %u (%d)\n", launch_index, ex_code);
+    printf("Optix Exception %u: %s\n", ex_code, exceptions[ex_code].string);
+    // TODO: retreive more informations based on exception
 }
