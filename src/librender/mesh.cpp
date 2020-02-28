@@ -606,13 +606,6 @@ Result cuda_upload(size_t size, Func func) {
     return result;
 }
 
-#define CHECKPOINT()\
-    do {\
-        std::cerr << "Reached line " << __LINE__ << " in file" << __FILE__ << "...";\
-        cuda_eval(); cuda_sync();\
-        std::cerr << "(done)" << std::endl;\
-    } while(0)
-
 MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry(OptixDeviceContext context) {
     if constexpr (is_cuda_array_v<Float>) {
         using Index = replace_scalar_t<Float, ScalarIndex>;
@@ -644,7 +637,7 @@ MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry(OptixDeviceContext contex
                 m_vertex_count, [this](ScalarIndex i) { return vertex_normal(i); });
 
         parameters_changed();
-        cuda_eval(); cuda_sync();
+        cuda_eval();
 
         OptixAccelBuildOptions accel_options = {};
         accel_options.buildFlags = OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
@@ -692,21 +685,19 @@ MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry(OptixDeviceContext contex
 
         cuda_free((void*)d_temp_buffer_gas);
 
-        // TODO: should free all ressources...
-        // size_t compacted_gas_size;
-        // cuda_memcpy_from_device(&compacted_gas_size, (void*)emitProperty.result, sizeof(size_t));
+        size_t compacted_gas_size;
+        cuda_memcpy_from_device(&compacted_gas_size, (void*)emitProperty.result, sizeof(size_t));
 
-        // if (compacted_gas_size < gas_buffer_sizes.outputSizeInBytes) {
-        //     m_optix->gas_buffer = cuda_malloc(compacted_gas_size);
+        if (compacted_gas_size < gas_buffer_sizes.outputSizeInBytes) {
+            m_optix->gas_buffer = cuda_malloc(compacted_gas_size);
 
-        //     // use handle as input and output
-        //     rt_check(optixAccelCompact(context, 0, m_optix->gas_handle, (CUdeviceptr)m_optix->gas_buffer, compacted_gas_size, &m_optix->gas_handle));
+            // use handle as input and output
+            rt_check(optixAccelCompact(context, 0, m_optix->gas_handle, (CUdeviceptr)m_optix->gas_buffer, compacted_gas_size, &m_optix->gas_handle));
 
-        //     cuda_free((void*)d_buffer_temp_output_gas_and_compacted_size);
-        // } else {
-        //     m_optix->gas_buffer = d_buffer_temp_output_gas_and_compacted_size;
-        // }
-        m_optix->gas_buffer = d_buffer_temp_output_gas_and_compacted_size;
+            cuda_free((void*)d_buffer_temp_output_gas_and_compacted_size);
+        } else {
+            m_optix->gas_buffer = d_buffer_temp_output_gas_and_compacted_size;
+        }
 
         m_optix->hitgroup.shape_ptr           = (uintptr_t) this;
         m_optix->hitgroup.faces               = m_optix->faces_buf;

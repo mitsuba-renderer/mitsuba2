@@ -12,7 +12,6 @@ NAMESPACE_BEGIN(mitsuba)
 void __rt_check(OptixDeviceContext context, OptixResult errval, const char *file, const int line) {
     if (errval != OPTIX_SUCCESS) {
         const char *message;
-        // rtContextGetErrorString(context, errval, &message);
         message = optixGetErrorString(errval);
         if (errval == 1546)
             message = "Failed to load OptiX library! Very likely, your NVIDIA graphics "
@@ -190,13 +189,13 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
 
         // Setup template instance
         OptixInstance inst = {
-            {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0}, // transform
-            0u, // instance ID <- placeholder
-            0u, // sbt offset <- placeholder
-            255u, // Visibility mask
+            {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0},   // transform
+            0u,                                     // instance ID <- placeholder
+            0u,                                     // sbt offset <- placeholder
+            255u,                                   // Visibility mask
             OPTIX_INSTANCE_FLAG_NONE,
-            0ull, // traversable handle <- placeholder
-            {0u, 0u} // padding
+            0ull,                                   // traversable handle <- placeholder
+            {0u, 0u}                                // padding
         };
 
         uint32_t shape_index = 0;
@@ -264,21 +263,21 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         ));
 
         cuda_free((void*)d_temp_buffer_gas);
-        s.accel_buffer = d_buffer_temp_output_gas_and_compacted_size;
+        // s.accel_buffer = d_buffer_temp_output_gas_and_compacted_size;
 
         // TODO: check if this is really usefull considering enoki's way of handling GPU memory
-        // size_t compacted_gas_size;
-        // cuda_memcpy_from_device(&compacted_gas_size, (void*)emitProperty.result, sizeof(size_t));
-        // if (compacted_gas_size < gas_buffer_sizes.outputSizeInBytes) {
-        //     s.accel_buffer = cuda_malloc(compacted_gas_size);
+        size_t compacted_gas_size;
+        cuda_memcpy_from_device(&compacted_gas_size, (void*)emitProperty.result, sizeof(size_t));
+        if (compacted_gas_size < gas_buffer_sizes.outputSizeInBytes) {
+            s.accel_buffer = cuda_malloc(compacted_gas_size);
 
-        //     // use handle as input and output
-        //     rt_check(optixAccelCompact(s.context, 0, s.accel, (CUdeviceptr)s.accel_buffer, compacted_gas_size, &s.accel));
+            // use handle as input and output
+            rt_check(optixAccelCompact(s.context, 0, s.accel, (CUdeviceptr)s.accel_buffer, compacted_gas_size, &s.accel));
 
-        //     cuda_free((void*)d_buffer_temp_output_gas_and_compacted_size);
-        // } else {
-        //     s.accel_buffer = d_buffer_temp_output_gas_and_compacted_size;
-        // }
+            cuda_free((void*)d_buffer_temp_output_gas_and_compacted_size);
+        } else {
+            s.accel_buffer = d_buffer_temp_output_gas_and_compacted_size;
+        }
     } // end shader binding table generation and acceleration data structure building
 
     // This will trigger the scatter calls to upload geometry to the device
@@ -288,15 +287,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
     // TODO: check that there is really no equivalent
     // rt_check(rtContextValidate(s.context));
 
-    // TODO: check if dummy param good enough
-    // void* d_param = cuda_malloc(sizeof(Params));
-
-    // OptixResult rt = optixLaunch(s.pipeline, 0, (CUdeviceptr)d_param, sizeof(Params), &s.sbt, 1, 1, 0);
-    // if (rt == OPTIX_ERROR_HOST_OUT_OF_MEMORY) {
-    //     cuda_malloc_trim();
-    //     rt = optixLaunch(s.pipeline, 0, (CUdeviceptr)d_param, sizeof(Params), &s.sbt, 1, 1, 0);
-    // }
-    // rt_check(rt);
+    // TODO: check if we still want to do run a dummy launch
 }
 
 MTS_VARIANT void Scene<Float, Spectrum>::accel_release_gpu() {
@@ -366,17 +357,17 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const 
             ray.mint.data(), ray.maxt.data(),
             // Out: Distance along ray
             si.t.data(),
-            // Out: Intersection position
-            si.p.x().data(), si.p.y().data(), si.p.z().data(),
             // Out: UV coordinates
             si.uv.x().data(), si.uv.y().data(),
             // Out: Geometric normal
             si.n.x().data(), si.n.y().data(), si.n.z().data(),
             // Out: Shading normal
             si.sh_frame.n.x().data(), si.sh_frame.n.y().data(), si.sh_frame.n.z().data(),
+            // Out: Intersection position
+            si.p.x().data(), si.p.y().data(), si.p.z().data(),
             // Out: Texture space derivative (U)
             si.dp_du.x().data(), si.dp_du.y().data(), si.dp_du.z().data(),
-            // Ovt: Texture space derivative (V)
+            // Out: Texture space derivative (V)
             si.dp_dv.x().data(), si.dp_dv.y().data(), si.dp_dv.z().data(),
             // Out: Shape pointer (on host)
             (unsigned long long*)si.shape.data(),
@@ -463,13 +454,13 @@ Scene<Float, Spectrum>::ray_test_gpu(const Ray3f &ray_, Mask active) const {
             ray.mint.data(), ray.maxt.data(),
             // Out: Distance along ray
             nullptr,
-            // Out: Intersection position
-            nullptr, nullptr, nullptr,
             // Out: UV coordinates
             nullptr, nullptr,
             // Out: Geometric normal
             nullptr, nullptr, nullptr,
             // Out: Shading normal
+            nullptr, nullptr, nullptr,
+            // Out: Intersection position
             nullptr, nullptr, nullptr,
             // Out: Texture space derivative (U)
             nullptr, nullptr, nullptr,

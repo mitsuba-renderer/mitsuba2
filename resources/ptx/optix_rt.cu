@@ -243,5 +243,4 @@ extern "C" __global__ void __exception__err() {
     // TODO: do something about exceptions
     int ex_code = optixGetExceptionCode();
     printf("__exception__err %u (%d)\n", launch_index, ex_code);
-    // rtPrintExceptionDetails();
 }
