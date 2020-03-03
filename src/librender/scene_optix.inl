@@ -41,6 +41,7 @@ struct OptixState {
     OptixShaderBindingTable sbt = {};
     OptixTraversableHandle accel;
     void* accel_buffer;
+    void* params;
 };
 
 template <typename T>
@@ -279,6 +280,9 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         }
     } // end shader binding table generation and acceleration data structure building
 
+    // Allocate params pointer
+    s.params = cuda_malloc(sizeof(Params));
+
     // This will trigger the scatter calls to upload geometry to the device
     cuda_eval();
 
@@ -293,6 +297,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_release_gpu() {
     OptixState &s = *(OptixState *) m_accel;
     // TODO: make sure if we realeased everything
     cuda_free(s.accel_buffer);
+    cuda_free(s.params);
     rt_check(optixPipelineDestroy(s.pipeline));
     rt_check(optixProgramGroupDestroy(s.program_groups[0]));
     rt_check(optixProgramGroupDestroy(s.program_groups[1]));
@@ -380,8 +385,7 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const 
             false
         };
 
-        void* d_param = cuda_malloc(sizeof(Params));
-        cuda_memcpy_to_device(d_param, &params, sizeof(Params));
+        cuda_memcpy_to_device(s.params, &params, sizeof(Params));
 
         size_t width = 1, height = ray_count;
         while (!(height & 1) && width < height) {
@@ -392,7 +396,7 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const 
         OptixResult rt = optixLaunch(
             s.pipeline,
             0, // default cuda stream
-            (CUdeviceptr)d_param,
+            (CUdeviceptr)s.params,
             sizeof(Params),
             &s.sbt,
             width,
@@ -404,7 +408,7 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const 
             rt = optixLaunch(
                 s.pipeline,
                 0, // default cuda stream
-                (CUdeviceptr)d_param,
+                (CUdeviceptr)s.params,
                 sizeof(Params),
                 &s.sbt,
                 width,
@@ -483,8 +487,7 @@ Scene<Float, Spectrum>::ray_test_gpu(const Ray3f &ray_, Mask active) const {
             true
         };
 
-        void* d_param = cuda_malloc(sizeof(Params));
-        cuda_memcpy_to_device(d_param, &params, sizeof( params ));
+        cuda_memcpy_to_device(s.params, &params, sizeof( params ));
 
         size_t width = 1, height = ray_count;
         while (!(height & 1) && width < height) {
@@ -495,7 +498,7 @@ Scene<Float, Spectrum>::ray_test_gpu(const Ray3f &ray_, Mask active) const {
         OptixResult rt = optixLaunch(
             s.pipeline,
             0, // default cuda stream
-            (CUdeviceptr)d_param,
+            (CUdeviceptr)s.params,
             sizeof( Params ),
             &s.sbt,
             width,
@@ -508,7 +511,7 @@ Scene<Float, Spectrum>::ray_test_gpu(const Ray3f &ray_, Mask active) const {
             rt = optixLaunch(
                 s.pipeline,
                 0, // default cuda stream
-                (CUdeviceptr)d_param,
+                (CUdeviceptr)s.params,
                 sizeof( Params ),
                 &s.sbt,
                 width,
