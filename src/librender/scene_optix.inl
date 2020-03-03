@@ -263,7 +263,6 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         ));
 
         cuda_free((void*)d_temp_buffer_gas);
-        // s.accel_buffer = d_buffer_temp_output_gas_and_compacted_size;
 
         // TODO: check if this is really usefull considering enoki's way of handling GPU memory
         size_t compacted_gas_size;
@@ -384,14 +383,20 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const 
         void* d_param = cuda_malloc(sizeof(Params));
         cuda_memcpy_to_device(d_param, &params, sizeof(Params));
 
+        size_t width = 1, height = ray_count;
+        while (!(height & 1) && width < height) {
+            width <<= 1;
+            height >>= 1;
+        }
+
         OptixResult rt = optixLaunch(
             s.pipeline,
             0, // default cuda stream
             (CUdeviceptr)d_param,
             sizeof(Params),
             &s.sbt,
-            1, // width
-            ray_count,
+            width,
+            height,
             1 // depth
         );
         if (rt == OPTIX_ERROR_HOST_OUT_OF_MEMORY) {
@@ -402,8 +407,8 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const 
                 (CUdeviceptr)d_param,
                 sizeof(Params),
                 &s.sbt,
-                1, // width
-                ray_count,
+                width,
+                height,
                 1 // depth
             );
         }
@@ -481,14 +486,20 @@ Scene<Float, Spectrum>::ray_test_gpu(const Ray3f &ray_, Mask active) const {
         void* d_param = cuda_malloc(sizeof(Params));
         cuda_memcpy_to_device(d_param, &params, sizeof( params ));
 
+        size_t width = 1, height = ray_count;
+        while (!(height & 1) && width < height) {
+            width <<= 1;
+            height >>= 1;
+        }
+
         OptixResult rt = optixLaunch(
             s.pipeline,
             0, // default cuda stream
             (CUdeviceptr)d_param,
             sizeof( Params ),
             &s.sbt,
-            1, // width
-            ray_count,
+            width,
+            height,
             1 // depth
         );
         // TODO: check that this is the error code we're looking for
@@ -500,8 +511,8 @@ Scene<Float, Spectrum>::ray_test_gpu(const Ray3f &ray_, Mask active) const {
                 (CUdeviceptr)d_param,
                 sizeof( Params ),
                 &s.sbt,
-                1, // width
-                ray_count,
+                width,
+                height,
                 1 // depth
             );
         }
