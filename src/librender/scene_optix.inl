@@ -7,9 +7,15 @@
 
 NAMESPACE_BEGIN(mitsuba)
 
-#define rt_check(err)  __rt_check(s.context, err, __FILE__, __LINE__)
+constexpr int kDeviceID = 0;
 
-void __rt_check(OptixDeviceContext context, OptixResult errval, const char *file, const int line) {
+static size_t optix_log_buffer_size;
+static char optix_log_buffer[2024];
+
+#define rt_check(err)       __rt_check(err, __FILE__, __LINE__)
+#define rt_check_log(err)   __rt_check_log(err, __FILE__, __LINE__)
+
+void __rt_check(OptixResult errval, const char *file, const int line) {
     if (errval != OPTIX_SUCCESS) {
         const char *message;
         message = optixGetErrorString(errval);
@@ -24,14 +30,24 @@ void __rt_check(OptixDeviceContext context, OptixResult errval, const char *file
     }
 }
 
-static void context_log_cb( unsigned int level, const char* tag, const char* message, void* /*cbdata */)
+void __rt_check_log(OptixResult errval, const char *file, const int line) {
+    if (errval != OPTIX_SUCCESS) {
+        const char *message;
+        message = optixGetErrorString(errval);
+        fprintf(stderr,
+                "rt_check(): OptiX API error = %04d (%s) in "
+                "%s:%i.\n", (int) errval, message, file, line);
+        fprintf(stderr,
+                "\tLog: %s%s", optix_log_buffer, optix_log_buffer_size > sizeof(optix_log_buffer) ? "<TRUNCATED>" : "");
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void context_log_cb(unsigned int level, const char* tag, const char* message, void* /*cbdata */)
 {
     std::cerr << "[" << std::setw( 2 ) << level << "][" << std::setw( 12 ) << tag << "]: "
     << message << "\n";
 }
-
-constexpr size_t kOptixVariableCount = 30;
-constexpr int kDeviceID = 0;
 
 struct OptixState {
     OptixDeviceContext context;
@@ -60,13 +76,6 @@ typedef EmptySbtRecord RayGenSbtRecord;
 typedef EmptySbtRecord MissSbtRecord;
 typedef SbtRecord<HitGroupData>   HitGroupSbtRecord;
 
-#define CHECKPOINT()\
-    do {\
-        std::cerr << "Reached line " << __LINE__ << " in file" << __FILE__ << "...";\
-        cuda_eval(); cuda_sync();\
-        std::cerr << "(done)" << std::endl;\
-    } while(0)
-
 MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*props*/) {
     m_accel = new OptixState();
     OptixState &s = *(OptixState *) m_accel;
@@ -92,14 +101,14 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         pipeline_compile_options.numAttributeValues    = 3; // TODO: ??
         pipeline_compile_options.pipelineLaunchParamsVariableName = "params";
 
-        rt_check(optixModuleCreateFromPTX(
+        rt_check_log(optixModuleCreateFromPTX(
             s.context,
             &module_compile_options,
             &pipeline_compile_options,
             (const char *)optix_rt_ptx,
             optix_rt_ptx_size,
-            nullptr,
-            nullptr,
+            optix_log_buffer,
+            &optix_log_buffer_size,
             &s.module
         ));
 
@@ -137,13 +146,13 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         const unsigned int num_program_groups = 4;
 #endif
 
-        rt_check(optixProgramGroupCreate(
+        rt_check_log(optixProgramGroupCreate(
             s.context,
             prog_group_descs,
             num_program_groups,
             &program_group_options,
-            nullptr,
-            nullptr,
+            optix_log_buffer,
+            &optix_log_buffer_size,
             s.program_groups
         ));
 
@@ -151,14 +160,14 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         pipeline_link_options.maxTraceDepth          = 1; // TODO: ??
         pipeline_link_options.debugLevel             = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
         pipeline_link_options.overrideUsesMotionBlur = false;
-        rt_check(optixPipelineCreate(
+        rt_check_log(optixPipelineCreate(
             s.context,
             &pipeline_compile_options,
             &pipeline_link_options,
             s.program_groups,
             num_program_groups,
-            nullptr,
-            nullptr,
+            optix_log_buffer,
+            &optix_log_buffer_size,
             &s.pipeline
         ));
         // rt_check(optixModuleDestroy(module));

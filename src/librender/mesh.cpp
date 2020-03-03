@@ -506,10 +506,11 @@ MTS_VARIANT RTCGeometry Mesh<Float, Spectrum>::embree_geometry(RTCDevice device)
 #endif
 
 #if defined(MTS_ENABLE_OPTIX)
-#define rt_check(err)  __rt_check(m_optix->context, err, __FILE__, __LINE__)
+#define rt_check(err)       __rt_check(err, __FILE__, __LINE__)
+#define rt_check_log(err)   __rt_check_log(err, __FILE__, __LINE__)
 
-extern void __rt_check(OptixDeviceContext context, OptixResult errval, const char *file,
-                       const int line);
+extern void __rt_check(OptixResult errval, const char *file, const int line);
+extern void __rt_check_log(OptixResult errval, const char *file, const int line);
 
 MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed() {
     if constexpr (is_cuda_array_v<Float>) {
