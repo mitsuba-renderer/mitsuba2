@@ -231,7 +231,7 @@ public:
         // Ensure that this is a valid sample
         active &= neq(bs.pdf, 0.f) && Frame3f::cos_theta(bs.wo) > 0.f;
 
-        Float weight;
+        UnpolarizedSpectrum weight;
         if (likely(m_sample_visible))
             weight = distr.smith_g1(bs.wo, m);
         else
@@ -279,7 +279,7 @@ public:
 
         /* If requested, include the specular reflectance component */
         if (m_specular_reflectance)
-            F *= unpolarized<Spectrum>(m_specular_reflectance->eval(si, active));
+            weight *= m_specular_reflectance->eval(si, active);
 
         return { bs, (F * weight) & active };
     }
@@ -315,7 +315,7 @@ public:
         Float G = distr.G(si.wi, wo, H);
 
         // Evaluate the full microfacet model (except Fresnel)
-        Float result = D * G / (4.f * Frame3f::cos_theta(si.wi));
+        UnpolarizedSpectrum result = D * G / (4.f * Frame3f::cos_theta(si.wi));
 
         // Evaluate the Fresnel factor
         Complex<UnpolarizedSpectrum> eta_c(m_eta->eval(si, active),
@@ -355,7 +355,7 @@ public:
 
         /* If requested, include the specular reflectance component */
         if (m_specular_reflectance)
-            F *= unpolarized<Spectrum>(m_specular_reflectance->eval(si, active));
+            result *= m_specular_reflectance->eval(si, active);
 
         return (F * result) & active;
     }
