@@ -182,7 +182,8 @@ public:
             m_alpha_u = m_alpha_v = props.texture<Texture>("alpha", 0.1f);
         }
 
-        m_specular_reflectance = props.texture<Texture>("specular_reflectance", 1.0f);
+        if (props.has_property("specular_reflectance"))
+            m_specular_reflectance = props.texture<Texture>("specular_reflectance", 1.f);
 
         parameters_changed();
     }
@@ -276,8 +277,9 @@ public:
             F = fresnel_conductor(UnpolarizedSpectrum(dot(si.wi, m)), eta_c);
         }
 
-        /* Include the specular reflectance component */
-        F *= unpolarized<Spectrum>(m_specular_reflectance->eval(si, active));
+        /* If requested, include the specular reflectance component */
+        if (m_specular_reflectance)
+            F *= unpolarized<Spectrum>(m_specular_reflectance->eval(si, active));
 
         return { bs, (F * weight) & active };
     }
@@ -351,8 +353,9 @@ public:
             F = fresnel_conductor(UnpolarizedSpectrum(dot(si.wi, H)), eta_c);
         }
 
-        /* Include the specular reflectance component */
-        F *= unpolarized<Spectrum>(m_specular_reflectance->eval(si, active));
+        /* If requested, include the specular reflectance component */
+        if (m_specular_reflectance)
+            F *= unpolarized<Spectrum>(m_specular_reflectance->eval(si, active));
 
         return (F * result) & active;
     }
@@ -403,8 +406,8 @@ public:
         }
         callback->put_object("eta", m_eta.get());
         callback->put_object("k", m_k.get());
-        callback->put_object("specular_reflectance",
-                             m_specular_reflectance.get());
+        if (m_specular_reflectance)
+            callback->put_object("specular_reflectance", m_specular_reflectance.get());
     }
 
     std::string to_string() const override {
@@ -413,10 +416,11 @@ public:
             << "  distribution = " << m_type << "," << std::endl
             << "  sample_visible = " << m_sample_visible << "," << std::endl
             << "  alpha_u = " << string::indent(m_alpha_u) << "," << std::endl
-            << "  alpha_v = " << string::indent(m_alpha_v) << "," << std::endl
-            << "  eta = " << string::indent(m_eta) << "," << std::endl
-            << "  k = " << string::indent(m_k) << "," << std::endl
-            << "  specular_reflectance = " << string::indent(m_specular_reflectance) << std::endl
+            << "  alpha_v = " << string::indent(m_alpha_v) << "," << std::endl;
+        if (m_specular_reflectance)
+           oss << "  specular_reflectance = " << string::indent(m_specular_reflectance) << "," << std::endl;
+        oss << "  eta = " << string::indent(m_eta) << "," << std::endl
+            << "  k = " << string::indent(m_k) << std::endl
             << "]";
         return oss.str();
     }
