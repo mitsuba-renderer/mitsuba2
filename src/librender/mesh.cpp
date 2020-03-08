@@ -607,13 +607,14 @@ Result cuda_upload(size_t size, Func func) {
     return result;
 }
 
-MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry(OptixDeviceContext context) {
+MTS_VARIANT const uint32_t Mesh<Float, Spectrum>::triangle_input_flags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
+
+MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry(OptixBuildInput &build_input, HitGroupData& hitgroup) {
     if constexpr (is_cuda_array_v<Float>) {
         using Index = replace_scalar_t<Float, ScalarIndex>;
         if (m_optix != nullptr)
             throw std::runtime_error("OptiX geometry was already created!");
         m_optix = std::unique_ptr<OptixData>(new OptixData());
-        m_optix->context = context;
 
         /// Face indices
         m_optix->faces_buf = cuda_malloc(m_face_count * 3 * sizeof(uint32_t));
@@ -640,12 +641,6 @@ MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry(OptixDeviceContext contex
         parameters_changed();
         cuda_eval();
 
-        OptixAccelBuildOptions accel_options = {};
-        accel_options.buildFlags = OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
-        accel_options.operation  = OPTIX_BUILD_OPERATION_BUILD;
-
-        OptixBuildInput build_input = {};
-        const uint32_t triangle_input_flags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
         build_input.type                           = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
         build_input.triangleArray.vertexFormat     = OPTIX_VERTEX_FORMAT_FLOAT3;
         build_input.triangleArray.indexFormat      = OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
@@ -653,58 +648,14 @@ MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry(OptixDeviceContext contex
         build_input.triangleArray.vertexBuffers    = (CUdeviceptr*)&m_optix->vertex_positions_buf;
         build_input.triangleArray.numIndexTriplets = m_face_count;
         build_input.triangleArray.indexBuffer      = (CUdeviceptr)m_optix->faces_buf;
-        build_input.triangleArray.flags            = triangle_input_flags;
+        build_input.triangleArray.flags            = Mesh::triangle_input_flags;
         build_input.triangleArray.numSbtRecords    = 1;          
 
-        OptixAccelBufferSizes gas_buffer_sizes;
-        rt_check(optixAccelComputeMemoryUsage(context, &accel_options, &build_input,
-                                                   1,  // Number of build input
-                                                   &gas_buffer_sizes));
-        void* d_temp_buffer_gas = cuda_malloc(gas_buffer_sizes.tempSizeInBytes);
-
-        // non-compacted output
-        void* d_buffer_temp_output_gas_and_compacted_size = cuda_malloc(gas_buffer_sizes.outputSizeInBytes + 8);
-
-        OptixAccelEmitDesc emitProperty = {};
-        emitProperty.type = OPTIX_PROPERTY_TYPE_COMPACTED_SIZE;
-        emitProperty.result = (CUdeviceptr)((char*)d_buffer_temp_output_gas_and_compacted_size + gas_buffer_sizes.outputSizeInBytes);
-
-        rt_check(optixAccelBuild(
-            context,
-            0,              // CUDA stream
-            &accel_options,
-            &build_input,
-            1,              // num build inputs
-            (CUdeviceptr)d_temp_buffer_gas,
-            gas_buffer_sizes.tempSizeInBytes,
-            (CUdeviceptr)d_buffer_temp_output_gas_and_compacted_size,
-            gas_buffer_sizes.outputSizeInBytes,
-            &m_optix->gas_handle,
-            &emitProperty,  // emitted property list
-            1               // num emitted properties
-        ));
-
-        cuda_free((void*)d_temp_buffer_gas);
-
-        size_t compacted_gas_size;
-        cuda_memcpy_from_device(&compacted_gas_size, (void*)emitProperty.result, sizeof(size_t));
-
-        if (compacted_gas_size < gas_buffer_sizes.outputSizeInBytes) {
-            m_optix->gas_buffer = cuda_malloc(compacted_gas_size);
-
-            // use handle as input and output
-            rt_check(optixAccelCompact(context, 0, m_optix->gas_handle, (CUdeviceptr)m_optix->gas_buffer, compacted_gas_size, &m_optix->gas_handle));
-
-            cuda_free((void*)d_buffer_temp_output_gas_and_compacted_size);
-        } else {
-            m_optix->gas_buffer = d_buffer_temp_output_gas_and_compacted_size;
-        }
-
-        m_optix->hitgroup.shape_ptr           = (uintptr_t) this;
-        m_optix->hitgroup.faces               = m_optix->faces_buf;
-        m_optix->hitgroup.vertex_positions    = m_optix->vertex_positions_buf;
-        m_optix->hitgroup.vertex_normals      = m_optix->vertex_normals_buf;
-        m_optix->hitgroup.vertex_texcoords    = m_optix->vertex_texcoords_buf;
+        hitgroup.shape_ptr           = (uintptr_t) this;
+        hitgroup.faces               = m_optix->faces_buf;
+        hitgroup.vertex_positions    = m_optix->vertex_positions_buf;
+        hitgroup.vertex_normals      = m_optix->vertex_normals_buf;
+        hitgroup.vertex_texcoords    = m_optix->vertex_texcoords_buf;
 
         m_optix->ready = true;
     }

@@ -96,9 +96,9 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         module_compile_options.debugLevel           = OPTIX_COMPILE_DEBUG_LEVEL_LINEINFO;
 
         pipeline_compile_options.usesMotionBlur        = false;
-        pipeline_compile_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_ANY; // TODO: ??
-        pipeline_compile_options.numPayloadValues      = 3; // TODO: ??
-        pipeline_compile_options.numAttributeValues    = 3; // TODO: ??
+        pipeline_compile_options.traversableGraphFlags = OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
+        pipeline_compile_options.numPayloadValues      = 3;
+        pipeline_compile_options.numAttributeValues    = 3;
         pipeline_compile_options.pipelineLaunchParamsVariableName = "params";
 
         rt_check_log(optixModuleCreateFromPTX(
@@ -170,7 +170,6 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
             &optix_log_buffer_size,
             &s.pipeline
         ));
-        // rt_check(optixModuleDestroy(module));
     } // end pipeline generation
 
     // Shader Binding Table generation and acceleration data structure building
@@ -191,47 +190,20 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         // Allocate hitgroup records array
         void* hitgroup_records = (char*)records + sizeof(RayGenSbtRecord) + sizeof(MissSbtRecord);
 
-        // Create build input of instances
-        OptixBuildInput instances_build_input = {};
-        instances_build_input.type = OPTIX_BUILD_INPUT_TYPE_INSTANCES;
-        instances_build_input.instanceArray.numInstances  = shapes_count;
-        instances_build_input.instanceArray.instances     = (CUdeviceptr)cuda_malloc(sizeof(OptixInstance) * shapes_count);
-
-        // Setup template instance
-        OptixInstance inst = {
-            {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0},   // transform
-            0u,                                     // instance ID <- placeholder
-            0u,                                     // sbt offset <- placeholder
-            255u,                                   // Visibility mask
-            OPTIX_INSTANCE_FLAG_NONE,
-            0ull,                                   // traversable handle <- placeholder
-            {0u, 0u}                                // padding
-        };
-
         uint32_t shape_index = 0;
-        std::vector<HitGroupSbtRecord> hg_sbts(shapes_count);
-        std::vector<OptixInstance> instances(shapes_count);
+        std::vector<HitGroupSbtRecord>  hg_sbts(shapes_count);
+        std::vector<OptixBuildInput>    build_inputs(shapes_count);
 
         for (Shape* shape: m_shapes) {
-            // compute optix geometry for this shape
-            shape->optix_geometry(s.context);
-
             // Setup the hitgroup record and copy it to the hitgroup records array
             rt_check(optixSbtRecordPackHeader(s.program_groups[2], &hg_sbts[shape_index]));
-            memcpy(&hg_sbts[shape_index].data, &shape->optix_hit_group_data(), sizeof(HitGroupData));
-
-            // Setup instance for this shape and copy it into the instances array
-            inst.instanceId = shape_index;
-            inst.sbtOffset = shape_index;
-            inst.traversableHandle = shape->optix_traversable_handle();
-            memcpy(&instances[shape_index], &inst, sizeof(OptixInstance));
+            // compute optix geometry for this shape
+            shape->optix_geometry(build_inputs[shape_index], hg_sbts[shape_index].data);
 
             ++shape_index;
         }
         // Copy HitGroupRecords to the GPU
         cuda_memcpy_to_device(hitgroup_records, hg_sbts.data(), sizeof(HitGroupSbtRecord) * shapes_count);
-        // Copy Instances to GPU
-        cuda_memcpy_to_device((void*)instances_build_input.instanceArray.instances, instances.data(), sizeof(OptixInstance) * shapes_count);
 
         s.sbt.raygenRecord                = (CUdeviceptr)raygen_record;
         s.sbt.missRecordBase              = (CUdeviceptr)miss_record;
@@ -246,7 +218,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         accel_options.operation  = OPTIX_BUILD_OPERATION_BUILD;
 
         OptixAccelBufferSizes gas_buffer_sizes;
-        rt_check(optixAccelComputeMemoryUsage(s.context, &accel_options, &instances_build_input, 1, &gas_buffer_sizes));
+        rt_check(optixAccelComputeMemoryUsage(s.context, &accel_options, build_inputs.data(), shapes_count, &gas_buffer_sizes));
         void* d_temp_buffer_gas = cuda_malloc(gas_buffer_sizes.tempSizeInBytes);
 
         // non-compacted output
@@ -261,8 +233,8 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
             s.context,
             0,              // CUDA stream
             &accel_options,
-            &instances_build_input,
-            1,              // num build inputs
+            build_inputs.data(),
+            shapes_count,              // num build inputs
             (CUdeviceptr)d_temp_buffer_gas,
             gas_buffer_sizes.tempSizeInBytes,
             (CUdeviceptr)d_buffer_temp_output_gas_and_compacted_size,

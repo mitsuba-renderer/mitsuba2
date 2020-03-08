@@ -215,18 +215,8 @@ MTS_VARIANT RTCGeometry Shape<Float, Spectrum>::embree_geometry(RTCDevice device
 #endif
 
 #if defined(MTS_ENABLE_OPTIX)
-// MTS_VARIANT RTgeometrytriangles Shape<Float, Spectrum>::optix_geometry(RTcontext) {
-//     NotImplementedError("optix_geometry");
-// }
-
-MTS_VARIANT void Shape<Float, Spectrum>::optix_geometry(OptixDeviceContext context) {
+MTS_VARIANT void Shape<Float, Spectrum>::optix_geometry(OptixBuildInput& /*build_input*/, HitGroupData& /*hitgroup*/) {
     NotImplementedError("optix_geometry");
-}
-MTS_VARIANT OptixTraversableHandle Shape<Float, Spectrum>::optix_traversable_handle() {
-    NotImplementedError("optix_traversable_handle");
-}
-MTS_VARIANT const HitGroupData& Shape<Float, Spectrum>::optix_hit_group_data() const {
-    NotImplementedError("optix_hit_group_data");
 }
 #endif
 
