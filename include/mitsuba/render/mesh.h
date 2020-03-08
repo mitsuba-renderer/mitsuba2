@@ -279,7 +279,10 @@ public:
 
 #if defined(MTS_ENABLE_OPTIX)
     /// Return the OptiX version of this shape
-    virtual void optix_geometry(OptixBuildInput &build_input, HitGroupData& hitgroup) override;
+    virtual void optix_geometry() override;
+    virtual void optix_build_input(OptixBuildInput&) const override;
+    virtual void optix_hit_group_data(HitGroupData&) const override;
+
 #endif
 
     /// @}
@@ -345,8 +348,6 @@ protected:
         void* vertex_positions_buf = nullptr;
         void* vertex_normals_buf = nullptr;
         void* vertex_texcoords_buf = nullptr;
-
-        bool ready = false;
     };
 
     std::unique_ptr<OptixData> m_optix;

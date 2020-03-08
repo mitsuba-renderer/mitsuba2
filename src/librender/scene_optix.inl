@@ -76,6 +76,70 @@ typedef EmptySbtRecord RayGenSbtRecord;
 typedef EmptySbtRecord MissSbtRecord;
 typedef SbtRecord<HitGroupData>   HitGroupSbtRecord;
 
+MTS_VARIANT void Scene<Float, Spectrum>::accel_parameters_changed_gpu() {
+    OptixState &s = *(OptixState *) m_accel;
+
+    uint32_t shapes_count = m_shapes.size();
+    uint32_t shape_index = 0;
+    std::vector<OptixBuildInput> build_inputs(shapes_count);
+
+    for (Shape* shape: m_shapes) {
+        // compute optix geometry for this shape
+        shape->optix_build_input(build_inputs[shape_index]);
+        ++shape_index;
+    }
+
+    OptixAccelBuildOptions accel_options = {};
+    accel_options.buildFlags = OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
+    accel_options.operation  = OPTIX_BUILD_OPERATION_BUILD;
+
+    OptixAccelBufferSizes gas_buffer_sizes;
+    rt_check(optixAccelComputeMemoryUsage(s.context, &accel_options, build_inputs.data(), shapes_count, &gas_buffer_sizes));
+    void* d_temp_buffer_gas = cuda_malloc(gas_buffer_sizes.tempSizeInBytes);
+
+    // non-compacted output
+    // TODO: check that this allocation logic works
+    void* d_buffer_temp_output_gas_and_compacted_size = cuda_malloc(gas_buffer_sizes.outputSizeInBytes + 8);
+
+    OptixAccelEmitDesc emitProperty = {};
+    emitProperty.type = OPTIX_PROPERTY_TYPE_COMPACTED_SIZE;
+    emitProperty.result = (CUdeviceptr)((char*)d_buffer_temp_output_gas_and_compacted_size + gas_buffer_sizes.outputSizeInBytes);
+
+    rt_check(optixAccelBuild(
+        s.context,
+        0,              // CUDA stream
+        &accel_options,
+        build_inputs.data(),
+        shapes_count,              // num build inputs
+        (CUdeviceptr)d_temp_buffer_gas,
+        gas_buffer_sizes.tempSizeInBytes,
+        (CUdeviceptr)d_buffer_temp_output_gas_and_compacted_size,
+        gas_buffer_sizes.outputSizeInBytes,
+        &s.accel,
+        &emitProperty,  // emitted property list
+        1               // num emitted properties
+    ));
+
+    cuda_free((void*)d_temp_buffer_gas);
+
+    if (s.accel_buffer)
+        cuda_free(s.accel_buffer);
+
+    // TODO: check if this is really usefull considering enoki's way of handling GPU memory
+    size_t compacted_gas_size;
+    cuda_memcpy_from_device(&compacted_gas_size, (void*)emitProperty.result, sizeof(size_t));
+    if (compacted_gas_size < gas_buffer_sizes.outputSizeInBytes) {
+        s.accel_buffer = cuda_malloc(compacted_gas_size);
+
+        // use handle as input and output
+        rt_check(optixAccelCompact(s.context, 0, s.accel, (CUdeviceptr)s.accel_buffer, compacted_gas_size, &s.accel));
+
+        cuda_free((void*)d_buffer_temp_output_gas_and_compacted_size);
+    } else {
+        s.accel_buffer = d_buffer_temp_output_gas_and_compacted_size;
+    }
+}
+
 MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*props*/) {
     m_accel = new OptixState();
     OptixState &s = *(OptixState *) m_accel;
@@ -192,13 +256,13 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
 
         uint32_t shape_index = 0;
         std::vector<HitGroupSbtRecord>  hg_sbts(shapes_count);
-        std::vector<OptixBuildInput>    build_inputs(shapes_count);
 
         for (Shape* shape: m_shapes) {
+            shape->optix_geometry();
             // Setup the hitgroup record and copy it to the hitgroup records array
             rt_check(optixSbtRecordPackHeader(s.program_groups[2], &hg_sbts[shape_index]));
             // compute optix geometry for this shape
-            shape->optix_geometry(build_inputs[shape_index], hg_sbts[shape_index].data);
+            shape->optix_hit_group_data(hg_sbts[shape_index].data);
 
             ++shape_index;
         }
@@ -213,52 +277,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         s.sbt.hitgroupRecordStrideInBytes = sizeof(HitGroupSbtRecord);
         s.sbt.hitgroupRecordCount         = shapes_count;
 
-        OptixAccelBuildOptions accel_options = {};
-        accel_options.buildFlags = OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
-        accel_options.operation  = OPTIX_BUILD_OPERATION_BUILD;
-
-        OptixAccelBufferSizes gas_buffer_sizes;
-        rt_check(optixAccelComputeMemoryUsage(s.context, &accel_options, build_inputs.data(), shapes_count, &gas_buffer_sizes));
-        void* d_temp_buffer_gas = cuda_malloc(gas_buffer_sizes.tempSizeInBytes);
-
-        // non-compacted output
-        // TODO: check that this allocation logic works
-        void* d_buffer_temp_output_gas_and_compacted_size = cuda_malloc(gas_buffer_sizes.outputSizeInBytes + 8);
-
-        OptixAccelEmitDesc emitProperty = {};
-        emitProperty.type = OPTIX_PROPERTY_TYPE_COMPACTED_SIZE;
-        emitProperty.result = (CUdeviceptr)((char*)d_buffer_temp_output_gas_and_compacted_size + gas_buffer_sizes.outputSizeInBytes);
-
-        rt_check(optixAccelBuild(
-            s.context,
-            0,              // CUDA stream
-            &accel_options,
-            build_inputs.data(),
-            shapes_count,              // num build inputs
-            (CUdeviceptr)d_temp_buffer_gas,
-            gas_buffer_sizes.tempSizeInBytes,
-            (CUdeviceptr)d_buffer_temp_output_gas_and_compacted_size,
-            gas_buffer_sizes.outputSizeInBytes,
-            &s.accel,
-            &emitProperty,  // emitted property list
-            1               // num emitted properties
-        ));
-
-        cuda_free((void*)d_temp_buffer_gas);
-
-        // TODO: check if this is really usefull considering enoki's way of handling GPU memory
-        size_t compacted_gas_size;
-        cuda_memcpy_from_device(&compacted_gas_size, (void*)emitProperty.result, sizeof(size_t));
-        if (compacted_gas_size < gas_buffer_sizes.outputSizeInBytes) {
-            s.accel_buffer = cuda_malloc(compacted_gas_size);
-
-            // use handle as input and output
-            rt_check(optixAccelCompact(s.context, 0, s.accel, (CUdeviceptr)s.accel_buffer, compacted_gas_size, &s.accel));
-
-            cuda_free((void*)d_buffer_temp_output_gas_and_compacted_size);
-        } else {
-            s.accel_buffer = d_buffer_temp_output_gas_and_compacted_size;
-        }
+        accel_parameters_changed_gpu();
     } // end shader binding table generation and acceleration data structure building
 
     // Allocate params pointer
