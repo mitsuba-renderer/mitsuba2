@@ -209,7 +209,8 @@ class Optimizer:
         """
         self.set_learning_rate(lr)
         self.params = params
-        if not params.all_differentiable():
+        if hasattr(params, "all_differentiable") and \
+           not params.all_differentiable():
             raise Exception('Optimizer.__init__(): all parameters should '
                             'be differentiable!')
         self.state = {}
