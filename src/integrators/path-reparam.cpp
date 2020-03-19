@@ -15,16 +15,73 @@
 #include <list>
 #include "path-reparam-utils.h"
 
+#define REUSE_CAMERA_RAYS 1
+
 NAMESPACE_BEGIN(mitsuba)
 
-#define NB_LIGHT_SAMPLES 4
-#define NB_BSDF_SAMPLES 4
-#define NB_CAMERA_SAMPLES 4
+/**!
 
-#define BSDF_CONVOLUTION_KAPPA 1000.f
-#define CONV_THRESHOLD 0.15f
+.. _integrator-pathreparam:
 
-#define REUSE_CAMERA_RAYS 1
+Differentiable path tracer (:monosp:`pathreparam`)
+-------------------------------------------
+
+.. pluginparameters::
+
+ * - max_depth
+   - |int|
+   - Specifies the longest path depth in the generated output image (where -1 corresponds to
+     :math:`\infty`). A value of 1 will only render directly visible light sources. 2 will lead
+     to single-bounce (direct-only) illumination, and so on. (Default: -1)
+ * - rr_depth
+   - |int|
+   - Specifies the minimum path depth, after which the implementation will start to use the
+     *russian roulette* path termination criterion. (Default: 5)
+ * - dc_light_samples
+   - |int|
+   - Specifies the number of samples for reparameterizing direct lighting integrals. (Default: 4)
+ * - dc_bsdf_samples
+   - |int|
+   - Specifies the number of samples for reparameterizing BSDFs integrals. (Default: 4)
+ * - dc_cam_samples
+   - |int|
+   - Specifies the number of samples for reparameterizing pixel integrals. (Default: 4)
+ * - conv_threshold
+   - |float|
+   - Specifies the BSDFs roughness threshold that activates convolutions. (Default: 0.15f)
+ * - kappa_conv
+   - |float|
+   - Specifies the kappa parameter of von Mises-Fisher distributions for convolutions.
+     (Default: 1000.f)
+ * - use_convolution
+   - |bool|
+   - Enable convolution for rough BSDFs. (Default: yes, i.e. |true|)
+ * - use_variance_reduction
+   - |bool|
+   - Enable variation reduction. (Default: yes, i.e. |true|)
+ * - disable_gradient_diffuse
+   - |bool|
+   - Disable reparameterization for diffuse scattering. (Default: no, i.e. |false|)
+ * - disable_gradient_bounce
+   - |int|
+   - Disable reparameterization after several scattering events. (Default: 10)
+
+This integrator implements the reparameterization technique described in the
+article "Reparameterizing discontinuous integrands for differentiable rendering".
+It is based on the integrator :ref:`path <integrator-path>` and it applies 
+reparameterizations for each rendering integral in order to account for discontinuities 
+when pixel values are differentiated using GPU modes and the Python API.
+
+This plugin should be used with the plugin :ref:`smootharea <emitter-smootharea>`,
+which is similar to the plugin :ref:`area <emitter-area>` with smoothly 
+decreasing radiant exitance at the borders of the area light geometry to
+avoid discontinuities. Other light sources will lead to incorrect partial derivatives.
+Large area lights also result in significant bias since the convolution technique
+described in the paper is only applied to rough and diffuse BSDF integrals.
+
+.. note:: This integrator does not handle participating media
+
+ */
 
 template <typename Float, typename Spectrum>
 class DiffPathIntegrator : public MonteCarloIntegrator<Float, Spectrum> {
@@ -33,11 +90,11 @@ public:
     MTS_IMPORT_TYPES(Scene, Sampler, Emitter, EmitterPtr, BSDF, BSDFPtr)
 
     DiffPathIntegrator(const Properties &props) : Base(props) { 
-        m_dc_light_samples = props.size_("dc_light_samples", NB_LIGHT_SAMPLES);
-        m_dc_bsdf_samples  = props.size_("dc_bsdf_samples",  NB_BSDF_SAMPLES);
-        m_dc_cam_samples   = props.size_("dc_cam_samples",   NB_CAMERA_SAMPLES);
-        m_conv_threshold   = props.float_("conv_threshold",  CONV_THRESHOLD);
-        m_kappa_conv       = props.float_("kappa_conv",      BSDF_CONVOLUTION_KAPPA);
+        m_dc_light_samples = props.size_("dc_light_samples", 4);
+        m_dc_bsdf_samples  = props.size_("dc_bsdf_samples",  4);
+        m_dc_cam_samples   = props.size_("dc_cam_samples",   4);
+        m_conv_threshold   = props.float_("conv_threshold",  0.15f);
+        m_kappa_conv       = props.float_("kappa_conv",      1000.f);
         m_use_convolution        = props.bool_("use_convolution",        true);
         m_use_variance_reduction = props.bool_("use_variance_reduction", true);
         m_disable_gradient_diffuse = props.bool_("disable_gradient_diffuse", false);
