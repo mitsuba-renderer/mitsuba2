@@ -13,7 +13,7 @@
 #include <mitsuba/core/fresolver.h>
 #include <mitsuba/core/mmap.h>
 #include <list>
-#include "diffpath_utils.h"
+#include "path-reparam-utils.h"
 
 NAMESPACE_BEGIN(mitsuba)
 
