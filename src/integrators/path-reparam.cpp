@@ -79,6 +79,11 @@ avoid discontinuities. Other light sources will lead to incorrect partial deriva
 Large area lights also result in significant bias since the convolution technique
 described in the paper is only applied to rough and diffuse BSDF integrals.
 
+Another limitation of this implementation is memory usage on the GPU: automatic 
+differentiation for an entire path tracer typically requires several GB of GPU 
+memory. The rendering must sometimes be split into various rendering passes with 
+small sample counts in order to fit into GPU memory. 
+
 .. note:: This integrator does not handle participating media
 
  */
