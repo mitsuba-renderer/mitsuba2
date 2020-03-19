@@ -11,7 +11,7 @@ NAMESPACE_BEGIN(mitsuba)
 
 .. _emitter-smootharea:
 
-Area light (:monosp:`smootharea`)
+Smooth area light (:monosp:`smootharea`)
 ---------------------------
 
 .. pluginparameters::
@@ -20,25 +20,16 @@ Area light (:monosp:`smootharea`)
    - |spectrum|
    - Specifies the emitted radiance in units of power per unit area per unit steradian.
      (Default: :ref:`d65 <emitter-d65>`)
+ * - blur_size
+   - |float|
+   - Specifies the width of the smooth transition region from full emission to zero 
+     at the borders of the area light, in uv space. (Default: 0.1)
 
-This plugin implements an area light, i.e. a light source that emits
-diffuse illumination from the exterior of an arbitrary shape.
-Since the emission profile of an area light is completely diffuse, it
-has the same apparent brightness regardless of the observer's viewing
-direction. Furthermore, since it occupies a nonzero amount of space, an
-area light generally causes scene objects to cast soft shadows.
-
-To create an area light source, simply instantiate the desired
-emitter shape and specify an :monosp:`smootharea` instance as its child:
-
-.. code-block:: xml
-    :name: sphere-light
-
-    <shape type="sphere">
-        <emitter type="smootharea">
-            <spectrum name="radiance" value="1.0"/>
-        </emitter>
-    </shape>
+This plugin implements an area light with a smooth transition from full emission
+to zero (black) at its borders. This type of light is usefull for differentiable 
+rendering since it typically avoids discontinuities around area lights. The transition 
+region is defined in uv space. This plugin should be used with a flat quadrilateral mesh
+with texture coordinates that map to the unit square.
 
  */
 
