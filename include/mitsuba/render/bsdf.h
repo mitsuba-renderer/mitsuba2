@@ -220,7 +220,7 @@ template <typename Float, typename Spectrum> struct BSDFSample3 {
     /// Stores the component index that was sampled by \ref BSDF::sample()
     UInt32 sampled_component;
 
-    /// Roughness of the sampled material (used in DiffPath)
+    /// Roughness of the sampled material (used in \ref DiffPathIntegrator)
     Float sampled_roughness;
 
     //! @}

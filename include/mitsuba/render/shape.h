@@ -169,6 +169,7 @@ public:
     virtual SurfaceInteraction3f
     differentiable_surface_interaction(const Ray3f &ray,
                                        const SurfaceInteraction3f &si,
+                                       bool attach_p = false,
                                        Mask active = true) const;
 
     /// Compute "attached" differentiable positions

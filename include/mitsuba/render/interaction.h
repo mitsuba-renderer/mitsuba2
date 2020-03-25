@@ -244,10 +244,10 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
                           fmsub(a00, b1y, a01 * b0y) * inv_det);
     }
 
-    void compute_differentiable_intersection(const Ray3f &ray) {
+    void compute_differentiable_intersection(const Ray3f &ray, bool attach_p = false) {
 
-        SurfaceInteraction<Float_, Spectrum_> si_tmp 
-            = shape->differentiable_surface_interaction(ray, *this, is_valid());
+        SurfaceInteraction<Float_, Spectrum_> si_tmp
+            = shape->differentiable_surface_interaction(ray, *this, attach_p, is_valid());
 
         Mask active = neq(shape, nullptr);
         masked(t, active)           = si_tmp.t;
@@ -261,6 +261,7 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
         masked(dp_dv, active)       = si_tmp.dp_dv;
     }
 
+    // TODO: remove this method
     Point3f p_attached() const {
         return select(is_valid(), shape->p_attached(*this, is_valid()), Point3f(0));
     }

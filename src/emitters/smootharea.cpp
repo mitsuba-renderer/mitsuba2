@@ -22,12 +22,12 @@ Smooth area light (:monosp:`smootharea`)
      (Default: :ref:`d65 <emitter-d65>`)
  * - blur_size
    - |float|
-   - Specifies the width of the smooth transition region from full emission to zero 
+   - Specifies the width of the smooth transition region from full emission to zero
      at the borders of the area light, in uv space. (Default: 0.1)
 
 This plugin implements an area light with a smooth transition from full emission
-to zero (black) at its borders. This type of light is usefull for differentiable 
-rendering since it typically avoids discontinuities around area lights. The transition 
+to zero (black) at its borders. This type of light is usefull for differentiable
+rendering since it typically avoids discontinuities around area lights. The transition
 region is defined in uv space. This plugin should be used with a flat quadrilateral mesh
 with texture coordinates that map to the unit square.
 
@@ -62,18 +62,19 @@ public:
 
     Float smooth_profile(Float x) const {
         Float res(0);
-        res = select(x >= m_blur_size && x <= Float(1)-m_blur_size, Float(1), res);
-        res = select(x < m_blur_size && x > Float(0), x/m_blur_size, res);
-        res = select(x > Float(1)-m_blur_size && x < Float(1), (1-x)/m_blur_size, res);
+        res = select(x >= m_blur_size && x <= Float(1) - m_blur_size, Float(1), res);
+        res = select(x < m_blur_size && x > Float(0), x / m_blur_size, res);
+        res = select(x > Float(1) - m_blur_size && x < Float(1),
+                     (1 - x) / m_blur_size, res);
         return res;
-    }    
+    }
 
     Spectrum eval(const SurfaceInteraction3f &si, Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointEvaluate, active);
 
         return select(
             Frame3f::cos_theta(si.wi) > 0.f,
-            unpolarized<Spectrum>(m_radiance->eval(si, active)) 
+            unpolarized<Spectrum>(m_radiance->eval(si, active))
                 * smooth_profile(si.uv.x()) * smooth_profile(si.uv.y()),
             0.f
         );

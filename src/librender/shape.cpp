@@ -128,13 +128,14 @@ MTS_VARIANT void Shape<Float, Spectrum>::fill_surface_interaction(const Ray3f & 
 MTS_VARIANT typename Shape<Float, Spectrum>::SurfaceInteraction3f
 Shape<Float, Spectrum>::differentiable_surface_interaction(const Ray3f & /*ray*/,
                                                            const SurfaceInteraction3f & si,
+                                                           bool attach_p,
                                                            Mask /*active*/) const {
     NotImplementedError("differentiable_surface_interaction");
     return si;
 }
 
 MTS_VARIANT typename Shape<Float, Spectrum>::Point3f
-Shape<Float, Spectrum>::p_attached(const SurfaceInteraction3f & /*si*/, 
+Shape<Float, Spectrum>::p_attached(const SurfaceInteraction3f & /*si*/,
                                    Mask /*active*/) const {
     NotImplementedError("p_attached");
     return Point3f();

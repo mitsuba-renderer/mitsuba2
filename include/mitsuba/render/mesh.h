@@ -224,9 +224,10 @@ public:
     virtual SurfaceInteraction3f
     differentiable_surface_interaction(const Ray3f &ray,
                                        const SurfaceInteraction3f &si,
+                                       bool attach_p = false,
                                        Mask active = true) const override;
 
-    virtual Point3f p_attached(const SurfaceInteraction3f &si, 
+    virtual Point3f p_attached(const SurfaceInteraction3f &si,
                                Mask active = true) const override;
 #endif
 

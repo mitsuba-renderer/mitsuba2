@@ -24,6 +24,7 @@ public:
         m_k_res = 0;
         m_t_res = 0;
 
+        // TODO clean this
         auto fs = Thread::thread()->file_resolver();
         fs::path file_path = fs->resolve("data/vmf-hemisphere.data");
         auto name = file_path.filename().string();
@@ -42,7 +43,7 @@ public:
         const char *ptr = (const char *) mmap->data();
         const char *eof = ptr + mmap->size();
         char buf[1025];
-    
+
         size_t nb_data_line = 0;
 
         std::unique_ptr<float[]> tmp_data;
@@ -95,14 +96,13 @@ public:
             ptr = next + 1;
         }
 
-        m_data = DynamicBuffer<Float>::copy(&tmp_data[0], m_k_res*m_t_res);
+        m_data = DynamicBuffer<Float>::copy(&tmp_data[0], m_k_res * m_t_res);
 
         Log(Debug, "Loaded VMFHemisphereIntegral data, %ix%i.", m_k_res, m_t_res);
 
     }
-     
+
     Float eval(float k, Float costheta, mask_t<Float> active) const {
- 
         using UInt32   = uint32_array_t<Float>;
         using Point2u  = Point<UInt32, 2>;
         using Point2f  = Point<Float, 2>;
@@ -140,7 +140,7 @@ public:
         Float u_max = 6.f;
         return 0.1f*pow(10.f, u*u_max) - 0.1f;
     }
-    
+
     Float mapping_K_U(Float k) const {
         Float u_max = 6.f;
         return log(10.f*k + 1.f)/(log(10.f) * u_max);
@@ -185,9 +185,9 @@ Value concatD(const Value& a, const Value& b) {
         Uint index = arange<Uint>(N*2);
         Mask m = index < N;
         index = select(m, index, index - N);
-        return select(m, gather<Value>(a, index, m), 
+        return select(m, gather<Value>(a, index, m),
                          gather<Value>(b, index, !m));
-    } 
+    }
     Throw("DiffPathIntegrator::concatD: can only concat cuda arrays.");
     return Value();
 }
@@ -195,9 +195,9 @@ Value concatD(const Value& a, const Value& b) {
 template <typename Vector2>
 Vector2 concat2D(const Vector2& a, const Vector2& b) {
     if constexpr (is_cuda_array_v<Vector2>) {
-        return Vector2(concatD<value_t<Vector2>>(a.x(), b.x()), 
+        return Vector2(concatD<value_t<Vector2>>(a.x(), b.x()),
                        concatD<value_t<Vector2>>(a.y(), b.y()));
-    } 
+    }
     Throw("DiffPathIntegrator::concat2D: can only concat cuda arrays.");
     return Vector2();
 }
@@ -205,10 +205,10 @@ Vector2 concat2D(const Vector2& a, const Vector2& b) {
 template <typename Vector3>
 Vector3 concat3D(const Vector3& a, const Vector3& b) {
     if constexpr (is_cuda_array_v<Vector3>) {
-        return Vector3(concatD<value_t<Vector3>>(a.x(), b.x()), 
+        return Vector3(concatD<value_t<Vector3>>(a.x(), b.x()),
                        concatD<value_t<Vector3>>(a.y(), b.y()),
                        concatD<value_t<Vector3>>(a.z(), b.z()));
-    } 
+    }
     Throw("DiffPathIntegrator::concat3D: can only concat cuda arrays.");
     return Vector3();
 }
@@ -223,31 +223,30 @@ Value makePairD(const Value& a) {
         Mask m = index < N;
         index = select(m, index, index - N);
         return gather<Value>(a, index, Mask(true));
-    } 
+    }
     Throw("DiffPathIntegrator::makePairD: can only makePairD cuda arrays.");
     return Value();
-}
-
-
-template <typename Vector3>
-Vector3 makePair3D(const Vector3& a) {
-    if constexpr (is_cuda_array_v<Vector3>) {
-        return Vector3(makePairD<value_t<Vector3>>(a.x()), 
-                       makePairD<value_t<Vector3>>(a.y()),
-                       makePairD<value_t<Vector3>>(a.z()));
-    } 
-    Throw("DiffPathIntegrator::makePair3D: can only dupplicate cuda arrays.");
-    return Vector3();
 }
 
 template <typename Point>
 Point makePair2D(const Point& a) {
     if constexpr (is_cuda_array_v<Point>) {
-        return Point(makePairD<value_t<Point>>(a.x()), 
+        return Point(makePairD<value_t<Point>>(a.x()),
                      makePairD<value_t<Point>>(a.y()));
-    } 
+    }
     Throw("DiffPathIntegrator::makePair2D: can only dupplicate cuda arrays.");
     return Point();
+}
+
+template <typename Vector3>
+Vector3 makePair3D(const Vector3& a) {
+    if constexpr (is_cuda_array_v<Vector3>) {
+        return Vector3(makePairD<value_t<Vector3>>(a.x()),
+                       makePairD<value_t<Vector3>>(a.y()),
+                       makePairD<value_t<Vector3>>(a.z()));
+    }
+    Throw("DiffPathIntegrator::makePair3D: can only dupplicate cuda arrays.");
+    return Vector3();
 }
 
 template <typename Value, typename Wavelength>
