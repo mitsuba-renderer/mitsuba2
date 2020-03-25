@@ -158,8 +158,8 @@ public:
 
             // Detect discontinuities in a small vMF kernel around each ray.
 
-            std::vector<RayDifferential3f> rays;
-            std::vector<SurfaceInteraction3f> sis;
+            std::vector<RayDifferential3f> rays(m_dc_cam_samples);
+            std::vector<SurfaceInteraction3f> sis(m_dc_cam_samples);
 
             Frame<Float> frame_input = Frame<Float>(primary_ray.d);
 
@@ -172,12 +172,10 @@ public:
                 Vector3f dir_conv_cs = frame_input.to_world(vMF_sample_cs);
 
                 primary_ray.d = dir_conv_cs;
-                SurfaceInteraction3f si_cs =
-                    scene->ray_intersect(primary_ray, active_primary);
-                si_cs.compute_differentiable_intersection(primary_ray, true); // Using enoki to get autodiff
+                sis[cs] = scene->ray_intersect(primary_ray, active_primary);
+                sis[cs].compute_differentiable_intersection(primary_ray, true); // Using enoki to get autodiff
 
-                rays.push_back(RayDifferential(primary_ray));
-                sis.push_back(si_cs);
+                rays[cs] = RayDifferential(primary_ray);
 
                 // Keep two directions for creating pairs of paths.
                 // We choose the last samples since they have less
@@ -324,32 +322,28 @@ public:
                     Point3f position_discontinuity(0.f);
                     UInt32 hits(0);
 
-                    std::vector<DirectionSample3f> ds_ls;
-                    std::vector<Spectrum> emitter_val_ls;
-                    std::vector<Mask> is_hit_ls;
+                    std::vector<DirectionSample3f> ds_ls(m_dc_light_samples);
+                    std::vector<Spectrum> emitter_val_ls(m_dc_light_samples);
+                    std::vector<Mask> is_hit_ls(m_dc_light_samples);
 
                     for (size_t ls = 0; ls < m_dc_light_samples; ls++) {
-                        auto [ds, emitter_val] = emitter->sample_direction(
+                        std::tie(ds_ls[ls], emitter_val_ls[ls]) = emitter->sample_direction(
                             si, samplePair2D(active_e, sampler), active_e);
 
-                        ds_ls.push_back(ds);
-                        emitter_val_ls.push_back(emitter_val);
-
-                        Mask active_ls = active_e && neq(ds.pdf, 0.f);
+                        Mask active_ls = active_e && neq(ds_ls[ls].pdf, 0.f);
                         if (any_or<true>(active_ls)) {
                             // Look for masking for active rays with valid emitter samples
-                            Ray3f ray_ls(si.p, ds.d, math::RayEpsilon<Float> * (1.f + hmax(abs(si.p))),
-                                         ds.dist * (1.f - math::ShadowEpsilon<Float>),
+                            Ray3f ray_ls(si.p, ds_ls[ls].d, math::RayEpsilon<Float> * (1.f + hmax(abs(si.p))),
+                                         ds_ls[ls].dist * (1.f - math::ShadowEpsilon<Float>),
                                          si.time, si.wavelengths);
 
                             SurfaceInteraction3f si_ls = scene->ray_intersect(ray_ls, active_ls);
                             si_ls.compute_differentiable_intersection(ray_ls, true);
 
-                            Mask ls_hit = neq(si_ls.shape, nullptr);
-                            is_hit_ls.push_back(ls_hit);
-                            position_discontinuity[ls_hit] += si_ls.p;
-                            hits = select(ls_hit, hits + 1, hits);
-                            emitter_val_ls[ls] = select(ls_hit, Spectrum(0.f), emitter_val_ls[ls]);
+                            is_hit_ls[ls] = neq(si_ls.shape, nullptr);
+                            position_discontinuity[is_hit_ls[ls]] += si_ls.p;
+                            hits = select(is_hit_ls[ls], hits + 1, hits);
+                            emitter_val_ls[ls] = select(is_hit_ls[ls], Spectrum(0.f), emitter_val_ls[ls]);
                         }
                     }
 
@@ -374,8 +368,8 @@ public:
                         rotation_ls = rotation_from_axis_cosangle(axis_ls, cosangle_ls);
                     }
 
-                    std::vector<Spectrum> contribs_ls;
-                    std::vector<Float> weights_ls;
+                    std::vector<Spectrum> contribs_ls(m_dc_light_samples);
+                    std::vector<Float> weights_ls(m_dc_light_samples);
 
                     // Reuse all the emitter samples and compute differentiable contributions
 
@@ -415,10 +409,9 @@ public:
                             ds_ls[ls].pdf = select(has_hit, detach(ds_ls[ls].pdf), ds_ls[ls].pdf);
 
                             Float w(1.f);
-                            w = select(has_hit, pdf_ls_diff / ds_ls[ls].pdf, 1.f);
-                            weights_ls.push_back(w);
+                            weights_ls[ls] = select(has_hit, pdf_ls_diff / ds_ls[ls].pdf, 1.f);
                         } else {
-                            weights_ls.push_back(Float(1.f));
+                            weights_ls[ls] = Float(1.f);
                         }
 
                         // Compute contribution
@@ -435,8 +428,7 @@ public:
 
                         Float mis = select(ds_ls[ls].delta, 1.f, mis_weight(ds_ls[ls].pdf * emitter_pdf, bsdf_pdf));
 
-                        Spectrum contrib_ls = throughput * emitter_val_ls[ls] / emitter_pdf * bsdf_val * mis;
-                        contribs_ls.push_back(contrib_ls);
+                        contribs_ls[ls] = throughput * emitter_val_ls[ls] / emitter_pdf * bsdf_val * mis;
                     }
 
                     // Accumulate contributions and variance reduction (in pairs of paths)
@@ -506,7 +498,7 @@ public:
                 active &= sample_main_bs.pdf > 0.f;
 
                 Frame<Float> frame_main(sample_main_bs.wo);
-                std::vector<Vector3f> ds_bs;
+                std::vector<Vector3f> ds_bs(m_dc_bsdf_samples);
 
                 // Compute directions to samples either from the bsdf or the
                 // convolution of the bsdf. Only the first one is
@@ -521,24 +513,20 @@ public:
                     auto [sample_bs_noconv, bsdf_val_bs] = bsdf->sample(ctx, si, component_sample,
                                                                         sample2D(active, sampler), active);
 
-                    sample_bs = select(convolution, sample_bs, sample_bs_noconv.wo);
-
-                    ds_bs.push_back(sample_bs);
+                    ds_bs[bs] = select(convolution, sample_bs, sample_bs_noconv.wo);
                 }
 
                 // Sample all these rays for discontinuity estimation
-                std::vector<RayDifferential3f> rays_bs;
-                std::vector<SurfaceInteraction3f> sis_bs;
+                std::vector<RayDifferential3f> rays_bs(m_dc_bsdf_samples);
+                std::vector<SurfaceInteraction3f> sis_bs(m_dc_bsdf_samples);
 
                 Mask use_sliding_bs(false);
                 for (size_t bs = 0; bs < m_dc_bsdf_samples; bs++) {
-                    Ray3f ray_bs = si.spawn_ray(si.to_world(ds_bs[bs]));
-                    SurfaceInteraction3f si_bsdf_bs = scene->ray_intersect(ray_bs, active);
-                    si_bsdf_bs.compute_differentiable_intersection(ray_bs, true);
-                    rays_bs.push_back(ray_bs);
-                    sis_bs.push_back(si_bsdf_bs);
+                    rays_bs[bs] = si.spawn_ray(si.to_world(ds_bs[bs]));
+                    sis_bs[bs] = scene->ray_intersect(rays_bs[bs], active);
+                    sis_bs[bs].compute_differentiable_intersection(rays_bs[bs], true);
                     // Set use_sliding_bs to true if find hit
-                    use_sliding_bs = use_sliding_bs || (active && neq(si_bsdf_bs.shape, nullptr));
+                    use_sliding_bs = use_sliding_bs || (active && neq(sis_bs[bs].shape, nullptr));
                 }
 
                 if (m_disable_gradient_diffuse) {
