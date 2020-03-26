@@ -307,11 +307,9 @@ public:
                 Mask active_e = active && has_flag(bsdf->flags(), BSDFFlags::Smooth);
 
                 if (likely(any_or<true>(active_e))) {
-                    
                     // Sample the light integral at each active shading point.
                     // Several samples are used for estimating discontinuities
                     // in light visibility.
-
                     auto [emitter, emitter_pdf] = scene->sample_emitter(
                         si, samplePair2D(active_e, sampler), active_e);
 
@@ -664,7 +662,7 @@ public:
     MTS_DECLARE_CLASS()
 
 protected:
-
+    // TODO: try power heuristic, could reduce bias in gradient with large area lights
     template <typename Value> Value mis_weight(Value pdf_a, Value pdf_b) const {
         pdf_a *= pdf_a;
         pdf_b *= pdf_b;

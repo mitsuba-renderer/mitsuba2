@@ -334,84 +334,37 @@ Mesh<Float, Spectrum>::differentiable_surface_interaction(
     SurfaceInteraction3f si(si_);
 
     // recompute ray / triangle intersection
-    // get std::tuple with validity, u, v, t
-    auto si_diff = ray_intersect_triangle(si.prim_index, ray, active);
+    auto [valid, b1, b2, t] = ray_intersect_triangle(si.prim_index, ray, active);
 
     // Replace the data by differentiable data
-    Mask active_its          = std::get<0>(si_diff);
-    masked(si.t, active_its) = std::get<3>(si_diff);
-
-    // get differentiable barycentric coordinates
-    Float b1 = std::get<1>(si_diff);
-    Float b2 = std::get<2>(si_diff);
-
-    // TODO: merge with fill_surface_interaction
-    // Float cache[2] = { b1, b2 };
-    // fill_surface_interaction(ray, cache, si, active);
-
-    Float b0 = 1.f - b1 - b2;
-
-    auto fi = face_indices(si.prim_index, active);
-
-    Point3f p0 = vertex_position(fi[0], active),
-            p1 = vertex_position(fi[1], active),
-            p2 = vertex_position(fi[2], active);
-
-    Vector3f dp0 = p1 - p0,
-             dp1 = p2 - p0;
-
-    // Face normal
-    Normal3f n = normalize(cross(dp0, dp1));
-    si.n[active] = n;
-
-    // Texture coordinates (if available)
-    auto [dp_du, dp_dv] = coordinate_system(n);
-    Point2f uv(b1, b2);
-    if (has_vertex_texcoords()) {
-        Point2f uv0 = vertex_texcoord(fi[0], active),
-                uv1 = vertex_texcoord(fi[1], active),
-                uv2 = vertex_texcoord(fi[2], active);
-
-        uv = uv0 * b0 + uv1 * b1 + uv2 * b2;
-
-        Vector2f duv0 = uv1 - uv0,
-                 duv1 = uv2 - uv0;
-
-        Float det     = fmsub(duv0.x(), duv1.y(), duv0.y() * duv1.x()),
-              inv_det = rcp(det);
-
-        Mask valid = neq(det, 0.f);
-
-        dp_du[valid] = fmsub( duv1.y(), dp0, duv0.y() * dp1) * inv_det;
-        dp_dv[valid] = fnmadd(duv1.x(), dp0, duv0.x() * dp1) * inv_det;
-    }
-    si.uv[active] = uv;
-
-    // Shading normal (if available)
-    if (has_vertex_normals()) {
-        Normal3f n0 = vertex_normal(fi[0], active),
-                 n1 = vertex_normal(fi[1], active),
-                 n2 = vertex_normal(fi[2], active);
-
-        n = normalize(n0 * b0 + n1 * b1 + n2 * b2);
-    }
-
-    si.sh_frame.n[active] = n;
-
-    // Tangents
-    si.dp_du[active] = dp_du;
-    si.dp_dv[active] = dp_dv;
-
-
-    masked(si.sh_frame.s, active) = normalize(
-        fnmadd(si.sh_frame.n, dot(si.sh_frame.n, si.dp_du), si.dp_du));
-    masked(si.sh_frame.t, active) = cross(si.sh_frame.n, si.sh_frame.s);
+    active &= valid;
+    masked(si.t, active) = t;
 
     // TODO comment this
-    if(!attach_p)
-        masked(si.p, active_its) = ray.o + si.t * ray.d;
-    else
-        masked(si.p, active_its)= p0 * detach(b0) + p1 * detach(b1) + p2 * detach(b2);
+    if(!attach_p) {
+        Float cache[2] = { b1, b2 };
+        fill_surface_interaction(ray, cache, si, active);
+
+        si.sh_frame.s[active] = normalize(
+            fnmadd(si.sh_frame.n, dot(si.sh_frame.n, si.dp_du), si.dp_du));
+        si.sh_frame.t[active] = cross(si.sh_frame.n, si.sh_frame.s);
+    } else {
+        Float b0 = 1.f - b1 - b2;
+
+        auto fi = face_indices(si.prim_index, active);
+
+        Point3f p0 = vertex_position(fi[0], active),
+                p1 = vertex_position(fi[1], active),
+                p2 = vertex_position(fi[2], active);
+
+        Vector3f dp0 = p1 - p0,
+                 dp1 = p2 - p0;
+
+        // Face normal
+        Normal3f n = normalize(cross(dp0, dp1));
+        si.n[active] = n;
+        si.p[active] = p0 * detach(b0) + p1 * detach(b1) + p2 * detach(b2);
+    }
 
     return si;
 }
