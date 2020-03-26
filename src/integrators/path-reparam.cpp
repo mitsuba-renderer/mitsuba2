@@ -307,17 +307,13 @@ public:
                 Mask active_e = active && has_flag(bsdf->flags(), BSDFFlags::Smooth);
 
                 if (likely(any_or<true>(active_e))) {
+                    
                     // Sample the light integral at each active shading point.
                     // Several samples are used for estimating discontinuities
                     // in light visibility.
 
-                    // auto [emitter, emitter_pdf] = scene->sample_emitter(
-                    //     si, samplePair2D(active_e, sampler), active_e);
-
-                    auto emitter = scene->emitters()[0];
-                    Float emitter_pdf(1.f);
-                    if (scene->emitters().size() > 1)
-                        Log(Error, "Only one emitter is supported currently"); // TODO: support multiple emitters
+                    auto [emitter, emitter_pdf] = scene->sample_emitter(
+                        si, samplePair2D(active_e, sampler), active_e);
 
                     Point3f position_discontinuity(0.f);
                     UInt32 hits(0);
