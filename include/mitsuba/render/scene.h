@@ -69,6 +69,30 @@ public:
     // =============================================================
 
     /**
+     * \brief Sample the emitters of the scene
+     *
+     * Given an arbitrary reference point in the scene, this method samples
+     * an emitter.
+     *
+     * Ideally, the implementation should importance sample the product of
+     * the emission profile and the geometry term between the reference point
+     * and the position on the emitter.
+     *
+     * \param ref
+     *    A reference point somewhere within the scene
+     *
+     * \param sample
+     *    A uniformly distributed 2D vector
+     *
+     * \return
+     *    The sampled emitter and the sample probability.
+     */
+    std::pair<EmitterPtr, Float>
+    sample_emitter(const Interaction3f &ref,
+                   const Point2f &sample,
+                   Mask active = true) const;
+
+    /**
      * \brief Direct illumination sampling routine
      *
      * Given an arbitrary reference point in the scene, this method samples a
@@ -97,31 +121,6 @@ public:
                              const Point2f &sample,
                              bool test_visibility = true,
                              Mask active = true) const;
-
-
-    /**
-     * \brief Sample the emitters of the scene
-     *
-     * Given an arbitrary reference point in the scene, this method samples 
-     * an emitter.
-     *
-     * Ideally, the implementation should importance sample the product of
-     * the emission profile and the geometry term between the reference point
-     * and the position on the emitter.
-     *
-     * \param ref
-     *    A reference point somewhere within the scene
-     *
-     * \param sample
-     *    A uniformly distributed 2D vector
-     *
-     * \return
-     *    The sampled emitter and the sample probability.
-     */
-    std::pair<EmitterPtr, Float>
-    sample_emitter(const Interaction3f &ref,
-                   const Point2f &sample,
-                   Mask active = true) const;
 
     /**
      * \brief Evaluate the probability density of the  \ref

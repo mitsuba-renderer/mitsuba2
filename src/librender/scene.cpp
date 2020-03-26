@@ -138,6 +138,29 @@ Scene<Float, Spectrum>::ray_test(const Ray3f &ray, Mask active) const {
         return ray_test_cpu(ray, active);
 }
 
+MTS_VARIANT std::pair<typename Scene<Float, Spectrum>::EmitterPtr, Float>
+Scene<Float, Spectrum>::sample_emitter(const Interaction3f &/*ref*/,
+                                       const Point2f &sample,
+                                       Mask active) const {
+
+    ScalarFloat emitter_pdf(1.f);
+    EmitterPtr emitter;
+    if (likely(!m_emitters.empty())) {
+        if (m_emitters.size() == 1) {
+            // Fast path if there is only one emitter
+            emitter = m_emitters[0];
+        } else {
+            // Randomly pick an emitter according to the precomputed emitter distribution
+            UInt32 index = min(UInt32(sample.x() * (ScalarFloat) m_emitters.size()), (uint32_t) m_emitters.size()-1);
+            emitter_pdf = 1.f / m_emitters.size();
+            emitter = gather<EmitterPtr>(m_emitters.data(), index, active);
+        }
+    } else {
+        Throw("Scene::sample_emitter_impl: Not implemented, scene must have emitters.");
+    }
+    return { emitter, emitter_pdf };
+}
+
 MTS_VARIANT std::pair<typename Scene<Float, Spectrum>::DirectionSample3f, Spectrum>
 Scene<Float, Spectrum>::sample_emitter_direction(const Interaction3f &ref, const Point2f &sample_,
                                                  bool test_visibility, Mask active) const {
@@ -160,7 +183,7 @@ Scene<Float, Spectrum>::sample_emitter_direction(const Interaction3f &ref, const
             UInt32 index = min(UInt32(sample.x() * (ScalarFloat) m_emitters.size()), (uint32_t) m_emitters.size()-1);
 
             // Rescale sample.x() to lie in [0,1) again
-            sample.x() = (sample.x() - index*emitter_pdf) * m_emitters.size();
+            sample.x() = (sample.x() - index * emitter_pdf) * m_emitters.size();
 
             EmitterPtr emitter = gather<EmitterPtr>(m_emitters.data(), index, active);
 
@@ -186,25 +209,6 @@ Scene<Float, Spectrum>::sample_emitter_direction(const Interaction3f &ref, const
     }
 
     return { ds, spec };
-}
-
-
-MTS_VARIANT std::pair<typename Scene<Float, Spectrum>::EmitterPtr, Float>
-Scene<Float, Spectrum>::sample_emitter(const Interaction3f &/*ref*/,
-                                       const Point2f &sample,
-                                       Mask active) const {
-
-    ScalarFloat emitter_pdf;
-    EmitterPtr emitter;
-    if (likely(!m_emitters.empty())) {
-        // Randomly pick an emitter according to the precomputed emitter distribution
-        UInt32 index = min(UInt32(sample.x() * (ScalarFloat) m_emitters.size()), (uint32_t) m_emitters.size()-1);
-        emitter_pdf = 1.f / m_emitters.size();
-        emitter = gather<EmitterPtr>(m_emitters.data(), index, active);
-    } else {
-        Throw("Scene::sample_emitter_impl: Not implemented, scene must have emitters.");
-    }
-    return { emitter, emitter_pdf };
 }
 
 MTS_VARIANT Float
