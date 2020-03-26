@@ -138,12 +138,12 @@ public:
 
     Float mapping_U_K(Float u) const {
         Float u_max = 6.f;
-        return 0.1f*pow(10.f, u*u_max) - 0.1f;
+        return 0.1f * pow(10.f, u * u_max) - 0.1f;
     }
 
     Float mapping_K_U(Float k) const {
         Float u_max = 6.f;
-        return log(10.f*k + 1.f)/(log(10.f) * u_max);
+        return log(10.f * k + 1.f) / (log(10.f) * u_max);
     }
 
 private:
@@ -171,140 +171,93 @@ private:
     DynamicBuffer<Float> m_data;
 };
 
-/* Helpers for duplicating data in large CUDA arrays */
+// Helpers for duplicating data in large CUDA arrays
 
-template <typename Value>
-Value concatD(const Value& a, const Value& b) {
-    using Uint = uint_array_t<Value>;
-    using Mask = mask_t<Value>;
+template <typename Value> Value concatD(const Value &a, const Value &b) {
+    using T =
+        std::conditional_t<is_static_array_v<Value>, value_t<Value>, Value>;
+    using UInt = uint_array_t<T>;
+    using Mask = mask_t<T>;
     if constexpr (is_cuda_array_v<Value>) {
         size_t N = slices(a);
         if (slices(a) != slices(b)) {
-            Throw("DiffPathIntegrator::concatD: cannot concat arrays with different sizes (not implemented).");
+            Throw("DiffPathIntegrator::concatD: cannot concat arrays with "
+                  "different sizes (not implemented).");
         }
-        Uint index = arange<Uint>(N*2);
-        Mask m = index < N;
-        index = select(m, index, index - N);
+        UInt index = arange<UInt>(N * 2);
+        Mask m     = index < N;
+        index      = select(m, index, index - N);
         return select(m, gather<Value>(a, index, m),
                          gather<Value>(b, index, !m));
+    } else {
+        Throw("DiffPathIntegrator::concatD: can only concat cuda arrays.");
     }
-    Throw("DiffPathIntegrator::concatD: can only concat cuda arrays.");
-    return Value();
 }
 
-template <typename Vector2>
-Vector2 concat2D(const Vector2& a, const Vector2& b) {
-    if constexpr (is_cuda_array_v<Vector2>) {
-        return Vector2(concatD<value_t<Vector2>>(a.x(), b.x()),
-                       concatD<value_t<Vector2>>(a.y(), b.y()));
-    }
-    Throw("DiffPathIntegrator::concat2D: can only concat cuda arrays.");
-    return Vector2();
-}
-
-template <typename Vector3>
-Vector3 concat3D(const Vector3& a, const Vector3& b) {
-    if constexpr (is_cuda_array_v<Vector3>) {
-        return Vector3(concatD<value_t<Vector3>>(a.x(), b.x()),
-                       concatD<value_t<Vector3>>(a.y(), b.y()),
-                       concatD<value_t<Vector3>>(a.z(), b.z()));
-    }
-    Throw("DiffPathIntegrator::concat3D: can only concat cuda arrays.");
-    return Vector3();
-}
-
-template <typename Value>
-Value makePairD(const Value& a) {
-    using Int = int_array_t<Value>;
-    using Mask = mask_t<Value>;
+template <typename Value> Value makePairD(const Value &a) {
+    using T =
+        std::conditional_t<is_static_array_v<Value>, value_t<Value>, Value>;
+    using UInt = uint_array_t<T>;
+    using Mask = mask_t<T>;
     if constexpr (is_cuda_array_v<Value>) {
         size_t N = slices(a);
-        Int index = arange<Int>(N*2);
-        Mask m = index < N;
-        index = select(m, index, index - N);
-        return gather<Value>(a, index, Mask(true));
+        if (N > 0) {
+            UInt index = arange<UInt>(N * 2);
+            Mask m     = index < N;
+            index      = select(m, index, index - N);
+            return gather<Value>(a, index);
+        } else {
+            return Value();
+        }
+    } else {
+        Throw("DiffPathIntegrator::makePairD: can only makePairD cuda arrays.");
     }
-    Throw("DiffPathIntegrator::makePairD: can only makePairD cuda arrays.");
-    return Value();
 }
 
-template <typename Point>
-Point makePair2D(const Point& a) {
-    if constexpr (is_cuda_array_v<Point>) {
-        return Point(makePairD<value_t<Point>>(a.x()),
-                     makePairD<value_t<Point>>(a.y()));
-    }
-    Throw("DiffPathIntegrator::makePair2D: can only dupplicate cuda arrays.");
-    return Point();
-}
-
-template <typename Vector3>
-Vector3 makePair3D(const Vector3& a) {
-    if constexpr (is_cuda_array_v<Vector3>) {
-        return Vector3(makePairD<value_t<Vector3>>(a.x()),
-                       makePairD<value_t<Vector3>>(a.y()),
-                       makePairD<value_t<Vector3>>(a.z()));
-    }
-    Throw("DiffPathIntegrator::makePair3D: can only dupplicate cuda arrays.");
-    return Vector3();
-}
-
-template <typename Value, typename Wavelength>
-Wavelength makePairWavelength(const Wavelength& a) {
-    using Uint = uint_array_t<Value>;
-    using Mask = mask_t<Value>;
-    size_t N = slices(a);
-    if (N > 0) {
-        Uint index = arange<Uint>(N*2);
-        Mask m = index < N;
-        index = select(m, index, index - N);
-        return gather<Wavelength>(a, index, Mask(true));
-    }
-    return Wavelength();
-}
-
-/* Helpers for sampling large CUDA Arrays */
+// Helpers for sampling large CUDA Arrays
 
 template <typename Float, typename Spectrum, typename Mask = mask_t<Float>>
 Float samplePair1D(const Mask &m, Sampler<Float, Spectrum> *sampler) {
-    size_t N = slices(m)/2;
-    using Uint = uint_array_t<Float>;
-    Mask m0 = gather<Mask>(m, arange<Uint>(N));
-    Mask m1 = gather<Mask>(m, arange<Uint>(N) + N);
+    size_t N = slices(m) / 2;
+    using UInt = uint_array_t<Float>;
+    UInt indices = arange<UInt>(N);
+    Mask m0 = gather<Mask>(m, indices);
+    Mask m1 = gather<Mask>(m, indices + N);
     Float sample = sampler->next_1d(m0 || m1);
     return makePairD(sample);
 }
 
-template <typename Float, typename Spectrum,
-          typename Mask = mask_t<Float>,
+template <typename Float, typename Spectrum, typename Mask = mask_t<Float>,
           typename Point2 = Point<Float, 2>>
 Point2 samplePair2D(const Mask &m, Sampler<Float, Spectrum> *sampler) {
-    size_t N = slices(m)/2;
-    using Uint = uint_array_t<Float>;
-    Mask m0 = gather<Mask>(m, arange<Uint>(N));
-    Mask m1 = gather<Mask>(m, arange<Uint>(N) + N);
+    using UInt = uint_array_t<Float>;
+    size_t N = slices(m) / 2;
+    UInt indices = arange<UInt>(N);
+    Mask m0 = gather<Mask>(m, indices);
+    Mask m1 = gather<Mask>(m, indices + N);
     Point2 sample = sampler->next_2d(m0 || m1);
-    return makePair2D(sample);
+    return makePairD(sample);
 }
 
 template <typename Float, typename Spectrum, typename Mask = mask_t<Float>>
 Float sample1D(const Mask &m, Sampler<Float, Spectrum> *sampler) {
-    using Uint = uint_array_t<Float>;
-    size_t N = slices(m)/2;
-    Mask m0 = gather<Mask>(m, arange<Uint>(N));
-    Mask m1 = gather<Mask>(m, arange<Uint>(N) + N);
+    using UInt = uint_array_t<Float>;
+    size_t N = slices(m) / 2;
+    UInt indices = arange<UInt>(N);
+    Mask m0 = gather<Mask>(m, indices);
+    Mask m1 = gather<Mask>(m, indices + N);
     return concatD(sampler->next_1d(m0), sampler->next_1d(m1));
 }
 
-template <typename Float, typename Spectrum,
-          typename Mask = mask_t<Float>,
+template <typename Float, typename Spectrum, typename Mask = mask_t<Float>,
           typename Point2 = Point<Float, 2>>
 Point2 sample2D(const Mask &m, Sampler<Float, Spectrum> *sampler) {
-    size_t N = slices(m)/2;
-    using Uint = uint_array_t<Float>;
-    Mask m0 = gather<Mask>(m, arange<Uint>(N), Mask(true));
-    Mask m1 = gather<Mask>(m, arange<Uint>(N) + N, Mask(true));
-    return concat2D(sampler->next_2d(m0), sampler->next_2d(m1));
+    using UInt = uint_array_t<Float>;
+    size_t N = slices(m) / 2;
+    UInt indices = arange<UInt>(N);
+    Mask m0 = gather<Mask>(m, indices);
+    Mask m1 = gather<Mask>(m, indices + N);
+    return concatD(sampler->next_2d(m0), sampler->next_2d(m1));
 }
 
 NAMESPACE_END(mitsuba)

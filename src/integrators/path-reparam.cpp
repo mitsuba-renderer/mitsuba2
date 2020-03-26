@@ -221,9 +221,9 @@ public:
             Vector ray_d_0 = rotation.transform_affine(detach(dir_conv_0));
             Vector ray_d_1 = rotation.transform_affine(detach(dir_conv_1));
 
-            Vector3f ray_d = concat3D<Vector3f>(ray_d_0, ray_d_1);
-            Point3f ray_o  = makePair3D<Point3f>(primary_ray.o);
-            Wavelength ray_w = makePairWavelength<Float, Wavelength>(primary_ray.wavelengths);
+            Vector3f ray_d   = concatD(ray_d_0, ray_d_1);
+            Point3f ray_o    = makePairD<Point3f>(primary_ray.o);
+            Wavelength ray_w = makePairD(primary_ray.wavelengths);
 
             Ray3f ray = Ray3f(ray_o, ray_d, 0.0, ray_w);
 
@@ -247,10 +247,10 @@ public:
             si.compute_differentiable_intersection(ray);
 
             Mask valid_ray_pair = si.is_valid();
-            UInt32 indices      = arange_indices;
+
             Mask valid_ray =
-                gather<Mask>(valid_ray_pair, indices) ||
-                gather<Mask>(valid_ray_pair, indices + nb_pimary_rays);
+                gather<Mask>(valid_ray_pair, arange_indices) ||
+                gather<Mask>(valid_ray_pair, arange_indices + nb_pimary_rays);
 
             EmitterPtr emitter = si.emitter(scene);
 
@@ -265,8 +265,8 @@ public:
                     Spectrum emission_0 = gather<Spectrum>(emission, arange_indices);
                     Spectrum emission_1 = gather<Spectrum>(emission, arange_indices + nb_pimary_rays);
 
-                    Float weights_0 = gather<Float>(current_weight, arange_indices, Mask(true));
-                    Float weights_1 = gather<Float>(current_weight, arange_indices + nb_pimary_rays, Mask(true));
+                    Float weights_0 = gather<Float>(current_weight, arange_indices);
+                    Float weights_1 = gather<Float>(current_weight, arange_indices + nb_pimary_rays);
 
                     if (depth >= m_disable_gradient_bounce) {
                         result += detach(emission_0) * 0.5f; // NOTE: detach so nothing is added to the gradient
@@ -324,7 +324,7 @@ public:
 
                     for (size_t ls = 0; ls < m_dc_light_samples; ls++) {
                         std::tie(ds_ls[ls], emitter_val_ls[ls]) = emitter->sample_direction(
-                            si, samplePair2D(active_e, sampler), active_e);
+                            si, samplePair2D(active_e, sampler), active_e); // TODO: should this be sample2D instead??
 
                         Mask active_ls = active_e && neq(ds_ls[ls].pdf, 0.f);
                         if (any_or<true>(active_ls)) {
@@ -451,8 +451,8 @@ public:
                         Spectrum emitter_sampling_0 = gather<Spectrum>(emitter_sampling, arange_indices);
                         Spectrum emitter_sampling_1 = gather<Spectrum>(emitter_sampling, arange_indices + nb_pimary_rays);
 
-                        Float weights_0 = gather<Float>(current_weight, arange_indices, Mask(true));
-                        Float weights_1 = gather<Float>(current_weight, arange_indices + nb_pimary_rays, Mask(true));
+                        Float weights_0 = gather<Float>(current_weight, arange_indices);
+                        Float weights_1 = gather<Float>(current_weight, arange_indices + nb_pimary_rays);
 
                         // Here the weights weights_0 and weights_1 come from previous
                         // bsdf sampling, their gradients are uncorrelated to the sampled emissions
@@ -470,7 +470,6 @@ public:
                             result += emitter_sampling_0 * 0.5f;
                             result += emitter_sampling_1 * 0.5f;
                         }
-
                     } else {
                         Throw("DiffPathIntegratorNew: m_dc_light_samples < 2 not implemented!");
                     }

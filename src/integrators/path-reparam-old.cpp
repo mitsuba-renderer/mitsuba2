@@ -68,21 +68,21 @@ Differentiable path tracer (:monosp:`pathreparam`)
 
 This integrator implements the reparameterization technique described in the
 article "Reparameterizing discontinuous integrands for differentiable rendering".
-It is based on the integrator :ref:`path <integrator-path>` and it applies 
-reparameterizations for each rendering integral in order to account for discontinuities 
+It is based on the integrator :ref:`path <integrator-path>` and it applies
+reparameterizations for each rendering integral in order to account for discontinuities
 when pixel values are differentiated using GPU modes and the Python API.
 
 This plugin should be used with the plugin :ref:`smootharea <emitter-smootharea>`,
-which is similar to the plugin :ref:`area <emitter-area>` with smoothly 
+which is similar to the plugin :ref:`area <emitter-area>` with smoothly
 decreasing radiant exitance at the borders of the area light geometry to
 avoid discontinuities. Other light sources will lead to incorrect partial derivatives.
 Large area lights also result in significant bias since the convolution technique
 described in the paper is only applied to rough and diffuse BSDF integrals.
 
-Another limitation of this implementation is memory usage on the GPU: automatic 
-differentiation for an entire path tracer typically requires several GB of GPU 
-memory. The rendering must sometimes be split into various rendering passes with 
-small sample counts in order to fit into GPU memory. 
+Another limitation of this implementation is memory usage on the GPU: automatic
+differentiation for an entire path tracer typically requires several GB of GPU
+memory. The rendering must sometimes be split into various rendering passes with
+small sample counts in order to fit into GPU memory.
 
 .. note:: This integrator does not handle participating media
 
@@ -94,7 +94,7 @@ public:
     MTS_IMPORT_BASE(MonteCarloIntegrator, m_max_depth, m_rr_depth)
     MTS_IMPORT_TYPES(Scene, Sampler, Emitter, EmitterPtr, BSDF, BSDFPtr)
 
-    DiffPathIntegrator(const Properties &props) : Base(props) { 
+    DiffPathIntegrator(const Properties &props) : Base(props) {
         m_dc_light_samples = props.size_("dc_light_samples", 4);
         m_dc_bsdf_samples  = props.size_("dc_bsdf_samples",  4);
         m_dc_cam_samples   = props.size_("dc_cam_samples",   4);
@@ -105,24 +105,24 @@ public:
         m_disable_gradient_diffuse = props.bool_("disable_gradient_diffuse", false);
         m_disable_gradient_bounce = props.size_("disable_gradient_bounce", 1000);
 
-        Log(Debug, "Changes of variables in light integrals using %i samples", 
+        Log(Debug, "Changes of variables in light integrals using %i samples",
             m_dc_light_samples);
-        Log(Debug, "Changes of variables in BSDFs integrals using %i samples", 
+        Log(Debug, "Changes of variables in BSDFs integrals using %i samples",
             m_dc_bsdf_samples);
-        Log(Debug, "Changes of variables in pixel integrals using %i samples", 
+        Log(Debug, "Changes of variables in pixel integrals using %i samples",
             m_dc_cam_samples);
-        Log(Debug, "Changes of variables using convolution if roughness > %f", 
+        Log(Debug, "Changes of variables using convolution if roughness > %f",
             m_conv_threshold);
         Log(Debug, "Convolutions using kernel with kappa = %f",
             m_kappa_conv);
-        Log(Debug, "Variance reduction %s", 
+        Log(Debug, "Variance reduction %s",
             m_use_variance_reduction ? "enabled" : "disabled");
-        Log(Debug, "Convolutions %s", 
+        Log(Debug, "Convolutions %s",
             m_use_convolution ? "enabled" : "disabled");
-        Log(Debug, "Gradient of diffuse reflections %s", 
+        Log(Debug, "Gradient of diffuse reflections %s",
             m_disable_gradient_diffuse ? "disabled" : "enabled");
         Log(Debug, "Disable gradients after bounce %i", m_disable_gradient_bounce);
-        Log(Debug, "Reusing camera samples is %s", 
+        Log(Debug, "Reusing camera samples is %s",
             REUSE_CAMERA_RAYS ? "enabled" : "disabled");
 
     }
@@ -135,16 +135,16 @@ public:
 
         RayDifferential3f primary_ray = primary_ray_;
 
-        /* Estimate kappa for the convolution of pixel integrals, based on ray 
+        /* Estimate kappa for the convolution of pixel integrals, based on ray
            differentials. */
-        
-        Float angle = acos(min(dot(primary_ray.d_x, primary_ray.d), 
+
+        Float angle = acos(min(dot(primary_ray.d_x, primary_ray.d),
                                dot(primary_ray.d_y, primary_ray.d)));
-        Float targetMeanCos = min(cos(angle*0.4f /*arbitrary*/), Float(1.f-1e-7f)); 
+        Float targetMeanCos = min(cos(angle*0.4f /*arbitrary*/), Float(1.f-1e-7f));
 
         /* The vMF distribution has an analytic expression for the mean cosine:
                             mean = 1 + 2/(exp(2*k)-1) - 1/k.
-           For large values of kappa, 1-1/k is a precise approximation of this 
+           For large values of kappa, 1-1/k is a precise approximation of this
            function. It can be inverted to find k from the mean cosine. */
 
         Float kappa_camera = Float(1.f)/(Float(1.f) - targetMeanCos);
@@ -155,15 +155,15 @@ public:
 
         if constexpr (is_cuda_array_v<Float>) {
             /* ---------------- Convolution of pixel integrals ------------- */
-            
+
             /* Detect discontinuities in a small vMF kernel around each ray. */
 
             std::vector<RayDifferential3f> rays;
             std::vector<SurfaceInteraction3f> sis;
             std::vector<Point3f> attached_pos;
-            
+
             Frame<Float> frame_input = Frame<Float>(primary_ray.d);
-    
+
             Vector3f vMFsample_0;
             Vector3f vMFsample_1;
 
@@ -181,8 +181,8 @@ public:
                 sis.push_back(si_cs);
                 attached_pos.push_back(si_cs.p_attached());
 
-                /* Keep two samples for creating pairs of paths. 
-                   We choose the last samples since they have less 
+                /* Keep two samples for creating pairs of paths.
+                   We choose the last samples since they have less
                    chances of being used in the estimation of the
                    discontinuity. */
                 if (cs == m_dc_cam_samples-2)
@@ -190,19 +190,19 @@ public:
                 if (cs == m_dc_cam_samples-1)
                     vMFsample_1 = vMFsample_cs;
             }
-            
+
             Point3f discontinuity = estimateDiscontinuity(rays, sis, attached_pos, active_primary);
             Vector3f discontinuity_dir = normalize(discontinuity - primary_ray.o);
 
             /* Create the differentiable rotation */
-      
+
             Vector3f axis = cross<Vector3f>(detach(discontinuity_dir), discontinuity_dir);
-            Float cosangle = dot(discontinuity_dir, detach(discontinuity_dir)); 
+            Float cosangle = dot(discontinuity_dir, detach(discontinuity_dir));
             Transform4f rotation = rotationFromAxisCosAngle(axis, cosangle);
 
             /* Tracks radiance scaling due to index of refraction changes */
             Float eta(1.f);
-        
+
             /* MIS weight for intersected emitters (set by prev. iteration) */
             Float emission_weight(1.f);
 
@@ -217,16 +217,16 @@ public:
                                 sampler->next_2d(active_primary), kappa_camera);
 #endif
 
-            Vector3f dirConv_0 = frame_input.to_world(vMFsample_0);      
-            Vector3f dirConv_1 = frame_input.to_world(vMFsample_1);     
+            Vector3f dirConv_0 = frame_input.to_world(vMFsample_0);
+            Vector3f dirConv_1 = frame_input.to_world(vMFsample_1);
 
             Vector ray_dir_0 = rotation.transform_affine(detach(dirConv_0));
             Vector ray_dir_1 = rotation.transform_affine(detach(dirConv_1));
 
-            Vector3f ray_d = concat3D<Vector3f>(ray_dir_0, ray_dir_1);
-            Point3f ray_o = makePair3D<Point3f>(primary_ray.o);
-            Wavelength ray_w = makePairWavelength<Float, Wavelength>(primary_ray.wavelengths);
-            
+            Vector3f ray_d   = concatD(ray_dir_0, ray_dir_1);
+            Point3f ray_o    = makePairD<Point3f>(primary_ray.o);
+            Wavelength ray_w = makePairD(primary_ray.wavelengths);
+
             Mask active(true);
             set_slices(active, nb_pimary_rays*2);
 
@@ -256,26 +256,26 @@ public:
 
 
             for (size_t depth = 1;; ++depth) {
-        
+
                 /* ---------------- Intersection with emitters ---------------- */
 
                 if (any_or<true>(neq(emitter, nullptr))) {
                     Spectrum emission(0.f);
                     emission[active] = emission_weight * throughput * emitter->eval(si, active);
 
-                    Spectrum emission0 = gather<Spectrum>(emission, 
-                        arange<UInt32>(nb_pimary_rays)); 
-                    Spectrum emission1 = gather<Spectrum>(emission, 
-                        arange<UInt32>(nb_pimary_rays)+nb_pimary_rays); 
+                    Spectrum emission0 = gather<Spectrum>(emission,
+                        arange<UInt32>(nb_pimary_rays));
+                    Spectrum emission1 = gather<Spectrum>(emission,
+                        arange<UInt32>(nb_pimary_rays)+nb_pimary_rays);
 
-                    Float weights0 = gather<Float>(current_weight, 
+                    Float weights0 = gather<Float>(current_weight,
                         arange<UInt32>(nb_pimary_rays), Mask(true));
-                    Float weights1 = gather<Float>(current_weight, 
+                    Float weights1 = gather<Float>(current_weight,
                         arange<UInt32>(nb_pimary_rays)+nb_pimary_rays, Mask(true));
 
                     if (depth >= m_disable_gradient_bounce) {
                         result += detach(emission0)*0.5f;
-                        result += detach(emission1)*0.5f;  
+                        result += detach(emission1)*0.5f;
                     } else if (m_use_variance_reduction) {
                         /* Avoid numerical errors due to tiny weights */
                         weights0 = select(abs(weights0) < 0.00001f, Float(1.f), weights0);
@@ -286,13 +286,13 @@ public:
                         result += (emission1 - emission0/weights0 * (weights1-detach(weights1)))*0.5f;
                     } else {
                         result += emission0*0.5f;
-                        result += emission1*0.5f;                    
+                        result += emission1*0.5f;
                     }
 
                 }
 
                 active &= si.is_valid();
-        
+
                 /*  Russian roulette: try to keep path weights equal to one,
                     while accounting for the solid angle compression at refractive
                     index boundaries. Stop with at least some probability to avoid
@@ -304,20 +304,20 @@ public:
 
                     throughput *= rcp(q);
                 }
-        
+
                 if (none(active) || (uint32_t) depth >= (uint32_t) m_max_depth)
                     break;
-    
+
 
                 /* --------------------- Emitter sampling --------------------- */
 
                 BSDFContext ctx;
                 BSDFPtr bsdf = si.bsdf(ray);
                 Mask active_e = active && has_flag(bsdf->flags(), BSDFFlags::Smooth);
-        
+
                 if (likely(any_or<true>(active_e))) {
 
-                    /* Sample the light integral at each active shading point. 
+                    /* Sample the light integral at each active shading point.
                        Several samples are used for estimating discontinuities
                        in light visibility. */
 
@@ -365,14 +365,14 @@ public:
 
                     Mask hasHit = hits > 0.f;
                     if (likely(any_or<true>(hasHit))) {
-                        positionDiscontinuity[hasHit] = positionDiscontinuity/hits;                    
+                        positionDiscontinuity[hasHit] = positionDiscontinuity/hits;
                     }
 
                     Vector3f directionDiscontinuity(0.f);
-                    Transform4f rotation_ls; 
+                    Transform4f rotation_ls;
 
                     if (likely(any_or<true>(hasHit))) {
-                        directionDiscontinuity[hasHit] = normalize(positionDiscontinuity - si.p);    
+                        directionDiscontinuity[hasHit] = normalize(positionDiscontinuity - si.p);
 
                         Float cosangle_ls = dot(directionDiscontinuity, detach(directionDiscontinuity));
                         Vector3f axis_ls = cross<Vector3f>(detach(directionDiscontinuity), directionDiscontinuity);
@@ -391,11 +391,11 @@ public:
                         if (likely(any_or<true>(hasHit))) {
 
                             /* Recompute direction */
-                            ds_ls[ls].d[hasHit] = rotation_ls.transform_affine(detach(ds_ls[ls].d));          
-                            
+                            ds_ls[ls].d[hasHit] = rotation_ls.transform_affine(detach(ds_ls[ls].d));
+
                             /* Recompute pdf */
                             Float pdf_ls_diff = emitter->pdf_direction(si, ds_ls[ls], hasHit);
-                            
+
                             /* Recompute emitter_val, only if not occluded */
                             Mask visible_and_hit = hasHit && (!is_hit_ls[ls]);
                             if (likely(any_or<true>(visible_and_hit))) {
@@ -413,13 +413,13 @@ public:
                                 Spectrum emitter_val_diff = emitter->eval(si_ls,
                                     visible_and_hit) / detach(ds_ls[ls].pdf);
 
-                                emitter_val_ls[ls] = select(visible_and_hit, 
+                                emitter_val_ls[ls] = select(visible_and_hit,
                                     emitter_val_diff,  emitter_val_ls[ls]);
 
                             }
 
                             // Used for MIS. pdf_ls_diff is the pdf of the attached direction.
-                            // The pdf of the sample should be detached. The sample is following 
+                            // The pdf of the sample should be detached. The sample is following
                             // the discontinuity, it does not depend on how the light pdf changes.
                             ds_ls[ls].pdf = select(hasHit, detach(ds_ls[ls].pdf), ds_ls[ls].pdf);
 
@@ -464,18 +464,18 @@ public:
 
                         if (m_use_variance_reduction) {
                             // This is baised, could use cross control variates as well.
-                            contrib /= sum_weights_ls; 
+                            contrib /= sum_weights_ls;
                         } else {
-                            contrib /= m_dc_light_samples;  
-                        }                        
+                            contrib /= m_dc_light_samples;
+                        }
 
                         /*  Add the contribution of this light sample.
                             The weight is the current weight of the throughput. */
                         Spectrum emitterSampling(0.f);
                         emitterSampling[active_e] += contrib;
 
-                        Spectrum emitterSampling0 = gather<Spectrum>(emitterSampling, arange<UInt32>(nb_pimary_rays)); 
-                        Spectrum emitterSampling1 = gather<Spectrum>(emitterSampling, arange<UInt32>(nb_pimary_rays)+nb_pimary_rays); 
+                        Spectrum emitterSampling0 = gather<Spectrum>(emitterSampling, arange<UInt32>(nb_pimary_rays));
+                        Spectrum emitterSampling1 = gather<Spectrum>(emitterSampling, arange<UInt32>(nb_pimary_rays)+nb_pimary_rays);
 
                         Float weights0 = gather<Float>(current_weight, arange<UInt32>(nb_pimary_rays), Mask(true));
                         Float weights1 = gather<Float>(current_weight, arange<UInt32>(nb_pimary_rays)+nb_pimary_rays, Mask(true));
@@ -485,7 +485,7 @@ public:
                            **of the other path** emitterSampling0 and emitterSampling1. */
                         if (depth >= m_disable_gradient_bounce) {
                             result += detach(emitterSampling0)*0.5f;
-                            result += detach(emitterSampling1)*0.5f;    
+                            result += detach(emitterSampling1)*0.5f;
                         } else if (m_use_variance_reduction) {
                             weights0 = select(abs(weights0) < 0.00001f, Float(1.f), weights0);
                             weights1 = select(abs(weights1) < 0.00001f, Float(1.f), weights1);
@@ -493,7 +493,7 @@ public:
                             result += (emitterSampling1 - emitterSampling0/weights0  *(weights1-detach(weights1)))*0.5f;
                         } else {
                             result += emitterSampling0*0.5f;
-                            result += emitterSampling1*0.5f;                            
+                            result += emitterSampling1*0.5f;
                         }
 
                     } else {
@@ -508,7 +508,7 @@ public:
                 auto [sample_main_bs, bsdf_val_main_bs] = bsdf->sample(ctx, si, componentSample,
                                                                        samplePair2D(active, sampler), active);
 
-                Mask convolution = Mask(m_use_convolution) && active 
+                Mask convolution = Mask(m_use_convolution) && active
                     && sample_main_bs.sampled_roughness > m_conv_threshold;
 
                 if (any(has_flag(sample_main_bs.sampled_type, BSDFFlags::Delta)))
@@ -520,8 +520,8 @@ public:
                 Frame<Float> frame_main(sample_main_bs.wo);
                 std::vector<Vector3f> ds_bs;
 
-                /* Compute directions to samples either from the bsdf or the 
-                   convolution of the bsdf. Only the first one is 
+                /* Compute directions to samples either from the bsdf or the
+                   convolution of the bsdf. Only the first one is
                    used for the light paths. */
                 for (size_t bs = 0; bs < m_dc_bsdf_samples; bs++) {
 
@@ -551,10 +551,10 @@ public:
                     SurfaceInteraction3f si_bsdf_bs = scene->ray_intersect(ray_bs, active);
                     si_bsdf_bs.compute_differentiable_intersection(ray_bs);
                     rays_bs.push_back(ray_bs);
-                    sis_bs.push_back(si_bsdf_bs);     
-                    p_attached_bs.push_back(si_bsdf_bs.p_attached());     
+                    sis_bs.push_back(si_bsdf_bs);
+                    p_attached_bs.push_back(si_bsdf_bs.p_attached());
                     // Set hasIt to true if find hit
-                    use_sliding_bs = use_sliding_bs || (active && neq(si_bsdf_bs.shape, nullptr));          
+                    use_sliding_bs = use_sliding_bs || (active && neq(si_bsdf_bs.shape, nullptr));
                 }
 
                 if (m_disable_gradient_diffuse) {
@@ -578,9 +578,9 @@ public:
                     rotation_bs = rotationFromAxisCosAngle(axis_bs, cosangle_bs);
                 }
 
-                /* Initialize the BSDF sample from the initial sample, eta and 
+                /* Initialize the BSDF sample from the initial sample, eta and
                    sampled_type do not change since the same component is sampled. */
-                BSDFSample3 sample_bs = sample_main_bs; 
+                BSDFSample3 sample_bs = sample_main_bs;
 
                 /* Reuse one direction sampled from either the BSDF or the convolution kernel
                    around the main direction. */
@@ -592,7 +592,7 @@ public:
                     // Warning, the direction must be detached such that it follows the discontinuities
                     // Warning, this rotation in world space, but wo is in local space
                     sample_bs.wo[use_sliding_bs] = si.to_local(rotation_bs.transform_affine(
-                        si.to_world(detach(sample_bs.wo)))); 
+                        si.to_world(detach(sample_bs.wo))));
                 }
 
                 /* Compute the differentiable BSDF value for the differentiable direction */
@@ -600,14 +600,14 @@ public:
 
                 /* Copmpute the pdf of the convolution kernel for the selected direction */
                 // Warning: need to transform to a frame centered around the Z axis
-                Float pdf_conv_newDir = warp::square_to_von_mises_fisher_pdf<Float>(frame_main.to_local(sample_bs.wo), 
+                Float pdf_conv_newDir = warp::square_to_von_mises_fisher_pdf<Float>(frame_main.to_local(sample_bs.wo),
                                                                              m_kappa_conv);
 
 
 
 
-                /* Multiply the BSDF value by the convolution kernel. Use a 
-                   correction term for the convolution (otherwise less energy 
+                /* Multiply the BSDF value by the convolution kernel. Use a
+                   correction term for the convolution (otherwise less energy
                    at grazing angles) */
                 Float cosangle = sample_bs.wo.z();
                 Float correction_factor = m_vmf_hemisphere.eval(m_kappa_conv, cosangle, convolution);
@@ -622,16 +622,16 @@ public:
                     - When not using changes of variables, the undetached pdf
                       because the sample are sampled from the standard pdf
                     - When using changes of variables and convolution,
-                      the pdf of the main direction (not detached) times 
+                      the pdf of the main direction (not detached) times
                       the detached pdf using for sampling the convolution kernel
                       (always detached pdf because the samples don't move wrt the rotating sampling pdf)
                     - When not using the convolution, detached pdf */
-                Float bsdf_pdf = select(convolution, 
-                                        sample_main_bs.pdf * pdf_conv_newDir, 
+                Float bsdf_pdf = select(convolution,
+                                        sample_main_bs.pdf * pdf_conv_newDir,
                                         bsdf_pdf_default);
                 if (likely(any_or<true>(use_sliding_bs))) {
-                    bsdf_pdf[use_sliding_bs] = select(convolution, 
-                                                      sample_main_bs.pdf * detach(pdf_conv_newDir), 
+                    bsdf_pdf[use_sliding_bs] = select(convolution,
+                                                      sample_main_bs.pdf * detach(pdf_conv_newDir),
                                                       detach(bsdf_pdf_default));
                 }
                 Spectrum bsdf_value_pdf = bsdf_value / bsdf_pdf;
@@ -644,11 +644,11 @@ public:
                 // TODO: these weights should be colors.
 
                 Mask set_weights = use_sliding_bs && (bsdf_pdf > 0.001f);
-                current_weight = select(set_weights &&  convolution, 
+                current_weight = select(set_weights &&  convolution,
                     current_weight * detach(bsdf_value_pdf[0])*pdf_conv_newDir/detach(pdf_conv_newDir),
                     current_weight);
-                current_weight = select(set_weights && !convolution, 
-                    current_weight * detach(bsdf_value_pdf[0])*bsdf_pdf_default/detach(bsdf_pdf_default), 
+                current_weight = select(set_weights && !convolution,
+                    current_weight * detach(bsdf_value_pdf[0])*bsdf_pdf_default/detach(bsdf_pdf_default),
                     current_weight);
                 throughput *= bsdf_value_pdf;
 
@@ -657,7 +657,7 @@ public:
 
                 if (none(active))
                     break;
-    
+
                 eta *= sample_bs.eta;
 
                 /* Intersect the BSDF ray against the scene geometry */
@@ -670,17 +670,17 @@ public:
                 emitter = si_bsdf.emitter(scene, active);
                 DirectionSample3f ds(si_bsdf, si);
                 ds.object = emitter;
-    
+
                 if (any_or<true>(neq(emitter, nullptr))) {
                     Float emitter_pdf =
                         select(has_flag(sample_bs.sampled_type, BSDFFlags::Delta), 0.f,
                                scene->pdf_emitter_direction(si, ds, active));
-    
+
                     /* Always use the standard importance sampling pdf of the BSDF,
                        since this is the pdf used for MIS weights when sampling emitters. */
                     emission_weight = mis_weight(bsdf_pdf_default, emitter_pdf);
                 }
-    
+
                 si = std::move(si_bsdf);
             }
 
@@ -713,7 +713,7 @@ protected:
         pdf_b *= pdf_b;
         return select(pdf_a > 0.f, pdf_a / (pdf_a + pdf_b), Value(0.f));
     };
-    
+
     mitsuba::Transform<Vector4f> rotationFromAxisCosAngle(Vector3f axis, Float cosangle) const {
         Float ax = axis.x(), ay = axis.y(), az = axis.z();
         Float axy = ax*ay, axz = ax*az, ayz = ay*az;
@@ -731,13 +731,13 @@ protected:
         return mitsuba::Transform<Vector4f>(Matrix4f(R));
     };
 
-    Point3f estimateDiscontinuity(const std::vector<RayDifferential3f> &rays, 
+    Point3f estimateDiscontinuity(const std::vector<RayDifferential3f> &rays,
                                   const std::vector<SurfaceInteraction3f> &sis,
                                   const std::vector<Point3f> &p_attached_sis,
                                   const Mask &/*mask*/) const {
 
         using Matrix        = enoki::Matrix<Float, 3>;
-        
+
         unsigned int nbSamples = rays.size();
 
         if (rays.size() < 2 || rays.size() != sis.size())
@@ -774,8 +774,8 @@ protected:
 
         if (any_or<true>(hasTwoHits)) {
 
-            /* Compute occlusion between planes and hitpoints: sign of 
-               dot(normal, hitpoint - hitpoint). Test if the origin of the rays 
+            /* Compute occlusion between planes and hitpoints: sign of
+               dot(normal, hitpoint - hitpoint). Test if the origin of the rays
                is on the same side as the other hit. */
             Float occPlane0 = dot(sis[0].n, ray1_p_attached - p_attached_sis[0])*dot(sis[0].n, rays[0].o - p_attached_sis[0]);
             Float occPlane1 = dot(ray1_n,   p_attached_sis[0] - ray1_p_attached)*dot(sis[0].n, rays[0].o - p_attached_sis[0]);
@@ -805,8 +805,8 @@ protected:
             if (any_or<true>(planeIntersection)) {
 
 #if 1
-                /* Compute the intersection between 3 planes: 
-                   2 planes defined by the ray intersections and 
+                /* Compute the intersection between 3 planes:
+                   2 planes defined by the ray intersections and
                    the normals at these points, and 1 plane containing
                    the ray directions. */
 
@@ -815,7 +815,7 @@ protected:
                 Vector3f P0 = p_attached_sis[0];
                 Vector3f P1 = ray1_p_attached;
 
-                /* Normal of the third plane, defined using 
+                /* Normal of the third plane, defined using
                    attached positions (this prevents bad correlations
                    between the displacement of the intersection and
                    the sampled positions) */
@@ -835,7 +835,7 @@ protected:
                 Vector3f B(b0, b1, b2);
                 Matrix invA = enoki::inverse(A);
                 res[invertible] = invA*B;
-#else       
+#else
                 /* Simply choose one of the intersections.
                    This is a good strategy in many situations. */
                 res[planeIntersection] = p_attached_sis[0];
