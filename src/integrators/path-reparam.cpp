@@ -100,7 +100,9 @@ public:
         m_dc_cam_samples   = props.size_("dc_cam_samples",   4);
         m_conv_threshold   = props.float_("conv_threshold",  0.15f);
         m_kappa_conv       = props.float_("kappa_conv",      1000.f);
+        m_kappa_conv_envmap      = props.float_("kappa_conv_envmap",     100000.f);
         m_use_convolution        = props.bool_("use_convolution",        true);
+        m_use_convolution_envmap = props.bool_("use_convolution_envmap", true);
         m_use_variance_reduction = props.bool_("use_variance_reduction", true);
         m_disable_gradient_diffuse = props.bool_("disable_gradient_diffuse", false);
         m_disable_gradient_bounce = props.size_("disable_gradient_bounce", 1000);
@@ -119,6 +121,8 @@ public:
             m_use_variance_reduction ? "enabled" : "disabled");
         Log(Debug, "Convolutions %s",
             m_use_convolution ? "enabled" : "disabled");
+        Log(Info, "Convolutions for envmap %s",
+            m_use_convolution_envmap ? "enabled" : "disabled");
         Log(Debug, "Gradient of diffuse reflections %s",
             m_disable_gradient_diffuse ? "disabled" : "enabled");
         Log(Debug, "Disable gradients after bounce %i", m_disable_gradient_bounce);
@@ -313,45 +317,71 @@ public:
                     auto [emitter, emitter_pdf] = scene->sample_emitter(
                         si, samplePair2D(active_e, sampler), active_e);
 
+                    Mask is_envmap = emitter->is_environment() && active_e;
+
                     Point3f position_discontinuity(0.f);
                     UInt32 hits(0);
 
                     std::vector<DirectionSample3f> ds_ls(m_dc_light_samples);
                     std::vector<Spectrum> emitter_val_ls(m_dc_light_samples);
-                    std::vector<Mask> is_hit_ls(m_dc_light_samples);
+                    std::vector<Mask> is_occluded_ls(m_dc_light_samples);
+
+                    auto [ds_ls_main, e_tmp] = emitter->sample_direction(
+                        si, samplePair2D(active_e, sampler), active_e);
+                    Frame<Float> frame_main(ds_ls_main.d);
 
                     for (size_t ls = 0; ls < m_dc_light_samples; ls++) {
+
                         std::tie(ds_ls[ls], emitter_val_ls[ls]) = emitter->sample_direction(
                             si, samplePair2D(active_e, sampler), active_e); // TODO: should this be sample2D instead??
 
+                        if (m_use_convolution_envmap) {
+                            Vector3f sample_ls = warp::square_to_von_mises_fisher<Float>(
+                                sample2D(active_e, sampler), m_kappa_conv_envmap);
+
+                            // Update with the pdf of the convolution kernel
+                            ds_ls[ls].pdf[is_envmap] = warp::square_to_von_mises_fisher_pdf<Float>(
+                                sample_ls, m_kappa_conv_envmap);
+                            sample_ls = frame_main.to_world(sample_ls);
+                            ds_ls[ls].d[is_envmap] = sample_ls;
+                        }
+
                         Mask active_ls = active_e && neq(ds_ls[ls].pdf, 0.f);
                         if (any_or<true>(active_ls)) {
-                            // Look for masking for active rays with valid emitter samples
+                            // Check masking for active rays
                             Ray3f ray_ls(si.p, ds_ls[ls].d, math::RayEpsilon<Float> * (1.f + hmax(abs(si.p))),
                                          ds_ls[ls].dist * (1.f - math::ShadowEpsilon<Float>),
                                          si.time, si.wavelengths);
+                            ray_ls.maxt[is_envmap] = math::Infinity<Float>;
 
                             SurfaceInteraction3f si_ls = scene->ray_intersect(ray_ls, active_ls);
                             si_ls.compute_differentiable_intersection(ray_ls, true);
 
-                            is_hit_ls[ls] = neq(si_ls.shape, nullptr);
-                            position_discontinuity[is_hit_ls[ls]] += si_ls.p;
-                            hits = select(is_hit_ls[ls], hits + 1, hits);
-                            emitter_val_ls[ls] = select(is_hit_ls[ls], Spectrum(0.f), emitter_val_ls[ls]);
+                            is_occluded_ls[ls] = neq(si_ls.shape, nullptr);
+                            position_discontinuity[is_occluded_ls[ls]] += si_ls.p;
+                            hits = select(is_occluded_ls[ls], hits + 1, hits);
+
+                            if (m_use_convolution_envmap) {
+                                // The contribution is radiance * kernel / ds_ls_main.pdf / kernel (pdf)
+                                emitter_val_ls[ls][is_envmap] = emitter->eval(si_ls, is_envmap) / ds_ls_main.pdf;
+                            }
+
+                            // The contribution is 0 when the light is not visible
+                            emitter_val_ls[ls][is_occluded_ls[ls]] = Spectrum(0.f);
                         }
                     }
 
                     // Compute differentiable rotations from emitter samples
 
-                    Mask has_hit = hits > 0.f;
-                    if (likely(any_or<true>(has_hit))) {
-                        position_discontinuity[has_hit] = position_discontinuity / hits;
+                    Mask use_reparam = hits > 0.f;
+                    if (likely(any_or<true>(use_reparam))) {
+                        position_discontinuity[use_reparam] = position_discontinuity / hits;
                     }
 
                     Transform4f rotation_ls;
-                    if (likely(any_or<true>(has_hit))) {
+                    if (likely(any_or<true>(use_reparam))) {
                         Vector3f direction_discontinuity(0.f);
-                        direction_discontinuity[has_hit] = normalize(position_discontinuity - si.p);
+                        direction_discontinuity[use_reparam] = normalize(position_discontinuity - si.p);
                         Vector3f direction_discontinuity_detach = detach(direction_discontinuity);
 
                         // TODO: maybe should use same logic as in BSDF sampling (detach in normalize())
@@ -363,49 +393,45 @@ public:
                     }
 
                     std::vector<Spectrum> contribs_ls(m_dc_light_samples);
-                    std::vector<Float> weights_ls(m_dc_light_samples);
 
                     // Reuse all the emitter samples and compute differentiable contributions
 
                     for (size_t ls = 0; ls < m_dc_light_samples; ls++) {
                         // Replace direction sample by differentiable data
-                        if (likely(any_or<true>(has_hit))) {
+                        if (likely(any_or<true>(use_reparam))) {
                             // Recompute direction
-                            ds_ls[ls].d[has_hit] = rotation_ls.transform_affine(detach(ds_ls[ls].d));
+                            ds_ls[ls].d[use_reparam] = rotation_ls.transform_affine(detach(ds_ls[ls].d));
 
-                            // Recompute pdf
-                            Float pdf_ls_diff = emitter->pdf_direction(si, ds_ls[ls], has_hit);
-
-                            // Recompute emitter_val, only if not occluded
-                            Mask visible_and_hit = has_hit && (!is_hit_ls[ls]);
-                            if (likely(any_or<true>(visible_and_hit))) {
-                                Ray3f ray_ls(si.p, ds_ls[ls].d,
-                                             math::RayEpsilon<Float> * (1.f + hmax(abs(si.p))),
-                                             ds_ls[ls].dist + 1.f,
-                                             si.time, si.wavelengths);
-
-                                SurfaceInteraction3f si_ls = scene->ray_intersect(ray_ls, visible_and_hit);
-                                si_ls.compute_differentiable_intersection(ray_ls);
-
-                                // The emitter_val is E * k / pdf = E.
-                                // The eval gives E * k.
-                                // We need to divide by the detached pdf.
-                                Spectrum emitter_val_diff = emitter->eval(si_ls,
-                                    visible_and_hit) / detach(ds_ls[ls].pdf);
-
-                                emitter_val_ls[ls] = select(visible_and_hit,
-                                    emitter_val_diff,  emitter_val_ls[ls]);
+                            if (m_use_convolution_envmap) {
+                                // Recompute the value of convolution kernel
+                                ds_ls[ls].pdf[use_reparam && is_envmap] = warp::square_to_von_mises_fisher_pdf<Float>(
+                                    frame_main.to_local(ds_ls[ls].d), m_kappa_conv_envmap);
                             }
 
-                            // Used for MIS. pdf_ls_diff is the pdf of the attached direction.
-                            // The pdf of the sample should be detached. The sample is following
-                            // the discontinuity, it does not depend on how the light pdf changes.
-                            ds_ls[ls].pdf = select(has_hit, detach(ds_ls[ls].pdf), ds_ls[ls].pdf);
+                            // Recompute the contribution when a reparameterization is used
+                            Mask visible_and_hit = use_reparam && (!is_occluded_ls[ls]);
 
-                            Float w(1.f);
-                            weights_ls[ls] = select(has_hit, pdf_ls_diff / ds_ls[ls].pdf, 1.f);
-                        } else {
-                            weights_ls[ls] = Float(1.f);
+                            Ray3f ray_ls(si.p, ds_ls[ls].d,
+                                         math::RayEpsilon<Float> * (1.f + hmax(abs(si.p))),
+                                         ds_ls[ls].dist + 1.f,
+                                         si.time, si.wavelengths);
+
+                            SurfaceInteraction3f si_ls = scene->ray_intersect(ray_ls, visible_and_hit);
+                            si_ls.compute_differentiable_intersection(ray_ls);
+
+                            Spectrum e_val_reparam = emitter->eval(si_ls, visible_and_hit) / detach(ds_ls[ls].pdf);
+
+                            if (m_use_convolution_envmap) {
+                                e_val_reparam[visible_and_hit && is_envmap] *= ds_ls[ls].pdf / ds_ls_main.pdf;
+                            }
+
+                            emitter_val_ls[ls][visible_and_hit] = e_val_reparam;
+
+                            if (m_use_convolution_envmap) {
+                                // Update emitter pdf for MIS
+                                Float pdf_emitter = emitter->pdf_direction(si, ds_ls[ls], is_envmap);
+                                ds_ls[ls].pdf[is_envmap] = detach(pdf_emitter);
+                            }
                         }
 
                         // Compute contribution
@@ -428,18 +454,11 @@ public:
                     // Accumulate contributions and variance reduction (in pairs of paths)
                     if (m_dc_light_samples > 1) {
                         Spectrum contrib(0.f);
-                        Float sum_weights_ls(0.f);
                         for (size_t ls = 0; ls < m_dc_light_samples; ls++) {
                             contrib += contribs_ls[ls];
-                            sum_weights_ls += weights_ls[ls];
                         }
 
-                        if (m_use_variance_reduction) {
-                            // This is baised, could use cross control variates as well.
-                            contrib /= sum_weights_ls;
-                        } else {
-                            contrib /= m_dc_light_samples;
-                        }
+                        contrib /= m_dc_light_samples;
 
                         //  Add the contribution of this light sample.
                         //  The weight is the current weight of the throughput.
@@ -811,10 +830,12 @@ private:
     size_t m_dc_light_samples;
     size_t m_dc_bsdf_samples;
     size_t m_dc_cam_samples;
-    float m_conv_threshold;
-    float m_kappa_conv;
+    ScalarFloat m_conv_threshold;
+    ScalarFloat m_kappa_conv;
+    ScalarFloat m_kappa_conv_envmap;
     bool m_use_variance_reduction;
     bool m_use_convolution;
+    bool m_use_convolution_envmap;
     bool m_disable_gradient_diffuse;
 
     VMFHemisphereIntegral<Float> m_vmf_hemisphere;
