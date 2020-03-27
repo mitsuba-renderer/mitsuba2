@@ -143,22 +143,37 @@ Scene<Float, Spectrum>::sample_emitter(const Interaction3f &/*ref*/,
                                        const Point2f &sample,
                                        Mask active) const {
 
-    ScalarFloat emitter_pdf(1.f);
+    ScalarFloat emitter_pdf;
     EmitterPtr emitter;
     if (likely(!m_emitters.empty())) {
-        if (m_emitters.size() == 1) {
+        // TODO: this fast path does not work
+        // if (m_emitters.size() == 1) {
+            // Log(Info, "one emitter");
             // Fast path if there is only one emitter
-            emitter = m_emitters[0];
-        } else {
+            // emitter = m_emitters[0];
+        // } else {
             // Randomly pick an emitter according to the precomputed emitter distribution
             UInt32 index = min(UInt32(sample.x() * (ScalarFloat) m_emitters.size()), (uint32_t) m_emitters.size()-1);
             emitter_pdf = 1.f / m_emitters.size();
             emitter = gather<EmitterPtr>(m_emitters.data(), index, active);
-        }
+        // }
     } else {
         Throw("Scene::sample_emitter_impl: Not implemented, scene must have emitters.");
     }
     return { emitter, emitter_pdf };
+
+/*    ScalarFloat emitter_pdf;
+    EmitterPtr emitter;
+    if (likely(!m_emitters.empty())) {
+        // Randomly pick an emitter according to the precomputed emitter distribution
+        UInt32 index = min(UInt32(sample.x() * (ScalarFloat) m_emitters.size()), (uint32_t) m_emitters.size()-1);
+        emitter_pdf = 1.f / m_emitters.size();
+        emitter = gather<EmitterPtr>(m_emitters.data(), index, active);
+    } else {
+        Throw("Scene::sample_emitter_impl: Not implemented, scene must have emitters.");
+    }
+    return { emitter, emitter_pdf };*/
+
 }
 
 MTS_VARIANT std::pair<typename Scene<Float, Spectrum>::DirectionSample3f, Spectrum>
