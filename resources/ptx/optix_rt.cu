@@ -3,6 +3,8 @@
 
 using namespace optix;
 
+rtDeclareVariable(int, fill_surface_interaction, , );
+
 rtDeclareVariable(rtObject, top_object, , );
 rtDeclareVariable(void *, accel, , );
 rtDeclareVariable(unsigned long long, shape_ptr, , );
@@ -92,25 +94,27 @@ RT_PROGRAM void ray_hit() {
         out_u[launch_index] = uv.x;
         out_v[launch_index] = uv.y;
 
-        out_ng_x[launch_index] = ng.x;
-        out_ng_y[launch_index] = ng.y;
-        out_ng_z[launch_index] = ng.z;
-
-        out_ns_x[launch_index] = ns.x;
-        out_ns_y[launch_index] = ns.y;
-        out_ns_z[launch_index] = ns.z;
-
         out_p_x[launch_index] = p.x;
         out_p_y[launch_index] = p.y;
         out_p_z[launch_index] = p.z;
 
-        out_dp_du_x[launch_index] = dp_du.x;
-        out_dp_du_y[launch_index] = dp_du.y;
-        out_dp_du_z[launch_index] = dp_du.z;
+        if (fill_surface_interaction == 1) {
+            out_ng_x[launch_index] = ng.x;
+            out_ng_y[launch_index] = ng.y;
+            out_ng_z[launch_index] = ng.z;
 
-        out_dp_dv_x[launch_index] = dp_dv.x;
-        out_dp_dv_y[launch_index] = dp_dv.y;
-        out_dp_dv_z[launch_index] = dp_dv.z;
+            out_ns_x[launch_index] = ns.x;
+            out_ns_y[launch_index] = ns.y;
+            out_ns_z[launch_index] = ns.z;
+
+            out_dp_du_x[launch_index] = dp_du.x;
+            out_dp_du_y[launch_index] = dp_du.y;
+            out_dp_du_z[launch_index] = dp_du.z;
+
+            out_dp_dv_x[launch_index] = dp_dv.x;
+            out_dp_dv_y[launch_index] = dp_dv.y;
+            out_dp_dv_z[launch_index] = dp_dv.z;
+        }
 
         out_t[launch_index] = sqrt(squared_norm(p - ray.origin) / squared_norm(ray.direction));
     }

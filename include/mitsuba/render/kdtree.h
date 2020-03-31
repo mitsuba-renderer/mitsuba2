@@ -2353,7 +2353,7 @@ public:
         si.duv_dx = si.duv_dy = zero<Point2f>();
 
         // Ask shape(s) to fill in the rest using the cache
-        si.shape->fill_surface_interaction(ray, cache + 2, si, active);
+        si.fill_surface_interaction(ray, (void *)(cache + 2), active);
 
         // Gram-schmidt orthogonalization to compute local shading frame
         si.sh_frame.s = normalize(

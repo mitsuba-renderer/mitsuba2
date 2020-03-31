@@ -323,37 +323,40 @@ public:
         return valid_intersection;
     }
 
-    void fill_surface_interaction(const Ray3f &ray, const Float * /*cache*/,
-                                  SurfaceInteraction3f &si_out, Mask active) const override {
+    SurfaceInteraction3f fill_surface_interaction(const Ray3f &ray,
+                                                  const Float * /*cache*/,
+                                                  const UInt32 & /*cache_indices*/,
+                                                  SurfaceInteraction3f si,
+                                                  Mask active) const override {
         MTS_MASK_ARGUMENT(active);
 
-        SurfaceInteraction3f si(si_out);
+        // TODO: make si differentiable w.r.t. shape parameters if necessary
 
-        si.p = ray(si.t);
+        si.p[active] = ray(si.t);
         Vector3f local = m_world_to_object * si.p;
 
         Float phi = atan2(local.y(), local.x());
         masked(phi, phi < 0.f) += 2.f * math::Pi<Float>;
 
-        si.uv = Point2f(phi * math::InvTwoPi<Float>, local.z() / m_length);
+        si.uv[active] = Point2f(phi * math::InvTwoPi<Float>, local.z() / m_length);
 
         Vector3f dp_du = 2.f * math::Pi<Float> * Vector3f(-local.y(), local.x(), 0.f);
         Vector3f dp_dv = Vector3f(0.f, 0.f, m_length);
-        si.dp_du = m_object_to_world * dp_du;
-        si.dp_dv = m_object_to_world * dp_dv;
-        si.n = Normal3f(cross(normalize(si.dp_du), normalize(si.dp_dv)));
+        si.dp_du[active] = m_object_to_world * dp_du;
+        si.dp_dv[active] = m_object_to_world * dp_dv;
+        si.n[active] = Normal3f(cross(normalize(si.dp_du), normalize(si.dp_dv)));
 
         /* Mitigate roundoff error issues by a normal shift of the computed
            intersection point */
-        si.p += si.n * (m_radius - norm(head<2>(local)));
+        si.p[active] += si.n * (m_radius - norm(head<2>(local)));
 
         if (m_flip_normals)
-            si.n *= -1.f;
+            si.n[active] *= -1.f;
 
-        si.sh_frame.n = si.n;
-        si.time = ray.time;
+        si.sh_frame.n[active] = si.n;
+        masked(si.time, active) = ray.time;
 
-        si_out[active] = si;
+        return si;
     }
 
     std::pair<Vector3f, Vector3f> normal_derivative(const SurfaceInteraction3f &si,
@@ -362,7 +365,7 @@ public:
         MTS_MASK_ARGUMENT(active);
 
         Vector3f dn_du = si.dp_du / (m_radius * (m_flip_normals ? -1.f : 1.f)),
-                dn_dv = Vector3f(0.f);
+                 dn_dv = Vector3f(0.f);
 
         return { dn_du, dn_dv };
     }

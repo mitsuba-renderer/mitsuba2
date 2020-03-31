@@ -7,6 +7,23 @@
 
 NAMESPACE_BEGIN(mitsuba)
 
+
+/**
+ * \brief Specifies the surface interaction computation mode when tracing rays
+ */
+enum class HitComputeMode : uint32_t {
+    /// Let the tracer engine (Embree, Optix) compute the surface interaction
+    Default = 0,
+
+    /// Compute a differential surface interaction if shape parameters require gradients. This
+    /// mode will disable the computation by the tracer engine.
+    Differentiable = 1,
+
+    /// Only compute si.t, si.p, si.uv (barycentric), si.shape, and si.prim_index
+    Least = 2
+};
+
+
 template <typename Float, typename Spectrum>
 class MTS_EXPORT_RENDER Scene : public Object {
 public:
@@ -34,6 +51,10 @@ public:
      *    intersection was actually found.
      */
     SurfaceInteraction3f ray_intersect(const Ray3f &ray, Mask active = true) const;
+
+    SurfaceInteraction3f ray_intersect(const Ray3f &ray,
+                                       HitComputeMode mode = HitComputeMode::Default,
+                                       Mask active = true) const;
 
     /**
      * \brief Ray intersection using brute force search. Used in
@@ -200,7 +221,7 @@ protected:
 
     /// Trace a ray
     MTS_INLINE SurfaceInteraction3f ray_intersect_cpu(const Ray3f &ray, Mask active) const;
-    MTS_INLINE SurfaceInteraction3f ray_intersect_gpu(const Ray3f &ray, Mask active) const;
+    MTS_INLINE SurfaceInteraction3f ray_intersect_gpu(const Ray3f &ray, HitComputeMode mode, Mask active) const;
     MTS_INLINE SurfaceInteraction3f ray_intersect_naive_cpu(const Ray3f &ray, Mask active) const;
 
     /// Trace a shadow ray

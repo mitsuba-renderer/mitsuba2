@@ -215,20 +215,27 @@ public:
 
     virtual Float pdf_position(const PositionSample3f &ps, Mask active = true) const override;
 
-    virtual void fill_surface_interaction(const Ray3f &ray,
-                                          const Float *cache,
-                                          SurfaceInteraction3f &si,
-                                          Mask active = true) const override;
+    virtual SurfaceInteraction3f fill_surface_interaction(const Ray3f &ray,
+                                                          const Float *cache,
+                                                          const UInt32 &cache_indices,
+                                                          SurfaceInteraction3f si,
+                                                          Mask active = true) const override;
 
 #if defined(MTS_ENABLE_OPTIX)
+    // TODO remove this
     virtual SurfaceInteraction3f
     differentiable_surface_interaction(const Ray3f &ray,
                                        const SurfaceInteraction3f &si,
                                        bool attach_p = false,
                                        Mask active = true) const override;
 
+    // TODO remove this
     virtual Point3f p_attached(const SurfaceInteraction3f &si,
                                Mask active = true) const override;
+
+    virtual std::pair<Point3f, Normal3f>
+    differentiable_position(const SurfaceInteraction3f &si,
+                            Mask active = true) const override;
 #endif
 
     virtual std::pair<Vector3f, Vector3f>
@@ -382,6 +389,7 @@ NAMESPACE_END(mitsuba)
 // Enable usage of array pointers for our types
 ENOKI_CALL_SUPPORT_TEMPLATE_BEGIN(mitsuba::Mesh)
     ENOKI_CALL_SUPPORT_METHOD(fill_surface_interaction)
+    ENOKI_CALL_SUPPORT_METHOD(differentiable_position)
     ENOKI_CALL_SUPPORT_GETTER_TYPE(faces, m_faces, uint8_t*)
     ENOKI_CALL_SUPPORT_GETTER_TYPE(vertices, m_vertices, uint8_t*)
 ENOKI_CALL_SUPPORT_TEMPLATE_END(mitsuba::Mesh)

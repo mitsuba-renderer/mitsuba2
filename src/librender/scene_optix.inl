@@ -31,6 +31,7 @@ struct OptixState {
     RTprogram attr_prog;
     RTacceleration accel;
     RTgeometrygroup group;
+    RTvariable fill_surface_interaction;
 };
 
 MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*props*/) {
@@ -75,6 +76,9 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         rt_check(rtContextDeclareVariable(s.context, var_names[i], &var_obj[i]));
         rt_check(rtVariableSetObject(var_obj[i], s.var_buf[i]));
     }
+
+    rt_check(rtContextDeclareVariable(s.context, "fill_surface_interaction", &s.fill_surface_interaction));
+    rt_check(rtVariableSet1i(s.fill_surface_interaction, 1));
 
     RTprogram prog[6];
     rt_check(rtProgramCreateFromPTXString(s.context, (const char *) optix_rt_ptx,   "ray_gen_closest", &prog[0]));
@@ -164,8 +168,11 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_release_gpu() {
 }
 
 MTS_VARIANT typename Scene<Float, Spectrum>::SurfaceInteraction3f
-Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const {
+Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, HitComputeMode mode, Mask active) const {
     if constexpr (is_cuda_array_v<Float>) {
+        if (mode == HitComputeMode::Differentiable && !is_diff_array_v<Float>)
+            Throw("ray_intersect_gpu(): variant should be autodiff when differentiable si is requested.");
+
         Ray3f ray(ray_);
         size_t ray_count = std::max(slices(ray.o), slices(ray.d));
         set_slices(ray, ray_count);
@@ -243,6 +250,7 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const 
             }
         }
 
+        rt_check(rtVariableSet1i(s.fill_surface_interaction, (mode == HitComputeMode::Default ? 1 : 0)));
         RTresult rt = rtContextLaunch1D(s.context, 0, ray_count);
         if (rt == RT_ERROR_MEMORY_ALLOCATION_FAILED) {
             cuda_malloc_trim();
@@ -255,10 +263,17 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const 
         si.instance = nullptr;
         si.duv_dx = si.duv_dy = 0.f;
 
-        // Gram-schmidt orthogonalization to compute local shading frame
-        si.sh_frame.s = normalize(
-            fnmadd(si.sh_frame.n, dot(si.sh_frame.n, si.dp_du), si.dp_du));
-        si.sh_frame.t = cross(si.sh_frame.n, si.sh_frame.s);
+        if (mode == HitComputeMode::Differentiable) {
+            // Cached info are not needed as they will be recomputed to be differentiable
+            si.fill_surface_interaction(ray, nullptr, active);
+        }
+
+        if (mode != HitComputeMode::Least) {
+            // Gram-schmidt orthogonalization to compute local shading frame
+            si.sh_frame.s = normalize(
+                fnmadd(si.sh_frame.n, dot(si.sh_frame.n, si.dp_du), si.dp_du));
+            si.sh_frame.t = cross(si.sh_frame.n, si.sh_frame.s);
+        }
 
         // Incident direction in local coordinates
         si.wi = select(si.is_valid(), si.to_local(-ray.d), -ray.d);
@@ -326,6 +341,8 @@ Scene<Float, Spectrum>::ray_test_gpu(const Ray3f &ray_, Mask active) const {
                     rtBufferSetDevicePointer(s.var_buf[i], kDeviceID, (void *) 8));
             }
         }
+
+        rt_check(rtVariableSet1i(s.fill_surface_interaction, 0));
 
         RTresult rt = rtContextLaunch1D(s.context, 1, ray_count);
         if (rt == RT_ERROR_MEMORY_ALLOCATION_FAILED) {

@@ -2,6 +2,8 @@
 
 using namespace optix;
 
+rtDeclareVariable(int, fill_surface_interaction, , );
+
 rtDeclareVariable(float3, p, attribute p, );
 rtDeclareVariable(float2, uv, attribute uv, );
 rtDeclareVariable(float3, ns, attribute ns, );
@@ -30,9 +32,10 @@ __device__ void coordinate_system(float3 n, float3 &x, float3 &y) {
 
 RT_PROGRAM void ray_attr() {
     uv = rtGetTriangleBarycentrics();
-    float uv0 = 1.f - uv.x - uv.y,
-          uv1 = uv.x,
-          uv2 = uv.y;
+
+    float b0 = 1.f - uv.x - uv.y,
+          b1 = uv.x,
+          b2 = uv.y;
 
     uint3 face = faces[rtGetPrimitiveIndex()];
 
@@ -43,35 +46,37 @@ RT_PROGRAM void ray_attr() {
     float3 dp0 = p1 - p0,
            dp1 = p2 - p0;
 
-    p = p0 * uv0 + p1 * uv1 + p2 * uv2;
+    p = p0 * b0 + p1 * b1 + p2 * b2;
 
-    ng = normalize(cross(dp0, dp1));
-    coordinate_system(ng, dp_du, dp_dv);
+    if (fill_surface_interaction == 1) {
+        ng = normalize(cross(dp0, dp1));
+        coordinate_system(ng, dp_du, dp_dv);
 
-    if (vertex_normals.size() > 0) {
-        float3 n0 = vertex_normals[face.x],
-               n1 = vertex_normals[face.y],
-               n2 = vertex_normals[face.z];
+        if (vertex_normals.size() > 0) {
+            float3 n0 = vertex_normals[face.x],
+                   n1 = vertex_normals[face.y],
+                   n2 = vertex_normals[face.z];
 
-        ns = n0 * uv0 + n1 * uv1 + n2 * uv2;
-    } else {
-        ns = ng;
-    }
+            ns = n0 * b0 + n1 * b1 + n2 * b2;
+        } else {
+            ns = ng;
+        }
 
-    if (vertex_texcoords.size() > 0) {
-        float2 t0 = vertex_texcoords[face.x],
-               t1 = vertex_texcoords[face.y],
-               t2 = vertex_texcoords[face.z];
+        if (vertex_texcoords.size() > 0) {
+            float2 t0 = vertex_texcoords[face.x],
+                   t1 = vertex_texcoords[face.y],
+                   t2 = vertex_texcoords[face.z];
 
-        uv = t0 * uv0 + t1 * uv1 + t2 * uv2;
+            uv = t0 * b0 + t1 * b1 + t2 * b2;
 
-        float2 dt0 = t1 - t0, dt1 = t2 - t0;
-        float det = dt0.x * dt1.y - dt0.y * dt1.x;
+            float2 dt0 = t1 - t0, dt1 = t2 - t0;
+            float det = dt0.x * dt1.y - dt0.y * dt1.x;
 
-        if (det != 0.f) {
-            float inv_det = 1.f / det;
-            dp_du = ( dt1.y * dp0 - dt0.y * dp1) * inv_det;
-            dp_dv = (-dt1.x * dp0 + dt0.x * dp1) * inv_det;
+            if (det != 0.f) {
+                float inv_det = 1.f / det;
+                dp_du = ( dt1.y * dp0 - dt0.y * dp1) * inv_det;
+                dp_dv = (-dt1.x * dp0 + dt0.x * dp1) * inv_det;
+            }
         }
     }
 }

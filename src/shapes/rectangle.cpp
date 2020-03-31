@@ -208,22 +208,34 @@ public:
                       && abs(local.y()) <= 1.f;
     }
 
-    void fill_surface_interaction(const Ray3f &ray, const Float *cache,
-                                  SurfaceInteraction3f &si_out, Mask active) const override {
+    SurfaceInteraction3f fill_surface_interaction(const Ray3f &ray,
+                                                  const Float *cache,
+                                                  const UInt32 &cache_indices,
+                                                  SurfaceInteraction3f si,
+                                                  Mask active) const override {
         MTS_MASK_ARGUMENT(active);
 
-        SurfaceInteraction3f si(si_out);
+        // TODO: make si differentiable w.r.t. shape parameters if necessary
 
-        si.n          = m_frame.n;
-        si.sh_frame.n = m_frame.n;
-        si.dp_du      = m_du * m_frame.s;
-        si.dp_dv      = m_dv * m_frame.t;
-        si.p          = ray(si.t);
-        si.time       = ray.time;
-        si.uv         = Point2f(fmadd(cache[0], .5f, .5f),
-                                fmadd(cache[1], .5f, .5f));
+        Float local_x, local_y;
+        if constexpr (is_cuda_array_v<Float>){
+            local_x = gather<Float>(cache[0], cache_indices, active);
+            local_y = gather<Float>(cache[1], cache_indices, active);
+        } else {
+            local_x = cache[0];
+            local_y = cache[1];
+        }
 
-        si_out[active] = si;
+        si.n[active]          = m_frame.n;
+        si.sh_frame.n[active] = m_frame.n;
+        si.dp_du[active]      = m_du * m_frame.s;
+        si.dp_dv[active]      = m_dv * m_frame.t;
+        si.p[active]          = ray(si.t);
+        masked(si.time, active) = ray.time;
+        si.uv[active]         = Point2f(fmadd(local_x, .5f, .5f),
+                                        fmadd(local_y, .5f, .5f));
+
+        return si;
     }
 
     std::pair<Vector3f, Vector3f> normal_derivative(const SurfaceInteraction3f & /*si*/,

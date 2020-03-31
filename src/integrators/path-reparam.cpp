@@ -176,8 +176,8 @@ public:
                 Vector3f dir_conv_cs = frame_input.to_world(vMF_sample_cs);
 
                 primary_ray.d = dir_conv_cs;
-                sis[cs] = scene->ray_intersect(primary_ray, active_primary);
-                sis[cs].compute_differentiable_intersection(primary_ray, true); // Using enoki to get autodiff
+                sis[cs] = scene->ray_intersect(primary_ray, HitComputeMode::Least, active_primary);
+                sis[cs].compute_differentiable_intersection_2(active_primary);
 
                 rays[cs] = RayDifferential(primary_ray);
 
@@ -247,8 +247,7 @@ public:
 
             // ---------------------- First intersection ----------------------
 
-            SurfaceInteraction3f si = scene->ray_intersect(ray, active);
-            si.compute_differentiable_intersection(ray);
+            auto si = scene->ray_intersect(ray, HitComputeMode::Differentiable, active);
 
             Mask valid_ray_pair = si.is_valid();
 
@@ -354,8 +353,8 @@ public:
                                          si.time, si.wavelengths);
                             ray_ls.maxt[is_envmap] = math::Infinity<Float>;
 
-                            SurfaceInteraction3f si_ls = scene->ray_intersect(ray_ls, active_ls);
-                            si_ls.compute_differentiable_intersection(ray_ls, true);
+                            auto si_ls = scene->ray_intersect(ray_ls, HitComputeMode::Least, active_ls);
+                            si_ls.compute_differentiable_intersection_2(active_ls);
 
                             is_occluded_ls[ls] = neq(si_ls.shape, nullptr);
                             position_discontinuity[is_occluded_ls[ls]] += si_ls.p;
@@ -416,8 +415,9 @@ public:
                                          ds_ls[ls].dist + 1.f,
                                          si.time, si.wavelengths);
 
-                            SurfaceInteraction3f si_ls = scene->ray_intersect(ray_ls, visible_and_hit);
-                            si_ls.compute_differentiable_intersection(ray_ls);
+                            auto si_ls = scene->ray_intersect(
+                                ray_ls, HitComputeMode::Differentiable,
+                                visible_and_hit);
 
                             Spectrum e_val_reparam = emitter->eval(si_ls, visible_and_hit) / detach(ds_ls[ls].pdf);
 
@@ -535,8 +535,8 @@ public:
                 Mask use_sliding_bs(false);
                 for (size_t bs = 0; bs < m_dc_bsdf_samples; bs++) {
                     rays_bs[bs] = si.spawn_ray(si.to_world(ds_bs[bs]));
-                    sis_bs[bs] = scene->ray_intersect(rays_bs[bs], active);
-                    sis_bs[bs].compute_differentiable_intersection(rays_bs[bs], true);
+                    sis_bs[bs] = scene->ray_intersect(rays_bs[bs], HitComputeMode::Least, active);
+                    sis_bs[bs].compute_differentiable_intersection_2(active);
                     // Set use_sliding_bs to true if find hit
                     use_sliding_bs = use_sliding_bs || (active && neq(sis_bs[bs].shape, nullptr));
                 }
@@ -639,8 +639,7 @@ public:
 
                 // Intersect the BSDF ray against the scene geometry
                 ray = si.spawn_ray(si.to_world(sample_bs.wo));
-                SurfaceInteraction3f si_bsdf = scene->ray_intersect(ray, active);
-                si_bsdf.compute_differentiable_intersection(ray);
+                auto si_bsdf = scene->ray_intersect(ray, HitComputeMode::Differentiable, active);
 
                 // Determine probability of having sampled that same
                 // direction using emitter sampling.

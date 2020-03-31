@@ -259,15 +259,37 @@ MTS_VARIANT Float Mesh<Float, Spectrum>::pdf_position(const PositionSample3f &, 
     return m_area_distr.normalization();
 }
 
-MTS_VARIANT void Mesh<Float, Spectrum>::fill_surface_interaction(const Ray3f & /*ray*/,
-                                                                 const Float *cache,
-                                                                 SurfaceInteraction3f &si,
-                                                                 Mask active) const {
+MTS_VARIANT typename Mesh<Float, Spectrum>::SurfaceInteraction3f
+Mesh<Float, Spectrum>::fill_surface_interaction(const Ray3f &ray,
+                                                const Float *cache,
+                                                const UInt32 &cache_indices,
+                                                SurfaceInteraction3f si,
+                                                Mask active) const {
     MTS_MASK_ARGUMENT(active);
 
-    // Barycentric coordinates within triangle
-    Float b1 = cache[0],
-          b2 = cache[1];
+    // TODO this should check the flag require_gradient(vertex_position(0)) and so on
+    bool gradients_required = is_diff_array_v<Float>;
+
+    Float b1, b2;
+    if (gradients_required) {
+        // Recompute ray / triangle intersection to get differentiable b1, b2 and t
+        Mask valid;
+        Float t;
+        std::tie(valid, b1, b2, t) = ray_intersect_triangle(si.prim_index, ray, active);
+
+        // Replace the data by differentiable data
+        active &= valid;
+        masked(si.t, active) = t;
+    } else {
+        Assert(cache);
+        if constexpr (is_cuda_array_v<Float>){
+            b1 = gather<Float>(cache[0], cache_indices, active);
+            b2 = gather<Float>(cache[1], cache_indices, active);
+        } else {
+            b1 = cache[0];
+            b2 = cache[1];
+        }
+    }
 
     Float b0 = 1.f - b1 - b2;
 
@@ -324,6 +346,8 @@ MTS_VARIANT void Mesh<Float, Spectrum>::fill_surface_interaction(const Ray3f & /
     // Tangents
     si.dp_du[active] = dp_du;
     si.dp_dv[active] = dp_dv;
+
+    return si;
 }
 
 #if defined(MTS_ENABLE_OPTIX)
@@ -343,7 +367,7 @@ Mesh<Float, Spectrum>::differentiable_surface_interaction(
     // TODO comment this
     if(!attach_p) {
         Float cache[2] = { b1, b2 };
-        fill_surface_interaction(ray, cache, si, active);
+        si = fill_surface_interaction(ray, cache, arange<UInt32>(slices(ray)), si, active);
 
         si.sh_frame.s[active] = normalize(
             fnmadd(si.sh_frame.n, dot(si.sh_frame.n, si.dp_du), si.dp_du));
@@ -392,6 +416,29 @@ Mesh<Float, Spectrum>::p_attached(const SurfaceInteraction3f &si, Mask active) c
     Float b0 = 1.0f - b1 - b2;
 
     return p0 * detach(b0) + p1 * detach(b1) + p2 * detach(b2);
+}
+
+
+MTS_VARIANT std::pair<typename Mesh<Float, Spectrum>::Point3f, typename Mesh<Float, Spectrum>::Normal3f>
+Mesh<Float, Spectrum>::differentiable_position(const SurfaceInteraction3f &si, Mask active) const {
+    // NOTE: here we assume that the si was computed using HitComputeMode::Least
+    Float b1 = si.uv.x(),
+          b2 = si.uv.y();
+    Float b0 = 1.f - b1 - b2;
+
+    auto fi = face_indices(si.prim_index, active);
+
+    Point3f p0 = vertex_position(fi[0], active),
+            p1 = vertex_position(fi[1], active),
+            p2 = vertex_position(fi[2], active);
+
+    Vector3f dp0 = p1 - p0,
+             dp1 = p2 - p0;
+
+    // Face normal
+    Normal3f n = normalize(cross(dp0, dp1));
+    Point3f p = p0 * detach(b0) + p1 * detach(b1) + p2 * detach(b2);
+    return { p, n };
 }
 
 #endif
