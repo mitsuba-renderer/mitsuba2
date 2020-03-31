@@ -150,40 +150,28 @@ Scene<Float, Spectrum>::ray_test(const Ray3f &ray, Mask active) const {
 
 MTS_VARIANT std::pair<typename Scene<Float, Spectrum>::EmitterPtr, Float>
 Scene<Float, Spectrum>::sample_emitter(const Interaction3f &/*ref*/,
-                                       const Point2f &sample,
+                                       const Float &sample,
                                        Mask active) const {
 
-    ScalarFloat emitter_pdf;
+    ScalarFloat emitter_pdf(1.f);
     EmitterPtr emitter;
     if (likely(!m_emitters.empty())) {
-        // TODO: this fast path does not work
-        // if (m_emitters.size() == 1) {
-            // Log(Info, "one emitter");
+        if (m_emitters.size() == 1) {
             // Fast path if there is only one emitter
-            // emitter = m_emitters[0];
-        // } else {
+            emitter = (const Emitter *) m_emitters[0];
+            if constexpr (is_cuda_array_v<EmitterPtr>) {
+                set_slices(emitter, slices(sample));
+            }
+        } else {
             // Randomly pick an emitter according to the precomputed emitter distribution
-            UInt32 index = min(UInt32(sample.x() * (ScalarFloat) m_emitters.size()), (uint32_t) m_emitters.size()-1);
+            UInt32 index = min(UInt32(sample * (ScalarFloat) m_emitters.size()), (uint32_t) m_emitters.size()-1);
             emitter_pdf = 1.f / m_emitters.size();
             emitter = gather<EmitterPtr>(m_emitters.data(), index, active);
-        // }
+        }
     } else {
         Throw("Scene::sample_emitter_impl: Not implemented, scene must have emitters.");
     }
     return { emitter, emitter_pdf };
-
-/*    ScalarFloat emitter_pdf;
-    EmitterPtr emitter;
-    if (likely(!m_emitters.empty())) {
-        // Randomly pick an emitter according to the precomputed emitter distribution
-        UInt32 index = min(UInt32(sample.x() * (ScalarFloat) m_emitters.size()), (uint32_t) m_emitters.size()-1);
-        emitter_pdf = 1.f / m_emitters.size();
-        emitter = gather<EmitterPtr>(m_emitters.data(), index, active);
-    } else {
-        Throw("Scene::sample_emitter_impl: Not implemented, scene must have emitters.");
-    }
-    return { emitter, emitter_pdf };*/
-
 }
 
 MTS_VARIANT std::pair<typename Scene<Float, Spectrum>::DirectionSample3f, Spectrum>

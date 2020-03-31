@@ -314,7 +314,7 @@ public:
                     // Several samples are used for estimating discontinuities
                     // in light visibility.
                     auto [emitter, emitter_pdf] = scene->sample_emitter(
-                        si, samplePair2D(active_e, sampler), active_e);
+                        si, samplePair1D(active_e, sampler), active_e);
 
                     Mask is_envmap = emitter->is_environment() && active_e;
 

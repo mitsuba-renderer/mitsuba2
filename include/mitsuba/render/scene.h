@@ -103,14 +103,14 @@ public:
      *    A reference point somewhere within the scene
      *
      * \param sample
-     *    A uniformly distributed 2D vector
+     *    A uniformly distributed sample
      *
      * \return
      *    The sampled emitter and the sample probability.
      */
     std::pair<EmitterPtr, Float>
     sample_emitter(const Interaction3f &ref,
-                   const Point2f &sample,
+                   const Float &sample,
                    Mask active = true) const;
 
     /**
