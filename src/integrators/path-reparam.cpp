@@ -520,18 +520,18 @@ public:
                 std::vector<RayDifferential3f> rays_bs(m_dc_bsdf_samples);
                 std::vector<SurfaceInteraction3f> sis_bs(m_dc_bsdf_samples);
 
-                Mask use_sliding_bs(false);
+                Mask use_reparam_bs(false);
                 for (size_t bs = 0; bs < m_dc_bsdf_samples; bs++) {
                     rays_bs[bs] = si.spawn_ray(si.to_world(ds_bs[bs]));
                     sis_bs[bs] = scene->ray_intersect(rays_bs[bs], HitComputeMode::Least, active);
                     sis_bs[bs].compute_differentiable_shape_position(active);
-                    // Set use_sliding_bs to true if find hit
-                    use_sliding_bs = use_sliding_bs || (active && neq(sis_bs[bs].shape, nullptr));
+                    // Set use_reparam_bs to true if find hit
+                    use_reparam_bs = use_reparam_bs || (active && neq(sis_bs[bs].shape, nullptr));
                 }
 
                 if (m_disable_gradient_diffuse) {
-                    use_sliding_bs &= !convolution;
-                    current_weight = select(use_sliding_bs, current_weight, detach(current_weight));
+                    use_reparam_bs &= !convolution;
+                    current_weight = select(use_reparam_bs, current_weight, detach(current_weight));
                 }
 
                 Point3f discontinuity_bs = estimate_discontinuity(rays_bs, sis_bs, active);
@@ -556,7 +556,7 @@ public:
                 // Apply the differentiable rotation
                 // Warning, the direction must be detached such that it follows the discontinuities
                 // Warning, this rotation in world space, but wo is in local space
-                sample_bs.wo[use_sliding_bs] = si.to_local(rotation_bs.transform_affine(
+                sample_bs.wo[use_reparam_bs] = si.to_local(rotation_bs.transform_affine(
                     si.to_world(detach(sample_bs.wo))));
 
                 // Compute the differentiable BSDF value for the differentiable direction
@@ -590,7 +590,7 @@ public:
                 Float bsdf_pdf = select(convolution,
                                         sample_main_bs.pdf * pdf_conv_new_dir,
                                         bsdf_pdf_default);
-                bsdf_pdf[use_sliding_bs] = select(convolution,
+                bsdf_pdf[use_reparam_bs] = select(convolution,
                                                   sample_main_bs.pdf * detach(pdf_conv_new_dir),
                                                   detach(bsdf_pdf_default));
                 Spectrum bsdf_value_pdf = bsdf_value / bsdf_pdf;
@@ -602,7 +602,7 @@ public:
                       close to bsdf_value_pdf. */
                 // TODO: these weights should be colors.
 
-                Mask set_weights = use_sliding_bs && (bsdf_pdf > 0.001f);
+                Mask set_weights = use_reparam_bs && (bsdf_pdf > 0.001f);
                 current_weight = select(set_weights && convolution,
                     current_weight * detach(bsdf_value_pdf[0]) * pdf_conv_new_dir / detach(pdf_conv_new_dir),
                     current_weight);
