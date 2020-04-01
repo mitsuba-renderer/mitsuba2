@@ -30,32 +30,44 @@ Differentiable path tracer (:monosp:`pathreparam`)
 
  * - max_depth
    - |int|
-   - Specifies the longest path depth in the generated output image (where -1 corresponds to
-     :math:`\infty`). A value of 1 will only render directly visible light sources. 2 will lead
-     to single-bounce (direct-only) illumination, and so on. (Default: -1)
+   - Specifies the longest path depth in the generated output image (where -1
+     corresponds to :math:`\infty`). A value of 1 will only render directly
+     visible light sources. 2 will lead to single-bounce (direct-only)
+     illumination, and so on. (Default: -1)
  * - rr_depth
    - |int|
-   - Specifies the minimum path depth, after which the implementation will start to use the
-     *russian roulette* path termination criterion. (Default: 5)
+   - Specifies the minimum path depth, after which the implementation will
+     start to use the *russian roulette* path termination criterion. (Default: 5)
  * - dc_light_samples
    - |int|
-   - Specifies the number of samples for reparameterizing direct lighting integrals. (Default: 4)
+   - Specifies the number of samples for reparameterizing direct lighting
+     integrals. (Default: 4)
  * - dc_bsdf_samples
    - |int|
-   - Specifies the number of samples for reparameterizing BSDFs integrals. (Default: 4)
+   - Specifies the number of samples for reparameterizing BSDFs integrals.
+     (Default: 4)
  * - dc_cam_samples
    - |int|
-   - Specifies the number of samples for reparameterizing pixel integrals. (Default: 4)
+   - Specifies the number of samples for reparameterizing pixel integrals.
+     (Default: 4)
  * - conv_threshold
    - |float|
-   - Specifies the BSDFs roughness threshold that activates convolutions. (Default: 0.15f)
- * - kappa_conv
-   - |float|
-   - Specifies the kappa parameter of von Mises-Fisher distributions for convolutions.
-     (Default: 1000.f)
+   - Specifies the BSDFs roughness threshold that activates convolutions.
+     (Default: 0.15f)
  * - use_convolution
    - |bool|
    - Enable convolution for rough BSDFs. (Default: yes, i.e. |true|)
+ * - kappa_conv
+   - |float|
+   - Specifies the kappa parameter of von Mises-Fisher distributions for BSDFs
+     convolutions. (Default: 1000.f)
+ * - use_convolution_envmap
+   - |bool|
+   - Enable convolution for environment maps. (Default: yes, i.e. |true|)
+ * - kappa_conv_envmap
+   - |float|
+   - Specifies the kappa parameter of von Mises-Fisher distributions for
+     environment map convolutions. (Default: 1000.f)
  * - use_variance_reduction
    - |bool|
    - Enable variation reduction. (Default: yes, i.e. |true|)
@@ -69,15 +81,18 @@ Differentiable path tracer (:monosp:`pathreparam`)
 This integrator implements the reparameterization technique described in the
 article "Reparameterizing discontinuous integrands for differentiable rendering".
 It is based on the integrator :ref:`path <integrator-path>` and it applies
-reparameterizations for each rendering integral in order to account for discontinuities
+reparameterizations to rendering integrals in order to account for discontinuities
 when pixel values are differentiated using GPU modes and the Python API.
 
-This plugin should be used with the plugin :ref:`smootharea <emitter-smootharea>`,
-which is similar to the plugin :ref:`area <emitter-area>` with smoothly
-decreasing radiant exitance at the borders of the area light geometry to
-avoid discontinuities. Other light sources will lead to incorrect partial derivatives.
-Large area lights also result in significant bias since the convolution technique
-described in the paper is only applied to rough and diffuse BSDF integrals.
+This plugin supports environment maps and area lights with the plugin
+:ref:`smootharea <emitter-smootharea>`, which is similar to the plugin
+:ref:`area <emitter-area>` with smoothly decreasing radiant exitance at the
+borders of the area light geometry to avoid discontinuities. The area light
+geometry should be flat and it should have valid uv coordinates (see
+:ref:`smootharea <emitter-smootharea>` for details). Other light
+sources will lead to incorrect partial derivatives. Large area lights also
+result in significant bias since the convolution technique described in the
+paper is only applied to environment maps and rough/diffuse BSDF integrals.
 
 Another limitation of this implementation is memory usage on the GPU: automatic
 differentiation for an entire path tracer typically requires several GB of GPU
