@@ -95,6 +95,7 @@ public:
         bs.eta = 1.f;
         bs.sampled_type = +BSDFFlags::DiffuseReflection;
         bs.sampled_component = 0;
+        bs.sampled_roughness = math::Infinity<Float>;
 
         UnpolarizedSpectrum value = m_reflectance->eval(si, active);
 
