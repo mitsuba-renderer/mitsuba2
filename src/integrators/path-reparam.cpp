@@ -89,12 +89,12 @@ small sample counts in order to fit into GPU memory.
  */
 
 template <typename Float, typename Spectrum>
-class DiffPathIntegratorNew : public MonteCarloIntegrator<Float, Spectrum> {
+class PathReparamIntegrator : public MonteCarloIntegrator<Float, Spectrum> {
 public:
     MTS_IMPORT_BASE(MonteCarloIntegrator, m_max_depth, m_rr_depth)
     MTS_IMPORT_TYPES(Scene, Sampler, Emitter, EmitterPtr, BSDF, BSDFPtr)
 
-    DiffPathIntegratorNew(const Properties &props) : Base(props) {
+    PathReparamIntegrator(const Properties &props) : Base(props) {
         m_dc_light_samples = props.size_("dc_light_samples", 4);
         m_dc_bsdf_samples  = props.size_("dc_bsdf_samples",  4);
         m_dc_cam_samples   = props.size_("dc_cam_samples",   4);
@@ -261,31 +261,29 @@ public:
 
                 // ---------------- Intersection with emitters ----------------
 
-                if (any_or<true>(neq(emitter, nullptr))) {
-                    Spectrum emission(0.f);
-                    emission[active] = emission_weight * throughput * emitter->eval(si, active);
+                Spectrum emission(0.f);
+                emission[active] = emission_weight * throughput * emitter->eval(si, active);
 
-                    Spectrum emission_0 = gather<Spectrum>(emission, arange_indices);
-                    Spectrum emission_1 = gather<Spectrum>(emission, arange_indices + nb_pimary_rays);
+                Spectrum emission_0 = gather<Spectrum>(emission, arange_indices);
+                Spectrum emission_1 = gather<Spectrum>(emission, arange_indices + nb_pimary_rays);
 
-                    Float weights_0 = gather<Float>(current_weight, arange_indices);
-                    Float weights_1 = gather<Float>(current_weight, arange_indices + nb_pimary_rays);
+                Float weights_0 = gather<Float>(current_weight, arange_indices);
+                Float weights_1 = gather<Float>(current_weight, arange_indices + nb_pimary_rays);
 
-                    if (depth >= m_disable_gradient_bounce) {
-                        result += detach(emission_0) * 0.5f; // NOTE: detach so nothing is added to the gradient
-                        result += detach(emission_1) * 0.5f;
-                    } else if (m_use_variance_reduction) {
-                        // Avoid numerical errors due to tiny weights
-                        weights_0 = select(abs(weights_0) < 0.00001f, Float(1.f), weights_0);
-                        weights_1 = select(abs(weights_1) < 0.00001f, Float(1.f), weights_1);
+                if (depth >= m_disable_gradient_bounce) {
+                    result += detach(emission_0) * 0.5f; // NOTE: detach so nothing is added to the gradient
+                    result += detach(emission_1) * 0.5f;
+                } else if (m_use_variance_reduction) {
+                    // Avoid numerical errors due to tiny weights
+                    weights_0 = select(abs(weights_0) < 0.00001f, Float(1.f), weights_0);
+                    weights_1 = select(abs(weights_1) < 0.00001f, Float(1.f), weights_1);
 
-                        // Variance reduction, assumption that contribution = weight * constant
-                        result += (emission_0 - emission_1 / weights_1 * (weights_0 - detach(weights_0))) * 0.5f; // NOTE: detach here so to only add `e_1/w_1*w_0` to the gradient (only try to reduce the variance of the gradient)
-                        result += (emission_1 - emission_0 / weights_0 * (weights_1 - detach(weights_1))) * 0.5f;
-                    } else {
-                        result += emission_0 * 0.5f;
-                        result += emission_1 * 0.5f;
-                    }
+                    // Variance reduction, assumption that contribution = weight * constant
+                    result += (emission_0 - emission_1 / weights_1 * (weights_0 - detach(weights_0))) * 0.5f; // NOTE: detach here so to only add `e_1/w_1*w_0` to the gradient (only try to reduce the variance of the gradient)
+                    result += (emission_1 - emission_0 / weights_0 * (weights_1 - detach(weights_1))) * 0.5f;
+                } else {
+                    result += emission_0 * 0.5f;
+                    result += emission_1 * 0.5f;
                 }
 
                 active &= si.is_valid();
@@ -309,187 +307,177 @@ public:
                 BSDFPtr bsdf = si.bsdf(ray);
                 Mask active_e = active && has_flag(bsdf->flags(), BSDFFlags::Smooth);
 
-                if (likely(any_or<true>(active_e))) {
-                    // Sample the light integral at each active shading point.
-                    // Several samples are used for estimating discontinuities
-                    // in light visibility.
-                    auto [emitter, emitter_pdf] = scene->sample_emitter(
-                        si, samplePair1D(active_e, sampler), active_e);
+                // Sample the light integral at each active shading point.
+                // Several samples are used for estimating discontinuities
+                // in light visibility.
+                auto [emitter, emitter_pdf] = scene->sample_emitter(
+                    si, samplePair1D(active_e, sampler), active_e);
 
-                    Mask is_envmap = emitter->is_environment() && active_e;
+                Mask is_envmap = emitter->is_environment() && active_e;
 
-                    Point3f position_discontinuity(0.f);
-                    UInt32 hits(0);
+                Point3f position_discontinuity(0.f);
+                UInt32 hits(0);
 
-                    std::vector<DirectionSample3f> ds_ls(m_dc_light_samples);
-                    std::vector<Spectrum> emitter_val_ls(m_dc_light_samples);
-                    std::vector<Mask> is_occluded_ls(m_dc_light_samples);
+                std::vector<DirectionSample3f> ds_ls(m_dc_light_samples);
+                std::vector<Spectrum> emitter_val_ls(m_dc_light_samples);
+                std::vector<Mask> is_occluded_ls(m_dc_light_samples);
 
-                    auto [ds_ls_main, e_tmp] = emitter->sample_direction(
+                auto [ds_ls_main, e_tmp] = emitter->sample_direction(
+                    si, samplePair2D(active_e, sampler), active_e);
+                Frame<Float> frame_main_ls(ds_ls_main.d);
+
+                for (size_t ls = 0; ls < m_dc_light_samples; ls++) {
+
+                    std::tie(ds_ls[ls], emitter_val_ls[ls]) = emitter->sample_direction(
                         si, samplePair2D(active_e, sampler), active_e);
-                    Frame<Float> frame_main(ds_ls_main.d);
 
+                    if (m_use_convolution_envmap) {
+                        Vector3f sample_ls = warp::square_to_von_mises_fisher<Float>(
+                            sample2D(active_e, sampler), m_kappa_conv_envmap);
+
+                        // Update with the pdf of the convolution kernel
+                        ds_ls[ls].pdf[is_envmap] = warp::square_to_von_mises_fisher_pdf<Float>(
+                            sample_ls, m_kappa_conv_envmap);
+                        sample_ls = frame_main_ls.to_world(sample_ls);
+                        ds_ls[ls].d[is_envmap] = sample_ls;
+                    }
+
+                    Mask active_ls = active_e && neq(ds_ls[ls].pdf, 0.f);
+
+                    // Check masking for active rays
+                    Ray3f ray_ls(si.p, ds_ls[ls].d, math::RayEpsilon<Float> * (1.f + hmax(abs(si.p))),
+                                 ds_ls[ls].dist * (1.f - math::ShadowEpsilon<Float>),
+                                 si.time, si.wavelengths);
+                    ray_ls.maxt[is_envmap] = math::Infinity<Float>;
+
+                    auto si_ls = scene->ray_intersect(ray_ls, HitComputeMode::Least, active_ls);
+                    si_ls.compute_differentiable_shape_position(active_ls);
+
+                    is_occluded_ls[ls] = neq(si_ls.shape, nullptr);
+                    position_discontinuity[is_occluded_ls[ls]] += si_ls.p;
+                    hits = select(is_occluded_ls[ls], hits + 1, hits);
+
+                    if (m_use_convolution_envmap) {
+                        // The contribution is radiance * kernel / ds_ls_main.pdf / kernel (pdf)
+                        emitter_val_ls[ls][is_envmap] = emitter->eval(si_ls, is_envmap) / ds_ls_main.pdf;
+                    }
+
+                    // The contribution is 0 when the light is not visible
+                    emitter_val_ls[ls][is_occluded_ls[ls]] = Spectrum(0.f);
+                }
+
+                // Compute differentiable rotations from emitter samples
+
+                Mask use_reparam = hits > 0.f;
+                position_discontinuity[use_reparam] = position_discontinuity / hits;
+
+                Vector3f direction_discontinuity(0.f);
+                direction_discontinuity[use_reparam] = normalize(position_discontinuity - si.p);
+                Vector3f direction_discontinuity_detach = detach(direction_discontinuity);
+
+                // TODO: maybe should use same logic as in BSDF sampling (detach in normalize())
+                // Vector3f direction_discontinuity_detach = normalize(detach(position_discontinuity) - si.p);
+
+                Vector3f axis_ls = cross<Vector3f>(direction_discontinuity_detach, direction_discontinuity);
+                Float cosangle_ls = dot(direction_discontinuity, direction_discontinuity_detach);
+                Transform4f rotation_ls = rotation_from_axis_cosangle(axis_ls, cosangle_ls);
+
+                std::vector<Spectrum> contribs_ls(m_dc_light_samples);
+
+                // Reuse all the emitter samples and compute differentiable contributions
+
+                for (size_t ls = 0; ls < m_dc_light_samples; ls++) {
+
+                    // Recompute direction
+                    ds_ls[ls].d[use_reparam] = rotation_ls.transform_affine(detach(ds_ls[ls].d));
+
+                    if (m_use_convolution_envmap) {
+                        // Recompute the value of convolution kernel
+                        ds_ls[ls].pdf[use_reparam && is_envmap] = warp::square_to_von_mises_fisher_pdf<Float>(
+                            frame_main_ls.to_local(ds_ls[ls].d), m_kappa_conv_envmap);
+                    }
+
+                    // Recompute the contribution when a reparameterization is used
+                    Mask visible_and_hit = use_reparam && (!is_occluded_ls[ls]);
+
+                    Ray3f ray_ls(si.p, ds_ls[ls].d,
+                                 math::RayEpsilon<Float> * (1.f + hmax(abs(si.p))),
+                                 ds_ls[ls].dist + 1.f,
+                                 si.time, si.wavelengths);
+
+                    auto si_ls = scene->ray_intersect(
+                        ray_ls, HitComputeMode::Differentiable,
+                        visible_and_hit);
+
+                    Spectrum e_val_reparam = emitter->eval(si_ls, visible_and_hit) / detach(ds_ls[ls].pdf);
+
+                    if (m_use_convolution_envmap) {
+                        e_val_reparam[visible_and_hit && is_envmap] *= ds_ls[ls].pdf / ds_ls_main.pdf;
+                    }
+
+                    emitter_val_ls[ls][visible_and_hit] = e_val_reparam;
+
+                    if (m_use_convolution_envmap) {
+                        // Update emitter pdf for MIS
+                        Float pdf_emitter = emitter->pdf_direction(si, ds_ls[ls], is_envmap);
+                        ds_ls[ls].pdf[is_envmap] = detach(pdf_emitter);
+                    }
+
+                    // Compute contribution
+
+                    Mask active_c = active_e && neq(ds_ls[ls].pdf, 0.f);
+
+                    // Query the BSDF for that emitter-sampled direction
+                    Vector3f wo = si.to_local(ds_ls[ls].d);
+                    Spectrum bsdf_val = bsdf->eval(ctx, si, wo, active_c);
+
+                    // Determine probability of having sampled that same
+                    // direction using BSDF sampling.
+                    Float bsdf_pdf = bsdf->pdf(ctx, si, wo, active_c);
+
+                    Float mis = select(ds_ls[ls].delta, 1.f, mis_weight(ds_ls[ls].pdf * emitter_pdf, bsdf_pdf));
+
+                    contribs_ls[ls] = throughput * emitter_val_ls[ls] / emitter_pdf * bsdf_val * mis;
+                }
+
+                // Accumulate contributions and variance reduction (in pairs of paths)
+                if (m_dc_light_samples > 1) {
+                    Spectrum contrib(0.f);
                     for (size_t ls = 0; ls < m_dc_light_samples; ls++) {
-
-                        std::tie(ds_ls[ls], emitter_val_ls[ls]) = emitter->sample_direction(
-                            si, samplePair2D(active_e, sampler), active_e);
-
-                        if (m_use_convolution_envmap) {
-                            Vector3f sample_ls = warp::square_to_von_mises_fisher<Float>(
-                                sample2D(active_e, sampler), m_kappa_conv_envmap);
-
-                            // Update with the pdf of the convolution kernel
-                            ds_ls[ls].pdf[is_envmap] = warp::square_to_von_mises_fisher_pdf<Float>(
-                                sample_ls, m_kappa_conv_envmap);
-                            sample_ls = frame_main.to_world(sample_ls);
-                            ds_ls[ls].d[is_envmap] = sample_ls;
-                        }
-
-                        Mask active_ls = active_e && neq(ds_ls[ls].pdf, 0.f);
-                        if (any_or<true>(active_ls)) {
-                            // Check masking for active rays
-                            Ray3f ray_ls(si.p, ds_ls[ls].d, math::RayEpsilon<Float> * (1.f + hmax(abs(si.p))),
-                                         ds_ls[ls].dist * (1.f - math::ShadowEpsilon<Float>),
-                                         si.time, si.wavelengths);
-                            ray_ls.maxt[is_envmap] = math::Infinity<Float>;
-
-                            auto si_ls = scene->ray_intersect(ray_ls, HitComputeMode::Least, active_ls);
-                            si_ls.compute_differentiable_shape_position(active_ls);
-
-                            is_occluded_ls[ls] = neq(si_ls.shape, nullptr);
-                            position_discontinuity[is_occluded_ls[ls]] += si_ls.p;
-                            hits = select(is_occluded_ls[ls], hits + 1, hits);
-
-                            if (m_use_convolution_envmap) {
-                                // The contribution is radiance * kernel / ds_ls_main.pdf / kernel (pdf)
-                                emitter_val_ls[ls][is_envmap] = emitter->eval(si_ls, is_envmap) / ds_ls_main.pdf;
-                            }
-
-                            // The contribution is 0 when the light is not visible
-                            emitter_val_ls[ls][is_occluded_ls[ls]] = Spectrum(0.f);
-                        }
+                        contrib += contribs_ls[ls];
                     }
 
-                    // Compute differentiable rotations from emitter samples
+                    contrib /= m_dc_light_samples;
 
-                    Mask use_reparam = hits > 0.f;
-                    if (likely(any_or<true>(use_reparam))) {
-                        position_discontinuity[use_reparam] = position_discontinuity / hits;
-                    }
+                    //  Add the contribution of this light sample.
+                    //  The weight is the current weight of the throughput.
+                    Spectrum emitter_sampling(0.f);
+                    emitter_sampling[active_e] += contrib;
 
-                    Transform4f rotation_ls;
-                    if (likely(any_or<true>(use_reparam))) {
-                        Vector3f direction_discontinuity(0.f);
-                        direction_discontinuity[use_reparam] = normalize(position_discontinuity - si.p);
-                        Vector3f direction_discontinuity_detach = detach(direction_discontinuity);
+                    Spectrum emitter_sampling_0 = gather<Spectrum>(emitter_sampling, arange_indices);
+                    Spectrum emitter_sampling_1 = gather<Spectrum>(emitter_sampling, arange_indices + nb_pimary_rays);
 
-                        // TODO: maybe should use same logic as in BSDF sampling (detach in normalize())
-                        // Vector3f direction_discontinuity_detach = normalize(detach(position_discontinuity) - si.p);
+                    Float weights_0 = gather<Float>(current_weight, arange_indices);
+                    Float weights_1 = gather<Float>(current_weight, arange_indices + nb_pimary_rays);
 
-                        Vector3f axis_ls = cross<Vector3f>(direction_discontinuity_detach, direction_discontinuity);
-                        Float cosangle_ls = dot(direction_discontinuity, direction_discontinuity_detach);
-                        rotation_ls = rotation_from_axis_cosangle(axis_ls, cosangle_ls);
-                    }
+                    // Here the weights weights_0 and weights_1 come from previous
+                    // bsdf sampling, their gradients are uncorrelated to the sampled emissions
+                    // **of the other path** emitter_sampling_0 and emitter_sampling_1.
+                    if (depth >= m_disable_gradient_bounce) {
+                        result += detach(emitter_sampling_0) * 0.5f;
+                        result += detach(emitter_sampling_1) * 0.5f;
+                    } else if (m_use_variance_reduction) {
+                        weights_0 = select(abs(weights_0) < 0.00001f, Float(1.f), weights_0);
+                        weights_1 = select(abs(weights_1) < 0.00001f, Float(1.f), weights_1);
 
-                    std::vector<Spectrum> contribs_ls(m_dc_light_samples);
-
-                    // Reuse all the emitter samples and compute differentiable contributions
-
-                    for (size_t ls = 0; ls < m_dc_light_samples; ls++) {
-                        // Replace direction sample by differentiable data
-                        if (likely(any_or<true>(use_reparam))) {
-                            // Recompute direction
-                            ds_ls[ls].d[use_reparam] = rotation_ls.transform_affine(detach(ds_ls[ls].d));
-
-                            if (m_use_convolution_envmap) {
-                                // Recompute the value of convolution kernel
-                                ds_ls[ls].pdf[use_reparam && is_envmap] = warp::square_to_von_mises_fisher_pdf<Float>(
-                                    frame_main.to_local(ds_ls[ls].d), m_kappa_conv_envmap);
-                            }
-
-                            // Recompute the contribution when a reparameterization is used
-                            Mask visible_and_hit = use_reparam && (!is_occluded_ls[ls]);
-
-                            Ray3f ray_ls(si.p, ds_ls[ls].d,
-                                         math::RayEpsilon<Float> * (1.f + hmax(abs(si.p))),
-                                         ds_ls[ls].dist + 1.f,
-                                         si.time, si.wavelengths);
-
-                            auto si_ls = scene->ray_intersect(
-                                ray_ls, HitComputeMode::Differentiable,
-                                visible_and_hit);
-
-                            Spectrum e_val_reparam = emitter->eval(si_ls, visible_and_hit) / detach(ds_ls[ls].pdf);
-
-                            if (m_use_convolution_envmap) {
-                                e_val_reparam[visible_and_hit && is_envmap] *= ds_ls[ls].pdf / ds_ls_main.pdf;
-                            }
-
-                            emitter_val_ls[ls][visible_and_hit] = e_val_reparam;
-
-                            if (m_use_convolution_envmap) {
-                                // Update emitter pdf for MIS
-                                Float pdf_emitter = emitter->pdf_direction(si, ds_ls[ls], is_envmap);
-                                ds_ls[ls].pdf[is_envmap] = detach(pdf_emitter);
-                            }
-                        }
-
-                        // Compute contribution
-
-                        Mask active_c = active_e && neq(ds_ls[ls].pdf, 0.f);
-
-                        // Query the BSDF for that emitter-sampled direction
-                        Vector3f wo = si.to_local(ds_ls[ls].d);
-                        Spectrum bsdf_val = bsdf->eval(ctx, si, wo, active_c);
-
-                        // Determine probability of having sampled that same
-                        // direction using BSDF sampling.
-                        Float bsdf_pdf = bsdf->pdf(ctx, si, wo, active_c);
-
-                        Float mis = select(ds_ls[ls].delta, 1.f, mis_weight(ds_ls[ls].pdf * emitter_pdf, bsdf_pdf));
-
-                        contribs_ls[ls] = throughput * emitter_val_ls[ls] / emitter_pdf * bsdf_val * mis;
-                    }
-
-                    // Accumulate contributions and variance reduction (in pairs of paths)
-                    if (m_dc_light_samples > 1) {
-                        Spectrum contrib(0.f);
-                        for (size_t ls = 0; ls < m_dc_light_samples; ls++) {
-                            contrib += contribs_ls[ls];
-                        }
-
-                        contrib /= m_dc_light_samples;
-
-                        //  Add the contribution of this light sample.
-                        //  The weight is the current weight of the throughput.
-                        Spectrum emitter_sampling(0.f);
-                        emitter_sampling[active_e] += contrib;
-
-                        Spectrum emitter_sampling_0 = gather<Spectrum>(emitter_sampling, arange_indices);
-                        Spectrum emitter_sampling_1 = gather<Spectrum>(emitter_sampling, arange_indices + nb_pimary_rays);
-
-                        Float weights_0 = gather<Float>(current_weight, arange_indices);
-                        Float weights_1 = gather<Float>(current_weight, arange_indices + nb_pimary_rays);
-
-                        // Here the weights weights_0 and weights_1 come from previous
-                        // bsdf sampling, their gradients are uncorrelated to the sampled emissions
-                        // **of the other path** emitter_sampling_0 and emitter_sampling_1.
-                        if (depth >= m_disable_gradient_bounce) {
-                            result += detach(emitter_sampling_0) * 0.5f;
-                            result += detach(emitter_sampling_1) * 0.5f;
-                        } else if (m_use_variance_reduction) {
-                            weights_0 = select(abs(weights_0) < 0.00001f, Float(1.f), weights_0);
-                            weights_1 = select(abs(weights_1) < 0.00001f, Float(1.f), weights_1);
-
-                            result += (emitter_sampling_0 - emitter_sampling_1 / weights_1 * (weights_0 - detach(weights_0))) * 0.5f;
-                            result += (emitter_sampling_1 - emitter_sampling_0 / weights_0 * (weights_1 - detach(weights_1))) * 0.5f;
-                        } else {
-                            result += emitter_sampling_0 * 0.5f;
-                            result += emitter_sampling_1 * 0.5f;
-                        }
+                        result += (emitter_sampling_0 - emitter_sampling_1 / weights_1 * (weights_0 - detach(weights_0))) * 0.5f;
+                        result += (emitter_sampling_1 - emitter_sampling_0 / weights_0 * (weights_1 - detach(weights_1))) * 0.5f;
                     } else {
-                        Throw("DiffPathIntegratorNew: m_dc_light_samples < 2 not implemented!");
+                        result += emitter_sampling_0 * 0.5f;
+                        result += emitter_sampling_1 * 0.5f;
                     }
+                } else {
+                    Throw("PathReparamIntegrator: m_dc_light_samples < 2 not implemented!");
                 }
 
                 // ----------------------- BSDF sampling ----------------------
@@ -509,7 +497,7 @@ public:
 
                 active &= sample_main_bs.pdf > 0.f;
 
-                Frame<Float> frame_main(sample_main_bs.wo);
+                Frame<Float> frame_main_bs(sample_main_bs.wo);
                 std::vector<Vector3f> ds_bs(m_dc_bsdf_samples);
 
                 // Compute directions to samples either from the bsdf or the
@@ -519,7 +507,7 @@ public:
 
                     // Convolution: sample a vmf lobe
                     Vector3f sample_bs = warp::square_to_von_mises_fisher<Float>(sample2D(active, sampler), m_kappa_conv);
-                    sample_bs = frame_main.to_world(sample_bs);
+                    sample_bs = frame_main_bs.to_world(sample_bs);
 
                     // Otherwise: must be uncorrelated, but can sample the same component
                     auto [sample_bs_noconv, bsdf_val_bs] = bsdf->sample(ctx, si, component_sample,
@@ -548,16 +536,13 @@ public:
 
                 Point3f discontinuity_bs = estimate_discontinuity(rays_bs, sis_bs, active);
 
-                Transform4f rotation_bs;
-                if (likely(any_or<true>(use_sliding_bs))) {
-                    Vector3f direction_diff   = normalize(discontinuity_bs - si.p);
-                    Vector3f discontinuity_bs_detach = detach(discontinuity_bs);
-                    Vector3f direction_detach = normalize(discontinuity_bs_detach - si.p);
+                Vector3f direction_diff   = normalize(discontinuity_bs - si.p);
+                Vector3f discontinuity_bs_detach = detach(discontinuity_bs);
+                Vector3f direction_detach = normalize(discontinuity_bs_detach - si.p);
 
-                    Vector3f axis_bs = cross(direction_detach, direction_diff);
-                    Float cosangle_bs = dot(direction_diff, direction_detach);
-                    rotation_bs = rotation_from_axis_cosangle(axis_bs, cosangle_bs); // This rotation is in world space
-                }
+                Vector3f axis_bs = cross(direction_detach, direction_diff);
+                Float cosangle_bs = dot(direction_diff, direction_detach);
+                Transform4f rotation_bs = rotation_from_axis_cosangle(axis_bs, cosangle_bs); // This rotation is in world space
 
                 // Initialize the BSDF sample from the initial sample, eta and
                 // sampled_type do not change since the same component is sampled.
@@ -569,19 +554,17 @@ public:
 
 
                 // Apply the differentiable rotation
-                if (likely(any_or<true>(use_sliding_bs))) {
-                    // Warning, the direction must be detached such that it follows the discontinuities
-                    // Warning, this rotation in world space, but wo is in local space
-                    sample_bs.wo[use_sliding_bs] = si.to_local(rotation_bs.transform_affine(
-                        si.to_world(detach(sample_bs.wo))));
-                }
+                // Warning, the direction must be detached such that it follows the discontinuities
+                // Warning, this rotation in world space, but wo is in local space
+                sample_bs.wo[use_sliding_bs] = si.to_local(rotation_bs.transform_affine(
+                    si.to_world(detach(sample_bs.wo))));
 
                 // Compute the differentiable BSDF value for the differentiable direction
                 Spectrum bsdf_value = bsdf->eval(ctx, si, sample_bs.wo, active);
 
                 // Compute the pdf of the convolution kernel for the selected direction
                 // Warning: need to transform to a frame centered around the Z axis
-                Float pdf_conv_new_dir = warp::square_to_von_mises_fisher_pdf<Float>(frame_main.to_local(sample_bs.wo),
+                Float pdf_conv_new_dir = warp::square_to_von_mises_fisher_pdf<Float>(frame_main_bs.to_local(sample_bs.wo),
                                                                                      m_kappa_conv);
 
                 // Multiply the BSDF value by the convolution kernel. Use a
@@ -607,11 +590,9 @@ public:
                 Float bsdf_pdf = select(convolution,
                                         sample_main_bs.pdf * pdf_conv_new_dir,
                                         bsdf_pdf_default);
-                if (likely(any_or<true>(use_sliding_bs))) {
-                    bsdf_pdf[use_sliding_bs] = select(convolution,
-                                                      sample_main_bs.pdf * detach(pdf_conv_new_dir),
-                                                      detach(bsdf_pdf_default));
-                }
+                bsdf_pdf[use_sliding_bs] = select(convolution,
+                                                  sample_main_bs.pdf * detach(pdf_conv_new_dir),
+                                                  detach(bsdf_pdf_default));
                 Spectrum bsdf_value_pdf = bsdf_value / bsdf_pdf;
 
                 /* Compute weights for variance reduction
@@ -662,7 +643,7 @@ public:
 
             return { result, valid_ray };
         } else {
-            Throw("DiffPathIntegratorNew: currently this integrator must be run on the GPU.");
+            Throw("PathReparamIntegrator: currently this integrator must be run on the GPU.");
             return {Spectrum(0.f), Mask(false)};
         }
     }
@@ -671,7 +652,7 @@ public:
     // =============================================================
 
     std::string to_string() const override {
-        return tfm::format("DiffPathIntegratorNew[\n"
+        return tfm::format("PathReparamIntegrator[\n"
             "  max_depth = %i,\n"
             "  rr_depth = %i\n"
             "]", m_max_depth, m_rr_depth);
@@ -717,7 +698,7 @@ protected:
         unsigned int nb_samples = rays.size();
 
         if (rays.size() < 2 || rays.size() != sis.size())
-            Throw("DiffPathIntegratorNew::estimate_discontinuity: invalid number of samples for discontinuity estimation");
+            Throw("PathReparamIntegrator::estimate_discontinuity: invalid number of samples for discontinuity estimation");
 
         Point3f ray0_p_attached = sis[0].p;
         Vector3f ray0_n = sis[0].n;
@@ -751,74 +732,71 @@ protected:
 
         Mask has_two_hits = neq(sis[0].shape, nullptr) && is_ray1_hit;
 
-        if (any_or<true>(has_two_hits)) {
-            // Compute occlusion between planes and hitpoints: sign of
-            // dot(normal, hitpoint - hitpoint). Test if the origin of the rays
-            // is on the same side as the other hit.
-            Float occ_plane_0 =
-                dot(ray0_n, ray1_p_attached - ray0_p_attached) *
-                dot(ray0_n, rays[0].o - ray0_p_attached);
-            Float occ_plane_1 = dot(ray1_n, ray0_p_attached - ray1_p_attached) *
-                                dot(ray0_n, rays[0].o - ray0_p_attached);
+        // Compute occlusion between planes and hitpoints: sign of
+        // dot(normal, hitpoint - hitpoint). Test if the origin of the rays
+        // is on the same side as the other hit.
+        Float occ_plane_0 =
+            dot(ray0_n, ray1_p_attached - ray0_p_attached) *
+            dot(ray0_n, rays[0].o - ray0_p_attached);
+        Float occ_plane_1 = dot(ray1_n, ray0_p_attached - ray1_p_attached) *
+                            dot(ray0_n, rays[0].o - ray0_p_attached);
 
-            Mask plane_0_occludes_1 = has_two_hits && (occ_plane_0 < 0.f);
-            Mask plane_1_occludes_0 = has_two_hits && (occ_plane_1 < 0.f);
+        Mask plane_0_occludes_1 = has_two_hits && (occ_plane_0 < 0.f);
+        Mask plane_1_occludes_0 = has_two_hits && (occ_plane_1 < 0.f);
 
-            Mask simple_occluder_0 = plane_0_occludes_1 && !plane_1_occludes_0;
-            Mask simple_occluder_1 = plane_1_occludes_0 && !plane_0_occludes_1;
-            Mask plane_intersection = has_two_hits  && !simple_occluder_1 && !simple_occluder_0;
+        Mask simple_occluder_0 = plane_0_occludes_1 && !plane_1_occludes_0;
+        Mask simple_occluder_1 = plane_1_occludes_0 && !plane_0_occludes_1;
+        Mask plane_intersection = has_two_hits  && !simple_occluder_1 && !simple_occluder_0;
 
-            if (any_or<true>(simple_occluder_0))
-                res[simple_occluder_0] = ray0_p_attached;
+        /* simple_occluder */
 
-            if (any_or<true>(simple_occluder_1))
-                res[simple_occluder_1] = ray1_p_attached;
+        res[simple_occluder_0] = ray0_p_attached;
+        res[simple_occluder_1] = ray1_p_attached;
 
-            Mask same_normals = plane_intersection  && abs(dot(ray0_n, ray1_n)) > 0.99f;
-            plane_intersection &= !same_normals;
+        /* same_normals */
 
-            if (any_or<true>(same_normals))
-                res[same_normals] = ray0_p_attached;
+        Mask same_normals = plane_intersection  && abs(dot(ray0_n, ray1_n)) > 0.99f;
+        plane_intersection &= !same_normals;
+        res[same_normals] = ray0_p_attached;
 
-            if (any_or<true>(plane_intersection)) {
+        /* plane_intersection */
+
 #if 1
-                // Compute the intersection between 3 planes:
-                // 2 planes defined by the ray intersections and
-                // the normals at these points, and 1 plane containing
-                // the ray directions.
+        // Compute the intersection between 3 planes:
+        // 2 planes defined by the ray intersections and
+        // the normals at these points, and 1 plane containing
+        // the ray directions.
 
-                Vector3f N0 = ray0_n;
-                Vector3f N1 = ray1_n;
-                Vector3f P0 = ray0_p_attached;
-                Vector3f P1 = ray1_p_attached;
+        Vector3f N0 = ray0_n;
+        Vector3f N1 = ray1_n;
+        Vector3f P0 = ray0_p_attached;
+        Vector3f P1 = ray1_p_attached;
 
-                // Normal of the third plane, defined using
-                // attached positions (this prevents bad correlations
-                // between the displacement of the intersection and
-                // the sampled positions)
+        // Normal of the third plane, defined using
+        // attached positions (this prevents bad correlations
+        // between the displacement of the intersection and
+        // the sampled positions)
 
-                Vector3f N = cross(P0 - rays[0].o, P1 - rays[0].o);
-                Float norm_N = norm(N);
+        Vector3f N = cross(P0 - rays[0].o, P1 - rays[0].o);
+        Float norm_N = norm(N);
 
-                // Set a default intersection if the problem is ill-defined
-                res[plane_intersection] = ray0_p_attached;
+        // Set a default intersection if the problem is ill-defined
+        res[plane_intersection] = ray0_p_attached;
 
-                Mask invertible = plane_intersection && norm_N > 0.001f;
+        Mask invertible = plane_intersection && norm_N > 0.001f;
 
-                Matrix A = Matrix::from_rows(N0, N1, N);
-                Float b0 =  dot(P0, N0);
-                Float b1 =  dot(P1, N1);
-                Float b2 =  dot(rays[0].o, N);
-                Vector3f B(b0, b1, b2);
-                Matrix invA = enoki::inverse(A);
-                res[invertible] = invA * B;
+        Matrix A = Matrix::from_rows(N0, N1, N);
+        Float b0 =  dot(P0, N0);
+        Float b1 =  dot(P1, N1);
+        Float b2 =  dot(rays[0].o, N);
+        Vector3f B(b0, b1, b2);
+        Matrix invA = enoki::inverse(A);
+        res[invertible] = invA * B;
 #else
-                // Simply choose one of the intersections.
-                // This is a good strategy in many situations.
-                res[plane_intersection] = ray0_p_attached;
+        // Simply choose one of the intersections.
+        // This is a good strategy in many situations.
+        res[plane_intersection] = ray0_p_attached;
 #endif
-            }
-        }
 
         return res;
 
@@ -840,6 +818,6 @@ private:
     VMFHemisphereIntegral<Float> m_vmf_hemisphere;
 };
 
-MTS_IMPLEMENT_CLASS_VARIANT(DiffPathIntegratorNew, MonteCarloIntegrator);
-MTS_EXPORT_PLUGIN(DiffPathIntegratorNew, "Differentiable Path Tracer integrator");
+MTS_IMPLEMENT_CLASS_VARIANT(PathReparamIntegrator, MonteCarloIntegrator);
+MTS_EXPORT_PLUGIN(PathReparamIntegrator, "Differentiable Path Tracer integrator");
 NAMESPACE_END(mitsuba)
