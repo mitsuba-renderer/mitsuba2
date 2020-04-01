@@ -350,75 +350,6 @@ Mesh<Float, Spectrum>::fill_surface_interaction(const Ray3f &ray,
     return si;
 }
 
-#if defined(MTS_ENABLE_OPTIX)
-MTS_VARIANT typename Mesh<Float, Spectrum>::SurfaceInteraction3f
-Mesh<Float, Spectrum>::differentiable_surface_interaction(
-    const Ray3f &ray, const SurfaceInteraction3f &si_, bool attach_p, Mask active) const {
-
-    SurfaceInteraction3f si(si_);
-
-    // recompute ray / triangle intersection
-    auto [valid, b1, b2, t] = ray_intersect_triangle(si.prim_index, ray, active);
-
-    // Replace the data by differentiable data
-    active &= valid;
-    masked(si.t, active) = t;
-
-    // TODO comment this
-    if(!attach_p) {
-        Float cache[2] = { b1, b2 };
-        si = fill_surface_interaction(ray, cache, arange<UInt32>(slices(ray)), si, active);
-
-        si.sh_frame.s[active] = normalize(
-            fnmadd(si.sh_frame.n, dot(si.sh_frame.n, si.dp_du), si.dp_du));
-        si.sh_frame.t[active] = cross(si.sh_frame.n, si.sh_frame.s);
-    } else {
-        Float b0 = 1.f - b1 - b2;
-
-        auto fi = face_indices(si.prim_index, active);
-
-        Point3f p0 = vertex_position(fi[0], active),
-                p1 = vertex_position(fi[1], active),
-                p2 = vertex_position(fi[2], active);
-
-        Vector3f dp0 = p1 - p0,
-                 dp1 = p2 - p0;
-
-        // Face normal
-        Normal3f n = normalize(cross(dp0, dp1));
-        si.n[active] = n;
-        si.p[active] = p0 * detach(b0) + p1 * detach(b1) + p2 * detach(b2);
-    }
-
-    return si;
-}
-
-MTS_VARIANT typename Mesh<Float, Spectrum>::Point3f
-Mesh<Float, Spectrum>::p_attached(const SurfaceInteraction3f &si, Mask active) const {
-
-    auto fi = face_indices(si.prim_index, active);
-
-    Point3f p0 = vertex_position(fi[0], active),
-            p1 = vertex_position(fi[1], active),
-            p2 = vertex_position(fi[2], active);
-
-    Vector3f v0 = p1 - p0, v1 = p2 - p0, v2 = si.p - p0;
-    Float d00 = dot(v0, v0);
-    Float d01 = dot(v0, v1);
-    Float d11 = dot(v1, v1);
-    Float d20 = dot(v2, v0);
-    Float d21 = dot(v2, v1);
-    Float denom = d00 * d11 - d01 * d01;
-
-    // TODO test
-    Float b1 = (d11 * d20 - d01 * d21) / denom;
-    Float b2 = (d00 * d21 - d01 * d20) / denom;
-    Float b0 = 1.0f - b1 - b2;
-
-    return p0 * detach(b0) + p1 * detach(b1) + p2 * detach(b2);
-}
-
-
 MTS_VARIANT std::pair<typename Mesh<Float, Spectrum>::Point3f, typename Mesh<Float, Spectrum>::Normal3f>
 Mesh<Float, Spectrum>::differentiable_position(const SurfaceInteraction3f &si, Mask active) const {
     // NOTE: here we assume that the si was computed using HitComputeMode::Least
@@ -440,8 +371,6 @@ Mesh<Float, Spectrum>::differentiable_position(const SurfaceInteraction3f &si, M
     Point3f p = p0 * detach(b0) + p1 * detach(b1) + p2 * detach(b2);
     return { p, n };
 }
-
-#endif
 
 MTS_VARIANT std::pair<typename Mesh<Float, Spectrum>::Vector3f, typename Mesh<Float, Spectrum>::Vector3f>
 Mesh<Float, Spectrum>::normal_derivative(const SurfaceInteraction3f &si, bool shading_frame,

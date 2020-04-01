@@ -8,7 +8,6 @@ add_plugin(stokes          stokes.cpp)
 add_plugin(moment          moment.cpp)
 add_plugin(volpath         volpath.cpp)
 add_plugin(volpathsimple   volpath-simple.cpp)
-add_plugin(pathreparamold  path-reparam-old.cpp)
 add_plugin(pathreparam     path-reparam.cpp)
 
 # Register the test directory

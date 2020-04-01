@@ -167,15 +167,6 @@ public:
                                                           SurfaceInteraction3f si,
                                                           Mask active = true) const;
 
-#if defined(MTS_ENABLE_OPTIX)
-    // TODO remove this
-    /// Compute differentiable intersection data from optix intersection
-    virtual SurfaceInteraction3f
-    differentiable_surface_interaction(const Ray3f &ray,
-                                       const SurfaceInteraction3f &si,
-                                       bool attach_p = false,
-                                       Mask active = true) const;
-
     /**
      * \brief Return a position and the corrsponding geometric normal on this shape given
      * a partially filled \c si (see \c HitComputeMode::Least ).
@@ -184,12 +175,6 @@ public:
     virtual std::pair<Point3f, Normal3f>
     differentiable_position(const SurfaceInteraction3f &si,
                             Mask active = true) const;
-
-    // TODO remove this
-    /// Compute "attached" differentiable positions
-    virtual Point3f p_attached(const SurfaceInteraction3f &si,
-                               Mask active = true) const;
-#endif
 
     /**
      * \brief Test for an intersection and return detailed information
@@ -370,9 +355,7 @@ NAMESPACE_END(mitsuba)
 ENOKI_CALL_SUPPORT_TEMPLATE_BEGIN(mitsuba::Shape)
     ENOKI_CALL_SUPPORT_METHOD(normal_derivative)
     ENOKI_CALL_SUPPORT_METHOD(fill_surface_interaction)
-    ENOKI_CALL_SUPPORT_METHOD(differentiable_surface_interaction)
     ENOKI_CALL_SUPPORT_METHOD(differentiable_position)
-    ENOKI_CALL_SUPPORT_METHOD(p_attached)
     ENOKI_CALL_SUPPORT_GETTER_TYPE(emitter, m_emitter, const typename Class::Emitter *)
     ENOKI_CALL_SUPPORT_GETTER_TYPE(sensor, m_sensor, const typename Class::Sensor *)
     ENOKI_CALL_SUPPORT_GETTER_TYPE(bsdf, m_bsdf, const typename Class::BSDF *)

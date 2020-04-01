@@ -177,7 +177,7 @@ public:
 
                 primary_ray.d = dir_conv_cs;
                 sis[cs] = scene->ray_intersect(primary_ray, HitComputeMode::Least, active_primary);
-                sis[cs].compute_differentiable_intersection_2(active_primary);
+                sis[cs].compute_differentiable_shape_position(active_primary);
 
                 rays[cs] = RayDifferential(primary_ray);
 
@@ -332,7 +332,7 @@ public:
                     for (size_t ls = 0; ls < m_dc_light_samples; ls++) {
 
                         std::tie(ds_ls[ls], emitter_val_ls[ls]) = emitter->sample_direction(
-                            si, samplePair2D(active_e, sampler), active_e); // TODO: should this be sample2D instead??
+                            si, samplePair2D(active_e, sampler), active_e);
 
                         if (m_use_convolution_envmap) {
                             Vector3f sample_ls = warp::square_to_von_mises_fisher<Float>(
@@ -354,7 +354,7 @@ public:
                             ray_ls.maxt[is_envmap] = math::Infinity<Float>;
 
                             auto si_ls = scene->ray_intersect(ray_ls, HitComputeMode::Least, active_ls);
-                            si_ls.compute_differentiable_intersection_2(active_ls);
+                            si_ls.compute_differentiable_shape_position(active_ls);
 
                             is_occluded_ls[ls] = neq(si_ls.shape, nullptr);
                             position_discontinuity[is_occluded_ls[ls]] += si_ls.p;
@@ -536,7 +536,7 @@ public:
                 for (size_t bs = 0; bs < m_dc_bsdf_samples; bs++) {
                     rays_bs[bs] = si.spawn_ray(si.to_world(ds_bs[bs]));
                     sis_bs[bs] = scene->ray_intersect(rays_bs[bs], HitComputeMode::Least, active);
-                    sis_bs[bs].compute_differentiable_intersection_2(active);
+                    sis_bs[bs].compute_differentiable_shape_position(active);
                     // Set use_sliding_bs to true if find hit
                     use_sliding_bs = use_sliding_bs || (active && neq(sis_bs[bs].shape, nullptr));
                 }

@@ -264,36 +264,13 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
         dp_dv = si.dp_dv;
     }
 
-    // TODO: remove this method
-    void compute_differentiable_intersection(const Ray3f &ray, bool attach_p = false) {
-
-        SurfaceInteraction<Float_, Spectrum_> si_tmp
-            = shape->differentiable_surface_interaction(ray, *this, attach_p, is_valid());
-
-        Mask active = neq(shape, nullptr);
-        masked(t, active)           = si_tmp.t;
-        masked(p, active)           = si_tmp.p;
-        masked(n, active)           = si_tmp.n;
-        masked(uv, active)          = si_tmp.uv;
-        masked(sh_frame.n, active)  = si_tmp.sh_frame.n;
-        masked(sh_frame.s, active)  = si_tmp.sh_frame.s;
-        masked(sh_frame.t, active)  = si_tmp.sh_frame.t;
-        masked(dp_du, active)       = si_tmp.dp_du;
-        masked(dp_dv, active)       = si_tmp.dp_dv;
-    }
-
     /**
      * Calls the \ref Shape::differentiable_position method on the shape in order
      * to re-compute \c p and \c n with respect to the shape parameters only.
      */
-    void compute_differentiable_intersection_2(Mask active) {
+    void compute_differentiable_shape_position(Mask active) {
         ShapePtr target = select(neq(instance, nullptr), instance, shape);
         std::tie(p, n) = target->differentiable_position(*this, active);
-    }
-
-    // TODO: remove this method
-    Point3f p_attached() const {
-        return select(is_valid(), shape->p_attached(*this, is_valid()), Point3f(0));
     }
 
     /**

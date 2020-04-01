@@ -221,22 +221,9 @@ public:
                                                           SurfaceInteraction3f si,
                                                           Mask active = true) const override;
 
-#if defined(MTS_ENABLE_OPTIX)
-    // TODO remove this
-    virtual SurfaceInteraction3f
-    differentiable_surface_interaction(const Ray3f &ray,
-                                       const SurfaceInteraction3f &si,
-                                       bool attach_p = false,
-                                       Mask active = true) const override;
-
-    // TODO remove this
-    virtual Point3f p_attached(const SurfaceInteraction3f &si,
-                               Mask active = true) const override;
-
     virtual std::pair<Point3f, Normal3f>
     differentiable_position(const SurfaceInteraction3f &si,
                             Mask active = true) const override;
-#endif
 
     virtual std::pair<Vector3f, Vector3f>
     normal_derivative(const SurfaceInteraction3f &si,
