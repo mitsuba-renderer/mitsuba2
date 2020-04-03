@@ -27,7 +27,7 @@ enum class HitComputeMode : uint32_t {
 template <typename Float, typename Spectrum>
 class MTS_EXPORT_RENDER Scene : public Object {
 public:
-    MTS_IMPORT_TYPES(BSDF, Emitter, EmitterPtr, Film, Sampler, Shape, Sensor, Integrator, Medium, MediumPtr)
+    MTS_IMPORT_TYPES(BSDF, Emitter, EmitterPtr, Film, Sampler, Shape, ShapePtr, Sensor, Integrator, Medium, MediumPtr)
 
     /// Instantiate a scene from a \ref Properties object
     Scene(const Properties &props);
