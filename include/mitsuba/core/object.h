@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <set>
 #include <stdexcept>
 #include <vector>
 #include <mitsuba/core/class.h>
@@ -243,6 +244,44 @@ public:
     operator bool() const { return m_ptr != nullptr; }
 private:
     T *m_ptr = nullptr;
+};
+
+/**
+ * \brief Simple reference-counted vector container based on \c std::vector and \ref ref
+ */
+template <typename T> class ref_vector : public std::vector< ref<T> > {
+public:
+    typedef std::vector< ref<T> > parent_type;
+
+    ref_vector() : parent_type() {}
+    ref_vector(size_t size) : parent_type(size) {}
+    ref_vector(const ref_vector &vec) : parent_type(vec) {}
+
+    /// Remove all duplicates without changing the order
+    inline void ensure_unique() {
+        std::set<T *> seen;
+
+        typename parent_type::iterator it1 = this->begin(), it2 = this->begin();
+        for (; it1 < this->end(); ++it1) {
+            if (seen.find(it1->get()) != seen.end())
+                continue;
+            seen.insert(it1->get());
+            if (it1 != it2)
+                *it2++ = *it1;
+            else
+                it2++;
+        }
+        this->erase(it2, this->end());
+    }
+
+    /// Check if a certain pointer is contained in the vector
+    inline bool contains(const T *ptr) const {
+        for (typename parent_type::const_iterator it = this->begin();
+             it != this->end(); ++it)
+            if (it->get() == ptr)
+                return true;
+        return false;
+    }
 };
 
 /**
