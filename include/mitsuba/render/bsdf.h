@@ -245,7 +245,7 @@ template <typename Float, typename Spectrum> struct BSDFSample3 {
      */
     BSDFSample3(const Vector3f &wo)
         : wo(wo), pdf(0.f), eta(1.f), sampled_type(0),
-          sampled_component(uint32_t(-1)) { }
+          sampled_component(uint32_t(-1)), sampled_roughness(math::Infinity<Float>) { }
 
 
     //! @}

@@ -227,7 +227,7 @@ public:
         bs.eta = 1.f;
         bs.sampled_component = 0;
         bs.sampled_type = +BSDFFlags::GlossyReflection;
-        bs.sampled_roughness = (distr.alpha_u() + distr.alpha_v())/2;
+        bs.sampled_roughness = (distr.alpha_u() + distr.alpha_v()) / 2.f;
 
         // Ensure that this is a valid sample
         active &= neq(bs.pdf, 0.f) && Frame3f::cos_theta(bs.wo) > 0.f;

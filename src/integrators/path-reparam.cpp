@@ -337,18 +337,19 @@ public:
                 std::vector<Spectrum> emitter_val_ls(m_dc_light_samples);
                 std::vector<Mask> is_occluded_ls(m_dc_light_samples);
 
-                auto [ds_ls_main, e_tmp] = emitter->sample_direction(
-                    si, samplePair2D(active_e, sampler), active_e);
+                auto ds_ls_main = emitter->sample_direction(si, samplePair2D(active_e, sampler), active_e).first;
                 Frame<Float> frame_main_ls(ds_ls_main.d);
 
                 for (size_t ls = 0; ls < m_dc_light_samples; ls++) {
-
-                    std::tie(ds_ls[ls], emitter_val_ls[ls]) = emitter->sample_direction(
-                        si, samplePair2D(active_e, sampler), active_e);
+                    std::tie(ds_ls[ls], emitter_val_ls[ls]) =
+                        emitter->sample_direction(
+                            si, samplePair2D(active_e, sampler), active_e);
 
                     if (m_use_convolution_envmap) {
-                        Vector3f sample_ls = warp::square_to_von_mises_fisher<Float>(
-                            sample2D(active_e, sampler), m_kappa_conv_envmap);
+                        Vector3f sample_ls =
+                            warp::square_to_von_mises_fisher<Float>(
+                                sample2D(active_e, sampler),
+                                m_kappa_conv_envmap);
 
                         // Update with the pdf of the convolution kernel
                         ds_ls[ls].pdf[is_envmap] = warp::square_to_von_mises_fisher_pdf<Float>(
@@ -499,8 +500,7 @@ public:
 
                 Float component_sample = samplePair1D(active, sampler);
 
-                auto [sample_main_bs, bsdf_val_main_bs] = bsdf->sample(ctx, si, component_sample,
-                                                                       samplePair2D(active, sampler), active);
+                auto sample_main_bs = bsdf->sample(ctx, si, component_sample, samplePair2D(active, sampler), active).first;
 
                 // TODO: BSDFs should fill the `sampled_roughness` field
                 Mask convolution = Mask(m_use_convolution) && active
@@ -519,14 +519,13 @@ public:
                 // convolution of the bsdf. Only the first one is
                 // used for the light paths.
                 for (size_t bs = 0; bs < m_dc_bsdf_samples; bs++) {
-
+                    Vector2f samples = sample2D(active, sampler);
                     // Convolution: sample a vmf lobe
-                    Vector3f sample_bs = warp::square_to_von_mises_fisher<Float>(sample2D(active, sampler), m_kappa_conv);
+                    Vector3f sample_bs = warp::square_to_von_mises_fisher<Float>(samples, m_kappa_conv);
                     sample_bs = frame_main_bs.to_world(sample_bs);
 
                     // Otherwise: must be uncorrelated, but can sample the same component
-                    auto [sample_bs_noconv, bsdf_val_bs] = bsdf->sample(ctx, si, component_sample,
-                                                                        sample2D(active, sampler), active);
+                    auto [sample_bs_noconv, bsdf_val_bs] = bsdf->sample(ctx, si, component_sample, samples, active);
 
                     ds_bs[bs] = select(convolution, sample_bs, sample_bs_noconv.wo);
                 }

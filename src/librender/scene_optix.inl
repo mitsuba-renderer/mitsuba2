@@ -291,6 +291,7 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, HitComputeMode mode
         return si;
     } else {
         ENOKI_MARK_USED(ray_);
+        ENOKI_MARK_USED(mode);
         ENOKI_MARK_USED(active);
         Throw("ray_intersect_gpu() should only be called in GPU mode.");
     }
