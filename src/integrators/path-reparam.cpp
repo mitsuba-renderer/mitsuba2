@@ -325,10 +325,10 @@ public:
                 // Sample the light integral at each active shading point.
                 // Several samples are used for estimating discontinuities
                 // in light visibility.
-                auto [emitter, emitter_pdf] = scene->sample_emitter(
+                auto [emitter_ls, emitter_pdf] = scene->sample_emitter(
                     si, samplePair1D(active_e, sampler), active_e);
 
-                Mask is_envmap = emitter->is_environment() && active_e;
+                Mask is_envmap = emitter_ls->is_environment() && active_e;
 
                 Point3f position_discontinuity(0.f);
                 UInt32 hits(0);
@@ -337,12 +337,12 @@ public:
                 std::vector<Spectrum> emitter_val_ls(m_dc_light_samples);
                 std::vector<Mask> is_occluded_ls(m_dc_light_samples);
 
-                auto ds_ls_main = emitter->sample_direction(si, samplePair2D(active_e, sampler), active_e).first;
+                auto ds_ls_main = emitter_ls->sample_direction(si, samplePair2D(active_e, sampler), active_e).first;
                 Frame<Float> frame_main_ls(ds_ls_main.d);
 
                 for (size_t ls = 0; ls < m_dc_light_samples; ls++) {
                     std::tie(ds_ls[ls], emitter_val_ls[ls]) =
-                        emitter->sample_direction(
+                        emitter_ls->sample_direction(
                             si, samplePair2D(active_e, sampler), active_e);
 
                     if (m_use_convolution_envmap) {
@@ -362,8 +362,8 @@ public:
 
                     // Check masking for active rays
                     Ray3f ray_ls(si.p, ds_ls[ls].d, math::RayEpsilon<Float> * (1.f + hmax(abs(si.p))),
-                                 ds_ls[ls].dist * (1.f - math::ShadowEpsilon<Float>),
-                                 si.time, si.wavelengths);
+                                ds_ls[ls].dist * (1.f - math::ShadowEpsilon<Float>),
+                                si.time, si.wavelengths);
                     ray_ls.maxt[is_envmap] = math::Infinity<Float>;
 
                     auto si_ls = scene->ray_intersect(ray_ls, HitComputeMode::Least, active_ls);
@@ -375,7 +375,7 @@ public:
 
                     if (m_use_convolution_envmap) {
                         // The contribution is radiance * kernel / ds_ls_main.pdf / kernel (pdf)
-                        emitter_val_ls[ls][is_envmap] = emitter->eval(si_ls, is_envmap) / ds_ls_main.pdf;
+                        emitter_val_ls[ls][is_envmap] = emitter_ls->eval(si_ls, is_envmap) / ds_ls_main.pdf;
                     }
 
                     // The contribution is 0 when the light is not visible
@@ -425,7 +425,7 @@ public:
                         ray_ls, HitComputeMode::Differentiable,
                         visible_and_hit);
 
-                    Spectrum e_val_reparam = emitter->eval(si_ls, visible_and_hit) / detach(ds_ls[ls].pdf);
+                    Spectrum e_val_reparam = emitter_ls->eval(si_ls, visible_and_hit) / detach(ds_ls[ls].pdf);
 
                     if (m_use_convolution_envmap) {
                         e_val_reparam[visible_and_hit && is_envmap] *= ds_ls[ls].pdf / ds_ls_main.pdf;
@@ -435,7 +435,7 @@ public:
 
                     if (m_use_convolution_envmap) {
                         // Update emitter pdf for MIS
-                        Float pdf_emitter = emitter->pdf_direction(si, ds_ls[ls], is_envmap);
+                        Float pdf_emitter = emitter_ls->pdf_direction(si, ds_ls[ls], is_envmap);
                         ds_ls[ls].pdf[is_envmap] = detach(pdf_emitter);
                     }
 
