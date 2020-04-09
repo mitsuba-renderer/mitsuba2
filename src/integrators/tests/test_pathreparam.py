@@ -89,6 +89,7 @@ def check_finite_difference(test_name, make_scene, get_diff_params,
                             diff_integrator=diff_integrator_default, diff_spp=4, diff_passes=10,
                             ref_integrator=ref_integrator_default, ref_spp=128, ref_passes=10, ref_eps=0.001):
 
+    from mitsuba.core import Bitmap, Struct
     from mitsuba.python.autodiff import render
 
     # Render groundtruth image and gradients (using finite difference)
@@ -105,7 +106,6 @@ def check_finite_difference(test_name, make_scene, get_diff_params,
 
     if error_img > 0.1:
         print("error_img:", error_img)
-        from mitsuba.core import Bitmap, Struct
         Bitmap(img_ref).write('%s_img_ref.exr' % test_name)
         Bitmap(img).write('%s_img.exr' % test_name)
         assert False
@@ -115,6 +115,8 @@ def check_finite_difference(test_name, make_scene, get_diff_params,
         scale = np.abs(grad_ref).max()
         write_gradient_image(grad_ref / scale, '%s_grad_ref' % test_name)
         write_gradient_image(grad / scale, '%s_grad' % test_name)
+        Bitmap(img_ref).write('%s_img_ref.exr' % test_name)
+        Bitmap(img).write('%s_img.exr' % test_name)
         assert False
 
 # -----------------------------------------------------------------------
@@ -307,7 +309,7 @@ def test03_envmap(variant_gpu_autodiff_rgb):
                     <film type="hdrfilm">
                         <integer name="width" value="64"/>
                         <integer name="height" value="64"/>
-                        <rfilter type="box"/>
+                        <rfilter type="gaussian"/>
                     </film>
                 </sensor>
 
@@ -358,19 +360,6 @@ def test03_envmap(variant_gpu_autodiff_rgb):
         return diff_param
 
     # Run the test
-
-    diff_integrator = """<integrator type="pathreparam">
-                             <integer name="max_depth" value="2"/>
-                             <boolean name="use_convolution_envmap" value="true"/>
-                         </integrator>"""
-
-    check_finite_difference("envmap_conv", make_scene, get_diff_param, diff_integrator=diff_integrator)
-
-    diff_integrator = """<integrator type="pathreparam">
-                             <integer name="max_depth" value="2"/>
-                             <boolean name="use_convolution_envmap" value="false"/>
-                         </integrator>"""
-
-    check_finite_difference("envmap_no_conv", make_scene, get_diff_param, diff_integrator=diff_integrator)
+    check_finite_difference("envmap", make_scene, get_diff_param, diff_spp=8, diff_passes=20)
 
 # TODO add tests for area+envmap, rotation, scaling, glossy reflection

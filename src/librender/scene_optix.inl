@@ -283,10 +283,10 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, HitComputeMode mode
             si.sh_frame.s = normalize(
                 fnmadd(si.sh_frame.n, dot(si.sh_frame.n, si.dp_du), si.dp_du));
             si.sh_frame.t = cross(si.sh_frame.n, si.sh_frame.s);
-
-            // Incident direction in local coordinates
-            si.wi = select(si.is_valid(), si.to_local(-ray.d), -ray.d);
         }
+
+        // Incident direction in local coordinates
+        si.wi = select(si.is_valid(), si.to_local(-ray.d), -ray.d);
 
         return si;
     } else {
