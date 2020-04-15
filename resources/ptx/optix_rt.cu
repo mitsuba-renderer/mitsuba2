@@ -3,8 +3,7 @@
 #include "vector.cuh"
 #include <math_constants.h>
 
-struct Params
-{
+struct Params {
     bool    *in_mask;
     float   *in_ox, *in_oy, *in_oz,
             *in_dx, *in_dy, *in_dz,
@@ -15,7 +14,7 @@ struct Params
             *out_p_x, *out_p_y, *out_p_z,
             *out_dp_du_x, *out_dp_du_y, *out_dp_du_z,
             *out_dp_dv_x, *out_dp_dv_y, *out_dp_dv_z;
-    
+
     unsigned long long *out_shape_ptr;
     unsigned int *out_primitive_id;
 
@@ -30,8 +29,7 @@ extern "C" {
 __constant__ Params params;
 }
 
-struct HitGroupData
-{
+struct HitGroupData {
     unsigned long long shape_ptr;
     Vector3ui* faces;
     Vector3f* vertex_positions;
@@ -39,12 +37,10 @@ struct HitGroupData
     Vector2f* vertex_texcoords;
 };
 
-__forceinline__ __device__ float3 make_float3(const Vector3f& v)
-{
+__forceinline__ __device__ float3 make_float3(const Vector3f& v) {
     return make_float3(v.x(), v.y(), v.z());
 }
-__forceinline__ __device__ Vector3f make_Vector3f(const float3& v)
-{
+__forceinline__ __device__ Vector3f make_Vector3f(const float3& v) {
     return Vector3f(v.x, v.y, v.z);
 }
 
@@ -84,11 +80,11 @@ __device__ void ray_attr(
     Vector3ui face = faces[optixGetPrimitiveIndex()];
 
     Vector3f p0 = vertex_positions[face.x()],
-           p1 = vertex_positions[face.y()],
-           p2 = vertex_positions[face.z()];
+             p1 = vertex_positions[face.y()],
+             p2 = vertex_positions[face.z()];
 
     Vector3f dp0 = p1 - p0,
-           dp1 = p2 - p0;
+             dp1 = p2 - p0;
 
     p = p0 * uv0 + p1 * uv1 + p2 * uv2;
 
@@ -97,8 +93,8 @@ __device__ void ray_attr(
 
     if (vertex_normals != nullptr) {
         Vector3f n0 = vertex_normals[face.x()],
-               n1 = vertex_normals[face.y()],
-               n2 = vertex_normals[face.z()];
+                 n1 = vertex_normals[face.y()],
+                 n2 = vertex_normals[face.z()];
 
         ns = n0 * uv0 + n1 * uv1 + n2 * uv2;
     } else {
@@ -107,8 +103,8 @@ __device__ void ray_attr(
 
     if (vertex_texcoords != nullptr) {
         Vector2f t0 = vertex_texcoords[face.x()],
-               t1 = vertex_texcoords[face.y()],
-               t2 = vertex_texcoords[face.z()];
+                 t1 = vertex_texcoords[face.y()],
+                 t2 = vertex_texcoords[face.z()];
 
         uv = t0 * uv0 + t1 * uv1 + t2 * uv2;
 
@@ -129,11 +125,11 @@ extern "C" __global__ void __raygen__rg() {
     unsigned int launch_index = launch_index3.x + (launch_index3.y + launch_index3.z * launch_dims.y) * launch_dims.x;
 
     Vector3f ro = Vector3f(params.in_ox[launch_index],
-                            params.in_oy[launch_index],
-                            params.in_oz[launch_index]),
-           rd = Vector3f(params.in_dx[launch_index],
-                            params.in_dy[launch_index],
-                            params.in_dz[launch_index]);
+                           params.in_oy[launch_index],
+                           params.in_oz[launch_index]),
+             rd = Vector3f(params.in_dx[launch_index],
+                           params.in_dy[launch_index],
+                           params.in_dz[launch_index]);
     float  mint = params.in_mint[launch_index],
            maxt = params.in_maxt[launch_index];
 
@@ -227,7 +223,7 @@ extern "C" __global__ void __miss__ms() {
     uint3 launch_dims = optixGetLaunchDimensions();
     uint3 launch_index3 = optixGetLaunchIndex();
     unsigned int launch_index = launch_index3.x + (launch_index3.y + launch_index3.z * launch_dims.y) * launch_dims.x;
-    
+
     if (params.out_hit != nullptr) {
         params.out_hit[launch_index] = false;
     } else {

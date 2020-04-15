@@ -598,7 +598,7 @@ MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry() {
         m_optix->faces_buf = cuda_malloc(m_face_count * 3 * sizeof(uint32_t));
         m_optix->faces = cuda_upload<Index, 3>(
             m_face_count, [this](ScalarIndex i) { return face_indices(i); });
-    
+
         // Vertex positions
         m_optix->vertex_positions_buf = cuda_malloc(m_vertex_count * 3 * sizeof(float));
         m_optix->vertex_positions = cuda_upload<Float, 3>(
@@ -630,8 +630,9 @@ MTS_VARIANT void Mesh<Float, Spectrum>::optix_build_input(OptixBuildInput &build
     build_input.triangleArray.numIndexTriplets = m_face_count;
     build_input.triangleArray.indexBuffer      = (CUdeviceptr)m_optix->faces_buf;
     build_input.triangleArray.flags            = Mesh::triangle_input_flags;
-    build_input.triangleArray.numSbtRecords    = 1;      
+    build_input.triangleArray.numSbtRecords    = 1;
 }
+
 MTS_VARIANT void Mesh<Float, Spectrum>::optix_hit_group_data(HitGroupData& hitgroup) const {
     hitgroup.shape_ptr           = (uintptr_t) this;
     hitgroup.faces               = m_optix->faces_buf;
@@ -639,7 +640,6 @@ MTS_VARIANT void Mesh<Float, Spectrum>::optix_hit_group_data(HitGroupData& hitgr
     hitgroup.vertex_normals      = m_optix->vertex_normals_buf;
     hitgroup.vertex_texcoords    = m_optix->vertex_texcoords_buf;
 }
-
 
 MTS_VARIANT void Mesh<Float, Spectrum>::traverse(TraversalCallback *callback) {
     Base::traverse(callback);
