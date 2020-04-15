@@ -38,6 +38,11 @@ public:
     MTS_IMPORT_BASE(Emitter, m_flags)
     MTS_IMPORT_TYPES(Scene, Shape, Texture)
 
+    ~SkyEmitter() {
+        for (size_t i = 0; i < Spectrum::Size; ++i)
+            arhosekskymodelstate_free(m_state[i]);
+    }
+
     SkyEmitter(const Properties &props) : Base(props) {
         /* Until `set_scene` is called, we have no information
            about the scene and default to the unit bounding sphere. */
@@ -49,17 +54,22 @@ public:
         m_turbidity = props.float_("turbidity", 3.0f);
         m_stretch = props.float_("stretch", 1.0f);
         m_resolution = props.int_("resolution", 512);
-        m_albedo = props.texture<Texture>("albedo", 0.2f);
         m_sun = compute_sun_coordinates<Float>(props);
         m_extend = props.bool_("extend", false);
+        m_albedo = props.texture<Texture>("albedo", 0.2f);
+
+        SurfaceInteraction3f si;
+        si.wavelengths = 0/0;   // TODO : change when implementing spectral
+
+        UnpolarizedSpectrum albedo = m_albedo->eval(si);
 
         if (m_turbidity < 1 || m_turbidity > 10)
             Log(Error, "The turbidity parameter must be in the range[1,10]!");
         if (m_stretch < 1 || m_stretch > 2)
             Log(Error, "The stretch parameter must be in the range [1,2]!");
         for (size_t i = 0; i < Spectrum::Size; ++i) {
-            if (m_albedo[i] < 0 || m_albedo[i] > 1)
-                Log(Error, "The albedo parameter must be in the range [0.1]");
+            if (albedo[i] < 0 || albedo[i] > 1)
+                Log(Error, "The albedo parameter must be in the range [0,1]!");
         }
 
         Float sun_elevation = 0.5f * math::Pi<Float> - m_sun.elevation;
@@ -70,10 +80,10 @@ public:
         for (size_t i = 0; i < Spectrum::Size; i++) {
             if constexpr (Spectrum::Size == 3)
                 m_state[i] = arhosek_rgb_skymodelstate_alloc_init(
-                    (double)sun_elevation, (double)m_turbidity, (double)m_albedo[i]);
+                    (double)m_turbidity, (double)albedo[i], (double)sun_elevation);
             else
                 m_state[i] = arhosekskymodelstate_alloc_init(
-                    (double)sun_elevation, (double)m_turbidity, (double)m_albedo[i]);
+                    (double)sun_elevation, (double)m_turbidity, (double)albedo[i]);
         }
     }
 
@@ -88,7 +98,8 @@ public:
 
         // Compute spherical coords of wi
         SphericalCoordinates coords = from_sphere(si.wi);
-        Float theta =  math::Pi<Float> - coords.elevation / m_stretch;
+        
+        Float theta =  (math::Pi<Float> - coords.elevation) / m_stretch;
 
         if (cos(theta) <= 0) {
             if (!m_extend)
@@ -97,11 +108,11 @@ public:
                 theta = 0.5f * math::Pi<Float> - 1e-4f;
         }
 
-        Float cos_gamma = cos(theta) * cos(m_sun.elevation)
-            + sin(theta) * sin(m_sun.elevation)
-            + cos(coords.azimuth - m_sun.azimuth);
+        Float cos_gamma = cos(theta) * cos(math::Pi<Float> - m_sun.elevation)
+            + sin(theta) * sin(math::Pi<Float> - m_sun.elevation)
+            * cos(coords.azimuth - m_sun.azimuth);
 
-        // Angle between the sun and the coordinates
+        // Angle between the sun and the spherical coordinates in radians
         Float gamma = safe_acos(cos_gamma);
 
         Spectrum result;
@@ -118,11 +129,10 @@ public:
             }
         }
 
-        for (size_t i = 0; i < Spectrum::Size; i++)
-            result[i] = max(result[i], 0.0f);
+        result = max(result, 0.f);
 
         if(m_extend)
-           result *= smooth_step<Float>(0, 1, 2 - 2 * coords.elevation * math::InvPi<Float>);
+           result *= smooth_step<Float>(0.f, 1.f, 2.f - 2.f * coords.elevation * math::InvPi<Float>);
 
         return result * m_scale;
     }
@@ -178,8 +188,6 @@ public:
     MTS_DECLARE_CLASS()
 protected:
     ScalarBoundingSphere3f m_bsphere;
-
-    //==========================================
     /// Environment map resolution in pixels
     int m_resolution;
     /// Constant scale factor applied to the model
@@ -193,7 +201,7 @@ protected:
     /// Extend to the bottom hemisphere (super-unrealistic mode)
     bool m_extend;
     /// Ground albedo
-    Spectrum m_albedo;
+    ref<Texture> m_albedo;
     /// State vector for the sky model
     ArHosekSkyModelState *m_state[Spectrum::Size];
 };

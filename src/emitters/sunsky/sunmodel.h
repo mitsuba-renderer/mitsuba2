@@ -7,13 +7,12 @@
 NAMESPACE_BEGIN(mitsuba)
 
 
-#define EARTH_MEAN_RADIUS 6371.01f  // In km
+#define EARTH_MEAN_RADIUS 6371.01  // In km
 #define ASTRONOMICAL_UNIT 149597890 // In km
 
 
-//// Convert radians to degrees
 template <typename Float> inline Float rad_to_deg(Float value) { 
-    return value * (180.0f / math::Pi<Float>);
+    return value * (180.0f * math::InvPi<Float>);
 }
 
 template <typename Float> inline Float deg_to_rad(Float value) {
@@ -71,15 +70,6 @@ template <typename Float> struct SphericalCoordinates {
     }
 };
 
-// template <typename Float> Vector toSphere(const SphericalCoordinates<Float> coords) {
-//     Float sinTheta, cosTheta, sinPhi, cosPhi;
-
-//     math::sincos(coords.elevation, &sinTheta, &cosTheta);
-//     math::sincos(coords.azimuth, &sinPhi, &cosPhi);
-
-//     return Vector(sinPhi*sinTheta, cosTheta, -cosPhi*sinTheta);
-// }
-
 /**
  * \brief Compute the spherical coordinates of the vector \c d
  */
@@ -100,7 +90,7 @@ SphericalCoordinates<Float> from_sphere(const Vector<Float, 3> &d) {
 template <typename Float>
 Float smooth_step(Float min, Float max, Float value) {
     Float v = clamp((value - min) / (max - min), (Float) 0, (Float) 1);
-    return v * v * (-2 * v  + 3);
+    return v * v * (-2 * v + 3);
 }
 
 /**
@@ -114,21 +104,21 @@ Float smooth_step(Float min, Float max, Float value) {
 template <typename Float>
 SphericalCoordinates<Float> compute_sun_coordinates(const DateTimeRecord<Float> &date_time, const LocationRecord<Float> &location) {
     // Main variables
-    Float elapsed_julian_days, dec_hours;
-    Float ecliptic_longitude, ecliptic_obliquity;
-    Float right_ascension, declination;
-    Float elevation, azimuth;
+    double elapsed_julian_days, dec_hours;
+    double ecliptic_longitude, ecliptic_obliquity;
+    double right_ascension, declination;
+    double elevation, azimuth;
 
     // Auxiliary variables
-    Float d_y;
-    Float d_x;
+    double d_y;
+    double d_x;
 
     /* Calculate difference in days between the current Julian Day
        and JD 2451545.0, which is noon 1 January 2000 Universal Time */
     {
         // Calculate time of the day in UT decimal hours
-        dec_hours = date_time.hour - location.timezone +
-            (date_time.minute + date_time.second / 60.0f ) / 60.0f;
+        dec_hours = (double) date_time.hour - (double) location.timezone +
+            ((double) date_time.minute + (double) date_time.second / 60.0 ) / 60.0;
 
         // Calculate current Julian Day
         int li_aux1 = (date_time.month-14) / 12;
@@ -136,55 +126,55 @@ SphericalCoordinates<Float> compute_sun_coordinates(const DateTimeRecord<Float> 
             + (367 * (date_time.month - 2 - 12 * li_aux1)) / 12
             - (3 * ((date_time.year + 4900 + li_aux1) / 100)) / 4
             + date_time.day - 32075;
-        Float d_julian_date = li_aux2 - 0.5f + dec_hours / 24.0f;
+        double d_julian_date = (double) li_aux2 - 0.5 + dec_hours / 24.0;
 
         // Calculate difference between current Julian Day and JD 2451545.0
-        elapsed_julian_days = d_julian_date - 2451545.0f;
+        elapsed_julian_days = d_julian_date - 2451545.0;
     }
 
     /* Calculate ecliptic coordinates (ecliptic longitude and obliquity of the
        ecliptic in radians but without limiting the angle to be less than 2*Pi
        (i.e., the result may be greater than 2*Pi) */
     {
-        Float omega = 2.1429f - 0.0010394594f * elapsed_julian_days;
-        Float mean_longitude = 4.8950630f + 0.017202791698f * elapsed_julian_days; // Radians
-        Float anomaly = 6.2400600f + 0.0172019699f * elapsed_julian_days;
+        double omega = 2.1429 - 0.0010394594 * elapsed_julian_days;
+        double mean_longitude = 4.8950630 + 0.017202791698 * elapsed_julian_days; // Radians
+        double anomaly = 6.2400600 + 0.0172019699 * elapsed_julian_days;
 
-        ecliptic_longitude = mean_longitude + 0.03341607f * sin(anomaly)
-            + 0.00034894f * sin(2*anomaly) - 0.0001134f
-            - 0.0000203f * sin(omega);
+        ecliptic_longitude = mean_longitude + 0.03341607 * sin(anomaly)
+            + 0.00034894 * sin(2*anomaly) - 0.0001134
+            - 0.0000203 * sin(omega);
 
-        ecliptic_obliquity = 0.4090928f - 6.2140e-9f * elapsed_julian_days
-            + 0.0000396f * cos(omega);
+        ecliptic_obliquity = 0.4090928 - 6.2140e-9 * elapsed_julian_days
+            + 0.0000396 * cos(omega);
     }
 
     /* Calculate celestial coordinates ( right ascension and declination ) in radians
        but without limiting the angle to be less than 2*Pi (i.e., the result may be
        greater than 2*Pi) */
     {
-        Float sinecliptic_longitude = sin(ecliptic_longitude);
+        double sinecliptic_longitude = sin(ecliptic_longitude);
         d_y = cos(ecliptic_obliquity) * sinecliptic_longitude;
         d_x = cos(ecliptic_longitude);
         right_ascension = atan2(d_y, d_x);
-        if (right_ascension < 0.0f)
-            right_ascension += 2*math::Pi<Float>;
+        if (right_ascension < 0.0)
+            right_ascension += 2*math::Pi<double>;
         declination = asin(sin(ecliptic_obliquity) * sinecliptic_longitude);
     }
 
     // Calculate local coordinates (azimuth and zenith angle) in degrees
     {
-        Float greenwich_mean_sidereal_time = 6.6974243242f
-            + 0.0657098283f * elapsed_julian_days + dec_hours;
+        double greenwich_mean_sidereal_time = 6.6974243242
+            + 0.0657098283 * elapsed_julian_days + dec_hours;
 
-        Float local_mean_sidereal_time = deg_to_rad((greenwich_mean_sidereal_time * 15
-            + location.longitude));
+        double local_mean_sidereal_time = (double) deg_to_rad((Float) (greenwich_mean_sidereal_time * 15
+            + (double) location.longitude));
 
-        Float latitude_in_radians = deg_to_rad(location.latitude);
-        Float cos_latitude = cos(latitude_in_radians);
-        Float sin_latitude = sin(latitude_in_radians);
+        double latitude_in_radians = (double) deg_to_rad(location.latitude);
+        double cos_latitude = cos(latitude_in_radians);
+        double sin_latitude = sin(latitude_in_radians);
 
-        Float hour_angle = local_mean_sidereal_time - right_ascension;
-        Float coshour_angle = cos(hour_angle);
+        double hour_angle = local_mean_sidereal_time - right_ascension;
+        double coshour_angle = cos(hour_angle);
 
         elevation = acos(cos_latitude * coshour_angle
             * cos(declination) + sin(declination) * sin_latitude);
@@ -193,11 +183,11 @@ SphericalCoordinates<Float> compute_sun_coordinates(const DateTimeRecord<Float> 
         d_x = tan(declination) * cos_latitude - sin_latitude * coshour_angle;
 
         azimuth = atan2(d_y, d_x);
-        if (azimuth < 0.0f)
-            azimuth += 2*math::Pi<Float>;
+        if (azimuth < 0.0)
+            azimuth += 2*math::Pi<double>;
 
         // Parallax Correction
-        elevation += (EARTH_MEAN_RADIUS / ASTRONOMICAL_UNIT) * (Float)sin((double)elevation);
+        elevation += (EARTH_MEAN_RADIUS / ASTRONOMICAL_UNIT) * sin(elevation);
     }
 
     return SphericalCoordinates((Float) elevation, (Float) azimuth);
