@@ -424,6 +424,45 @@ void upgrade_tree(XMLSource &src, pugi::xml_node &node, const Version &version, 
                     wn.set_name("float");
                 }
             }
+            for (pugi::xpath_node result: node.select_nodes("//shape[@type='instance']")) {
+                pugi::xml_node n = result.node();
+                Log(Warn, "Unrolling instance -> shapes! \"%s\"", n.attribute("id").value());
+                int shapeCtr = 0;
+                for (pugi::xpath_node result: n.select_nodes("ref/@id")) {
+                    char const* shapegroup_id = result.attribute().value();
+                    std::string group_selector = std::string("//shape[@id='") + shapegroup_id + "' and @type='shapegroup']";
+                    pugi::xml_node sg = node.select_node(group_selector.c_str()).node();
+                    if (!sg) Throw("Unknown shape group \"%s\" referenced", shapegroup_id);
+                    if (!sg.attribute("was_referenced"))
+                        sg.append_attribute("was_referenced") = "1";
+                    // clone shapes from shape group
+                    for (pugi::xpath_node result: sg.select_nodes("shape")) {
+                        pugi::xml_node sn = n.parent().insert_copy_before(result.node(), n);
+                        ++shapeCtr;
+                        // concat instance transformations (XML parser already chains node effects)
+                        for (pugi::xpath_node result: n.select_nodes("transform")) {
+                            pugi::xml_node itn = result.node();
+                            char const* transform_name = itn.attribute("name").value();
+                            std::string transform_selector = std::string("transform[@name='") + transform_name + "']";
+                            pugi::xml_node stn = sn.select_node(transform_selector.c_str()).node();
+                            if (!stn) {
+                                stn = sn.append_child("transform");
+                                stn.append_attribute("name") = transform_name;
+                            }
+                            for (pugi::xml_node t: itn.children())
+                                stn.append_copy(t);
+                        }
+                    }
+                }
+                Log(shapeCtr > 0 ? Info : Warn, "Instantiated %d shapes", shapeCtr);
+                n.parent().remove_child(n);
+            }
+            for (pugi::xpath_node result: node.select_nodes("//shape[@type='shapegroup']")) {
+                pugi::xml_node n = result.node();
+                if (!n.attribute("was_referenced"))
+                    Log(Warn, "Unreferenced shape group: \"%s\"", n.attribute("id").value());
+                n.parent().remove_child(n);
+            }
         }
         // changed parameters
         for (pugi::xpath_node result: node.select_nodes("//bsdf[@type='diffuse']/*/@name[.='diffuse_reflectance']"))
