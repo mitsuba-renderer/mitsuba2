@@ -260,14 +260,22 @@ struct XMLParseContext {
     Transform4f transform;
     size_t id_counter = 0;
     bool parallelize;
+    bool load_permissive = false;
+    bool upgrade_approximate = false;
+    bool data_modified = false;
     ColorMode color_mode;
 
-    XMLParseContext(const std::string &variant) : variant(variant) {
+    XMLParseContext(const std::string &variant, ParameterList const& params) : variant(variant) {
         color_mode = MTS_INVOKE_VARIANT(variant, variant_to_color_mode);
 
         /* Don't load the scene in parallel when running in GPU mode
            (The Enoki CUDA backend is currently not multi-threaded) */
         parallelize = !MTS_INVOKE_VARIANT(variant, check_cuda);
+
+        for (auto& p : params) {
+            load_permissive |= (p.first == "__load_permissive");
+            upgrade_approximate |= (p.first == "__upgrade_approximate");
+        }
     }
 
     std::string variant;
@@ -340,7 +348,7 @@ Vector3f parse_vector(XMLSource &src, pugi::xml_node &node, Float def_val = 0.f)
     }
 }
 
-void upgrade_tree(XMLSource &src, pugi::xml_node &node, const Version &version) {
+void upgrade_tree(XMLSource &src, pugi::xml_node &node, const Version &version, bool approximate) {
     if (version == Version(MTS_VERSION_MAJOR, MTS_VERSION_MINOR, MTS_VERSION_PATCH))
         return;
 
@@ -379,7 +387,44 @@ void upgrade_tree(XMLSource &src, pugi::xml_node &node, const Version &version) 
                 id_attrib = new_id.c_str();
             }
         }
-
+        // approximate unsupported features
+        if (approximate) {
+            for (pugi::xpath_node result: node.select_nodes("//bsdf[@type='phong' or string/@value='phong']")) {
+                pugi::xml_node n = result.node();
+                pugi::xml_attribute at = n.attribute("type");
+                if (std::strcmp(at.value(), "phong") == 0) {
+                    Log(Warn, "Changing phong -> rough plastic: \"%s\"", n.attribute("id").value());
+                    at = "roughplastic";
+                } else {
+                    Log(Warn, "Changing %s -> beckmann: \"%s\"", at.value(), n.attribute("id").value());
+                    for (pugi::xpath_node result: n.select_nodes("string/@value[.='phong']"))
+                        result.attribute() = "beckmann";
+                }
+                for (pugi::xpath_node result: n.select_nodes("float[@name='exponent']")) {
+                    pugi::xml_node nv = result.node();
+                    Float e = stof(nv.attribute("value").value());
+                    Float alpha = std::sqrt(2 / (2+e));
+                    nv.attribute("name") = "alpha";
+                    nv.attribute("value") = std::to_string(alpha).c_str();
+                }
+            }
+            for (pugi::xpath_node result: node.select_nodes("//bsdf[@type='mixturebsdf']")) {
+                pugi::xml_node n = result.node();
+                Log(Warn, "Changing mixturebsdf -> blendbsdf: \"%s\"", n.attribute("id").value());
+                n.attribute("type") = "blendbsdf";
+                for (pugi::xpath_node result: n.select_nodes("string[@name='weights']")) {
+                    pugi::xml_node wn = result.node();
+                    std::string val = string::trim( wn.attribute("value").value() );
+                    size_t sp = val.find_last_of(" \t,");
+                    if (sp != val.npos)
+                        // note: last value ok, load fails implcitly for more than 2 bsdfs
+                        val.erase(val.begin(), val.begin() + (sp + 1));
+                    wn.attribute("value") = val.c_str();
+                    wn.attribute("name") = "weight";
+                    wn.set_name("float");
+                }
+            }
+        }
         // changed parameters
         for (pugi::xpath_node result: node.select_nodes("//bsdf[@type='diffuse']/*/@name[.='diffuse_reflectance']"))
             result.attribute() = "reflectance";
@@ -502,7 +547,8 @@ static std::pair<std::string, std::string> parse_xml(XMLSource &src, XMLParseCon
             } catch (const std::exception &) {
                 src.throw_error(node, "could not parse version number \"%s\"", version_attr.value());
             }
-            upgrade_tree(src, node, version);
+            upgrade_tree(src, node, version, ctx.upgrade_approximate);
+            ctx.data_modified |= src.modified;
             node.remove_attribute(version_attr);
         }
 
@@ -660,7 +706,8 @@ static std::pair<std::string, std::string> parse_xml(XMLSource &src, XMLParseCon
                                 } catch (const std::exception &) {
                                     nested_src.throw_error(*doc.begin(), "could not parse version number \"%s\"", version_attr_incl.value());
                                 }
-                                upgrade_tree(nested_src, *doc.begin(), version);
+                                upgrade_tree(nested_src, *doc.begin(), version, ctx.upgrade_approximate);
+                                ctx.data_modified |= nested_src.modified;
                                 doc.begin()->remove_attribute(version_attr_incl);
                             }
 
@@ -1081,9 +1128,10 @@ static ref<Object> instantiate_node(XMLParseContext &ctx, const std::string &id)
         inst.object = PluginManager::instance()->create_object(props, inst.class_);
     } catch (const std::exception &e) {
         Throw("Error while loading \"%s\" (near %s): could not instantiate "
-              "%s plugin of type \"%s\": %s", inst.src_id, inst.offset(inst.location),
+              "%s plugin of type \"%s\": %s%s", inst.src_id, inst.offset(inst.location),
               string::to_lower(inst.class_->name()), props.plugin_name(),
-              e.what());
+              e.what(),
+              ctx.data_modified && !ctx.upgrade_approximate ? " (try -D__upgrade_approximate=1)" : "");
     }
 
     auto unqueried = props.unqueried();
@@ -1091,20 +1139,24 @@ static ref<Object> instantiate_node(XMLParseContext &ctx, const std::string &id)
         for (auto &v : unqueried) {
             if (props.type(v) == Properties::Type::Object) {
                 const auto &obj = props.object(v);
-                Throw("Error while loading \"%s\" (near %s): unreferenced "
-                      "object %s (within %s of type \"%s\")",
+                Log(ctx.load_permissive ? Warn : Error,
+                      "Error while loading \"%s\" (near %s): unreferenced "
+                      "object %s (within %s of type \"%s\")%s",
                       inst.src_id, inst.offset(inst.location),
                       obj, string::to_lower(inst.class_->name()),
-                      inst.props.plugin_name());
+                      inst.props.plugin_name(),
+                      !ctx.load_permissive ? " (try -D__load_permissive=1)" : "");
             } else {
                 v = "\"" + v + "\"";
             }
         }
-        Throw("Error while loading \"%s\" (near %s): unreferenced %s "
-              "%s in %s plugin of type \"%s\"",
+        Log(ctx.load_permissive ? Warn : Error,
+              "Error while loading \"%s\" (near %s): unreferenced %s "
+              "%s in %s plugin of type \"%s\"%s",
               inst.src_id, inst.offset(inst.location),
               unqueried.size() > 1 ? "properties" : "property", unqueried,
-              string::to_lower(inst.class_->name()), props.plugin_name());
+              string::to_lower(inst.class_->name()), props.plugin_name(),
+              !ctx.load_permissive ? " (try -D__load_permissive=1)" : "");
     }
     return inst.object;
 }
@@ -1128,7 +1180,7 @@ ref<Object> load_string(const std::string &string, const std::string &variant,
               src.offset(result.offset), result.description());
 
     pugi::xml_node root = doc.document_element();
-    detail::XMLParseContext ctx(variant);
+    detail::XMLParseContext ctx(variant, param);
     Properties prop;
     size_t arg_counter; // Unused
     auto scene_id = detail::parse_xml(src, ctx, root, Tag::Invalid, prop,
@@ -1162,7 +1214,7 @@ ref<Object> load_file(const fs::path &filename_, const std::string &variant,
 
     pugi::xml_node root = doc.document_element();
 
-    detail::XMLParseContext ctx(variant);
+    detail::XMLParseContext ctx(variant, param);
     Properties prop;
     size_t arg_counter = 0; // Unused
     auto scene_id = detail::parse_xml(src, ctx, root, Tag::Invalid, prop,
