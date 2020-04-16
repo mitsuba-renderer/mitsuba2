@@ -387,6 +387,9 @@ void upgrade_tree(XMLSource &src, pugi::xml_node &node, const Version &version, 
                 id_attrib = new_id.c_str();
             }
         }
+        // renamed features
+        for (pugi::xpath_node result: node.select_nodes("//bsdf[@type='bump']"))
+            result.node().attribute("type") = "bumpmap";
         // approximate unsupported features
         if (approximate) {
             for (pugi::xpath_node result: node.select_nodes("//bsdf[@type='phong' or string/@value='phong']")) {
@@ -495,10 +498,38 @@ void upgrade_tree(XMLSource &src, pugi::xml_node &node, const Version &version, 
                     Log(Warn, "Unreferenced shape group: \"%s\"", n.attribute("id").value());
                 n.parent().remove_child(n);
             }
+            for (pugi::xpath_node result: node.select_nodes("//srgb")) {
+                Log(Warn, "Changing <srgb> -> <rgb>");
+                result.node().set_name("rgb");
+            }
+            for (pugi::xpath_node result: node.select_nodes("//spectrum[@value[not(contains(.,':'))]]")) {
+                pugi::xml_node n = result.node();
+                if (string::tokenize(n.attribute("value").value()).size() > 1) {
+                    Log(Warn, "Changing <spectrum> w/o wavelengths -> <rgb>");
+                    n.set_name("rgb");
+                }
+            }
         }
         // changed parameters
         for (pugi::xpath_node result: node.select_nodes("//bsdf[@type='diffuse']/*/@name[.='diffuse_reflectance']"))
             result.attribute() = "reflectance";
+        for (pugi::xpath_node result: node.select_nodes("//rgb/@value[starts-with(.,'#')]")) {
+            pugi::xml_attribute a = result.attribute();
+            std::string val = string::trim( a.value() );
+            Color3f color(0);
+            if (val.size() == 7)
+                color = Color3f( (float) std::stoul(val.substr(1, 2), nullptr, 16) / 255.0f,
+                    (float) std::stoul(val.substr(3, 2), nullptr, 16) / 255.0f,
+                    (float) std::stoul(val.substr(5, 2), nullptr, 16) / 255.0f );
+            else if (val.size() == 7)
+                color = Color3f( (float) std::stoul(val.substr(1, 1), nullptr, 16) / 15.0f,
+                    (float) std::stoul(val.substr(2, 1), nullptr, 16) / 15.0f,
+                    (float) std::stoul(val.substr(3, 1), nullptr, 16) / 15.0f );
+            else
+                Throw("Invalid color code \"%s\"", val.c_str());
+            val = std::to_string(color.r()) + ' ' + std::to_string(color.g()) + ' ' + std::to_string(color.b());
+            a = val.c_str();
+        }
 
         // Update 'uoffset', 'voffset', 'uscale', 'vscale' to transform block
         for (pugi::xpath_node result : node.select_nodes(
