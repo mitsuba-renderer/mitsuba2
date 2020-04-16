@@ -424,6 +424,38 @@ void upgrade_tree(XMLSource &src, pugi::xml_node &node, const Version &version, 
                     wn.set_name("float");
                 }
             }
+            for (pugi::xpath_node result: node.select_nodes("//bsdf[@type='coating' or @type='roughcoating']")) {
+                pugi::xml_node n = result.node();
+				char const* stype = strstr(n.attribute("type").value(), "rough") ? "roughplastic" : "plastic";
+                Log(Warn, "Changing coating -> blended %s: \"%s\"", stype, n.attribute("id").value());
+                pugi::xml_node pn = n.append_child("bsdf");
+                pn.append_attribute("type") = stype;
+                for (pugi::xpath_node result: n.select_nodes("*[not(self::bsdf)]"))
+                    pn.append_move(result.node());
+                n.attribute("type") = "blendbsdf";
+                pugi::xml_node wn = n.append_child("float");
+                wn.append_attribute("name") = "weight";
+                wn.append_attribute("value") = "0.04";
+            }
+            for (pugi::xpath_node result: node.select_nodes("//bsdf[@type='roughdiffuse']")) {
+                pugi::xml_node n = result.node();
+                Log(Warn, "Changing rough diffuse -> diffuse: \"%s\"", n.attribute("id").value());
+                n.attribute("type") = "diffuse";
+            }
+            for (pugi::xpath_node result: node.select_nodes("//bsdf[@type='bumpmap' or @type='normalmap']")) {
+                pugi::xml_node n = result.node();
+                char const* id = n.attribute("id").value();
+                Log(Warn, "Bump/normalmaps currently unsupported -> bypassing! \"%s\"", id);
+                for (pugi::xpath_node result: n.select_nodes("bsdf")) {
+                    pugi::xml_node nn = result.node();
+                    if (id && id[0]) {
+                        nn.remove_attribute("id");
+                        nn.append_attribute("id") = id;
+                    }
+                    n.parent().insert_move_before(nn, n);
+                }
+                n.parent().remove_child(n);
+            }
             for (pugi::xpath_node result: node.select_nodes("//shape[@type='instance']")) {
                 pugi::xml_node n = result.node();
                 Log(Warn, "Unrolling instance -> shapes! \"%s\"", n.attribute("id").value());
