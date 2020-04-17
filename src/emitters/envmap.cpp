@@ -58,15 +58,23 @@ public:
            about the scene and default to the unit bounding sphere. */
         m_bsphere = ScalarBoundingSphere3f(ScalarPoint3f(0.f), 1.f);
 
-        FileResolver *fs = Thread::thread()->file_resolver();
-        fs::path file_path = fs->resolve(props.string("filename"));
+        ref<Bitmap> bitmap;
 
-        ref<Bitmap> bitmap = new Bitmap(file_path);
+        if(props.has_property("bitmap")) {
+            bitmap = (Bitmap*) props.pointer("bitmap");
+            m_filename = "internal";
+        } else {
+            FileResolver *fs = Thread::thread()->file_resolver();
+            fs::path file_path = fs->resolve(props.string("filename"));
+
+            bitmap = new Bitmap(file_path);
+            
+            m_filename = file_path.filename().string();
+        }
 
         /* Convert to linear RGBA float bitmap, will undergo further
            conversion into coefficients of a spectral upsampling model below */
         bitmap = bitmap->convert(Bitmap::PixelFormat::RGBA, struct_type_v<ScalarFloat>, false);
-        m_filename = file_path.filename().string();
 
         std::unique_ptr<ScalarFloat[]> luminance(new ScalarFloat[bitmap->pixel_count()]);
 

@@ -6,6 +6,7 @@
 #include <mitsuba/render/emitter.h>
 #include <mitsuba/render/scene.h>
 #include <mitsuba/render/texture.h>
+#include <mitsuba/core/bitmap.h>
 #include "sunsky/sunmodel.h"
 #include "sunsky/skymodel.h"
 
@@ -95,11 +96,36 @@ public:
 
     Spectrum eval(const SurfaceInteraction3f &si, Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointEvaluate, active);
+        return get_sky_radiance(from_sphere(si.wi));
+    }
 
-        // Compute spherical coords of wi
-        SphericalCoordinates coords = from_sphere(si.wi);
+    std::vector<ref<Object>> expand() const override {
+        ref<Bitmap> bitmap = new Bitmap(Bitmap::PixelFormat::RGBA, Struct::Type::Float32, 
+            Vector2f(m_resolution, m_resolution/2.f));
+
+        Point2f factor((2*math::Pi<Float>) / bitmap->width(), math::Pi<Float> / bitmap->height());
+
+        for (size_t y = 0; y < bitmap->height(); ++y) {
+            Float theta = (y + .5f) * factor.y();
+            Spectrum *target = (Spectrum*) bitmap->data() + y * bitmap->width();
+
+            for (size_t x = 0; x < bitmap->width(); ++x) {
+                Float phi = (x + .5f) * factor.x();
+
+                *target++ = get_sky_radiance(SphericalCoordinates(theta, phi));
+            }
+        }
+
+        Properties prop("envmap");
+        prop.set_pointer("bitmap", bitmap.get());
+        ref<Object> texture = PluginManager::instance()->create_object<Base>(prop).get();
         
-        Float theta =  (math::Pi<Float> - coords.elevation) / m_stretch;
+        return {texture};
+    }
+
+    Spectrum get_sky_radiance(SphericalCoordinates<Float> coords) const {
+        
+        Float theta = coords.elevation / m_stretch;
 
         if (cos(theta) <= 0) {
             if (!m_extend)
@@ -179,8 +205,12 @@ public:
     std::string to_string() const override {
         std::ostringstream oss;
         oss << "SkyEmitter[" << std::endl
-            //<< "  radiance = " << string::indent(m_radiance) << "," << std::endl
             << "  bsphere = " << m_bsphere << "," << std::endl
+            << "  turbidity = " << m_turbidity << "," << std::endl
+            << "  sun_pos = " << m_sun.to_string() << std::endl
+            << "  resolution = " << m_resolution << std::endl
+            << "  stretch = " << m_stretch << std::endl
+            << "  scale = " << m_scale << std::endl
             << "]";
         return oss.str();
     }
