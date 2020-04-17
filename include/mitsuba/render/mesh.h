@@ -15,6 +15,7 @@ public:
     MTS_IMPORT_TYPES()
     MTS_IMPORT_BASE(Shape, m_mesh)
 
+    // TODO change this
     using InputFloat = float;
     using InputPoint3f  = Point<InputFloat, 3>;
     using InputVector2f = Vector<InputFloat, 2>;
@@ -24,6 +25,7 @@ public:
     using typename Base::ScalarSize;
     using typename Base::ScalarIndex;
 
+    // TODO remove this
     using FaceHolder   = std::unique_ptr<uint8_t[]>;
     using VertexHolder = std::unique_ptr<uint8_t[]>;
 
@@ -41,11 +43,13 @@ public:
     /// Return the total number of faces
     ScalarSize face_count() const { return m_face_count; }
 
+    // TODO remove this
     /// Return a \c Struct instance describing the contents of the vertex buffer
     const Struct *vertex_struct() const { return m_vertex_struct.get(); }
     /// Return a \c Struct instance describing the contents of the face buffer
     const Struct *face_struct() const { return m_face_struct.get(); }
 
+    // TODO update those, only used in python bindings for now
     /// Return a pointer to the raw vertex buffer
     uint8_t *vertices() { return m_vertices.get(); }
     /// Const variant of \ref vertices.
@@ -82,84 +86,29 @@ public:
     /// Returns the face indices associated with triangle \c index
     template <typename Index>
     MTS_INLINE auto face_indices(Index index, mask_t<Index> active = true) const {
-        using Index3 = Array<Index, 3>;
-        using Result = uint32_array_t<Index3>;
-        ENOKI_MARK_USED(active);
-
-        if constexpr (!is_array_v<Index>) {
-            return load<Result>(face(index));
-        } else if constexpr (!is_cuda_array_v<Index>) {
-            index *= m_face_size / ScalarSize(sizeof(ScalarIndex));
-            return gather<Result, sizeof(ScalarIndex)>(
-                m_faces.get(), Index3(index, index + 1u, index + 2u), active);
-        }
-#if defined(MTS_ENABLE_OPTIX)
-        else {
-            return gather<Result, sizeof(ScalarIndex)>(m_optix->faces, index, active);
-        }
-#endif
+        using Result = uint32_array_t<Array<Index, 3>>;
+        return gather<Result, sizeof(ScalarIndex)>(m_faces_buf, index, active);
     }
 
     /// Returns the world-space position of the vertex with index \c index
     template <typename Index>
     MTS_INLINE auto vertex_position(Index index, mask_t<Index> active = true) const {
-        using Index3 = Array<Index, 3>;
         using Result = Point<replace_scalar_t<Index, InputFloat>, 3>;
-        ENOKI_MARK_USED(active);
-
-        if constexpr (!is_array_v<Index>) {
-            return load<Result>(vertex(index));
-        } else if constexpr (!is_cuda_array_v<Index>) {
-            index *= m_vertex_size / ScalarSize(sizeof(InputFloat));
-            return gather<Result, sizeof(InputFloat)>(
-                m_vertices.get(), Index3(index, index + 1u, index + 2u), active);
-        }
-#if defined(MTS_ENABLE_OPTIX)
-        else {
-            return gather<Result, sizeof(InputFloat)>(m_optix->vertex_positions, index, active);
-        }
-#endif
+        return gather<Result, sizeof(InputFloat)>(m_vertex_positions_buf, index, active);
     }
 
     /// Returns the normal direction of the vertex with index \c index
     template <typename Index>
     MTS_INLINE auto vertex_normal(Index index, mask_t<Index> active = true) const {
-        using Index3 = Array<Index, 3>;
         using Result = Normal<replace_scalar_t<Index, InputFloat>, 3>;
-        ENOKI_MARK_USED(active);
-
-        if constexpr (!is_array_v<Index>) {
-            return load_unaligned<Result>(vertex(index) + m_normal_offset);
-        } else if constexpr (!is_cuda_array_v<Index>) {
-            index *= m_vertex_size / ScalarSize(sizeof(InputFloat));
-            return gather<Result, sizeof(InputFloat)>(
-                m_vertices.get() + m_normal_offset, Index3(index, index + 1u, index + 2u), active);
-        }
-#if defined(MTS_ENABLE_OPTIX)
-        else {
-            return gather<Result, sizeof(InputFloat)>(m_optix->vertex_normals, index, active);
-        }
-#endif
+        return gather<Result, sizeof(InputFloat)>(m_vertex_normals_buf, index, active);
     }
 
     /// Returns the UV texture coordinates of the vertex with index \c index
     template <typename Index>
     MTS_INLINE auto vertex_texcoord(Index index, mask_t<Index> active = true) const {
         using Result = Point<replace_scalar_t<Index, InputFloat>, 2>;
-        ENOKI_MARK_USED(active);
-
-        if constexpr (!is_array_v<Index>) {
-            return load_unaligned<Result>(vertex(index) + m_texcoord_offset);
-        } else if constexpr (!is_cuda_array_v<Index>) {
-            index *= m_vertex_size / ScalarSize(sizeof(InputFloat));
-            return gather<Result, sizeof(InputFloat)>(
-                m_vertices.get() + m_texcoord_offset, Array<Index, 2>(index, index + 1u), active);
-        }
-#if defined(MTS_ENABLE_OPTIX)
-        else {
-            return gather<Result, sizeof(InputFloat)>(m_optix->vertex_texcoords, index, active);
-        }
-#endif
+        return gather<Result, sizeof(InputFloat)>(m_vertex_texcoords_buf, index, active);
     }
 
     /// Returns the surface area of the face with index \c index
@@ -171,17 +120,23 @@ public:
              p1 = vertex_position(fi[1], active),
              p2 = vertex_position(fi[2], active);
 
-        return .5f * norm(cross(p1 - p0, p2 - p0));
+        auto area = .5f * norm(cross(p1 - p0, p2 - p0));
+
+        // TODO is this necessary?
+        if constexpr (is_array_v<Index>)
+            return area;
+        else
+            return scalar_cast(area);
     }
 
     /// Does this mesh have per-vertex normals?
-    bool has_vertex_normals() const { return m_normal_offset != 0; }
+    bool has_vertex_normals() const { return slices(m_vertex_normals_buf) != 0; }
 
     /// Does this mesh have per-vertex texture coordinates?
-    bool has_vertex_texcoords() const { return m_texcoord_offset != 0; }
+    bool has_vertex_texcoords() const { return slices(m_vertex_texcoords_buf) != 0; }
 
     /// Does this mesh have per-vertex texture colors?
-    bool has_vertex_colors() const { return m_color_offset != 0; }
+    bool has_vertex_colors() const { return false; } // TODO
 
     /// @}
     // =========================================================================
@@ -329,11 +284,24 @@ protected:
     ScalarBoundingBox3f m_bbox;
     ScalarTransform4f m_to_world;
 
-    ScalarSize m_vertex_count = 0;
-    ScalarSize m_face_count = 0;
 
     ref<Struct> m_vertex_struct;
     ref<Struct> m_face_struct;
+
+    // ref<Struct> m_vertex_attr_struct;
+    // DynamicBuffer<uint8_t> m_vertex_attributes_buf;
+
+    // NEW DESIGN
+    ScalarSize m_vertex_count = 0;
+    ScalarSize m_face_count = 0;
+
+    DynamicBuffer<Float> m_vertex_positions_buf;
+    DynamicBuffer<Float> m_vertex_normals_buf;
+    DynamicBuffer<Float> m_vertex_texcoords_buf;
+
+    DynamicBuffer<UInt32> m_faces_buf;
+
+    // END NEW DESIGN
 
 #if defined(MTS_ENABLE_OPTIX)
     static const uint32_t triangle_input_flags[1];

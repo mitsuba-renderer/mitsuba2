@@ -53,7 +53,7 @@ MTS_PY_EXPORT(Shape) {
     using ScalarSize = typename Mesh::ScalarSize;
     MTS_PY_CLASS(Mesh, Shape)
         .def(py::init<const std::string &, Struct *, ScalarSize, Struct *, ScalarSize>(),
-            D(Mesh, Mesh))
+            D(Mesh, Mesh)) //TODO remove this?
         .def_method(Mesh, vertex_struct)
         .def_method(Mesh, face_struct)
         .def_method(Mesh, has_vertex_normals)

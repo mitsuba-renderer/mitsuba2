@@ -30,62 +30,62 @@ MTS_VARIANT Mesh<Float, Spectrum>::Mesh(const Properties &props) : Base(props) {
     m_mesh = true;
 }
 
-MTS_VARIANT Mesh<Float, Spectrum>::Mesh(const std::string &name, Struct *vertex_struct,
-                                        ScalarSize vertex_count, Struct *face_struct,
-                                        ScalarSize face_count)
-    : m_name(name), m_vertex_count(vertex_count), m_face_count(face_count),
-      m_vertex_struct(vertex_struct), m_face_struct(face_struct) {
-    /* Helper lambda function to determine compatibility (offset/type) of a 'Struct' field */
-    auto check_field = [](const Struct *s, size_t idx,
-                          const std::string &suffix_exp,
-                          Struct::Type type_exp) {
-        if (idx >= s->field_count())
-            Throw("Mesh::Mesh(): Incompatible data structure %s", s->to_string());
-        auto field = s->operator[](idx);
-        std::string suffix = field.name;
-        auto it = suffix.rfind(".");
-        if (it != std::string::npos)
-            suffix = suffix.substr(it + 1);
-        if (suffix != suffix_exp || field.type != type_exp)
-            Throw("Mesh::Mesh(): Incompatible data structure %s", s->to_string());
-    };
+// MTS_VARIANT Mesh<Float, Spectrum>::Mesh(const std::string &name, Struct *vertex_struct,
+//                                         ScalarSize vertex_count, Struct *face_struct,
+//                                         ScalarSize face_count)
+//     : m_name(name), m_vertex_count(vertex_count), m_face_count(face_count),
+//       m_vertex_struct(vertex_struct), m_face_struct(face_struct) {
+//     /* Helper lambda function to determine compatibility (offset/type) of a 'Struct' field */
+//     auto check_field = [](const Struct *s, size_t idx,
+//                           const std::string &suffix_exp,
+//                           Struct::Type type_exp) {
+//         if (idx >= s->field_count())
+//             Throw("Mesh::Mesh(): Incompatible data structure %s", s->to_string());
+//         auto field = s->operator[](idx);
+//         std::string suffix = field.name;
+//         auto it = suffix.rfind(".");
+//         if (it != std::string::npos)
+//             suffix = suffix.substr(it + 1);
+//         if (suffix != suffix_exp || field.type != type_exp)
+//             Throw("Mesh::Mesh(): Incompatible data structure %s", s->to_string());
+//     };
 
-    check_field(vertex_struct, 0, "x",  struct_type_v<InputFloat>);
-    check_field(vertex_struct, 1, "y",  struct_type_v<InputFloat>);
-    check_field(vertex_struct, 2, "z",  struct_type_v<InputFloat>);
+//     check_field(vertex_struct, 0, "x",  struct_type_v<InputFloat>);
+//     check_field(vertex_struct, 1, "y",  struct_type_v<InputFloat>);
+//     check_field(vertex_struct, 2, "z",  struct_type_v<InputFloat>);
 
-    check_field(face_struct,   0, "i0", struct_type_v<ScalarIndex>);
-    check_field(face_struct,   1, "i1", struct_type_v<ScalarIndex>);
-    check_field(face_struct,   2, "i2", struct_type_v<ScalarIndex>);
+//     check_field(face_struct,   0, "i0", struct_type_v<ScalarIndex>);
+//     check_field(face_struct,   1, "i1", struct_type_v<ScalarIndex>);
+//     check_field(face_struct,   2, "i2", struct_type_v<ScalarIndex>);
 
-    if (vertex_struct->has_field("nx") &&
-        vertex_struct->has_field("ny") &&
-        vertex_struct->has_field("nz")) {
-        check_field(vertex_struct, 3, "nx", struct_type_v<InputFloat>);
-        check_field(vertex_struct, 4, "ny", struct_type_v<InputFloat>);
-        check_field(vertex_struct, 5, "nz", struct_type_v<InputFloat>);
-        m_normal_offset = (ScalarIndex) vertex_struct->field("nx").offset;
-    }
+//     if (vertex_struct->has_field("nx") &&
+//         vertex_struct->has_field("ny") &&
+//         vertex_struct->has_field("nz")) {
+//         check_field(vertex_struct, 3, "nx", struct_type_v<InputFloat>);
+//         check_field(vertex_struct, 4, "ny", struct_type_v<InputFloat>);
+//         check_field(vertex_struct, 5, "nz", struct_type_v<InputFloat>);
+//         m_normal_offset = (ScalarIndex) vertex_struct->field("nx").offset;
+//     }
 
-    if (vertex_struct->has_field("u") && vertex_struct->has_field("v")) {
-        if (m_normal_offset == 0) {
-            check_field(vertex_struct, 3, "u", struct_type_v<InputFloat>);
-            check_field(vertex_struct, 4, "v", struct_type_v<InputFloat>);
-        } else {
-            check_field(vertex_struct, 6, "u", struct_type_v<InputFloat>);
-            check_field(vertex_struct, 7, "v", struct_type_v<InputFloat>);
-        }
-        m_texcoord_offset = (ScalarIndex) vertex_struct->field("u").offset;
-    }
+//     if (vertex_struct->has_field("u") && vertex_struct->has_field("v")) {
+//         if (m_normal_offset == 0) {
+//             check_field(vertex_struct, 3, "u", struct_type_v<InputFloat>);
+//             check_field(vertex_struct, 4, "v", struct_type_v<InputFloat>);
+//         } else {
+//             check_field(vertex_struct, 6, "u", struct_type_v<InputFloat>);
+//             check_field(vertex_struct, 7, "v", struct_type_v<InputFloat>);
+//         }
+//         m_texcoord_offset = (ScalarIndex) vertex_struct->field("u").offset;
+//     }
 
-    m_vertex_size = (ScalarSize) m_vertex_struct->size();
-    m_face_size   = (ScalarSize) m_face_struct->size();
+//     m_vertex_size = (ScalarSize) m_vertex_struct->size();
+//     m_face_size   = (ScalarSize) m_face_struct->size();
 
-    m_vertices = VertexHolder(new uint8_t[(vertex_count + 1) * m_vertex_size]);
-    m_faces    = VertexHolder(new uint8_t[(face_count + 1) * m_face_size]);
+//     m_vertices = VertexHolder(new uint8_t[(vertex_count + 1) * m_vertex_size]);
+//     m_faces    = VertexHolder(new uint8_t[(face_count + 1) * m_face_size]);
 
-    m_mesh = true;
-}
+//     m_mesh = true;
+// }
 
 MTS_VARIANT Mesh<Float, Spectrum>::~Mesh() { }
 
@@ -126,9 +126,14 @@ MTS_VARIANT void Mesh<Float, Spectrum>::recompute_vertex_normals() {
 
     /* Weighting scheme based on "Computing Vertex Normals from Polygonal Facets"
        by Grit Thuermer and Charles A. Wuethrich, JGT 1998, Vol 3 */
+
+    // TODO vectorize this
+#if 0
     for (ScalarSize i = 0; i < m_face_count; ++i) {
         const ScalarIndex *idx = (const ScalarIndex *) face(i);
         Assert(idx[0] < m_vertex_count && idx[1] < m_vertex_count && idx[2] < m_vertex_count);
+
+        // TODO wrong type!
         InputPoint3f v[3]{ vertex_position(idx[0]),
                            vertex_position(idx[1]),
                            vertex_position(idx[2]) };
@@ -162,6 +167,37 @@ MTS_VARIANT void Mesh<Float, Spectrum>::recompute_vertex_normals() {
 
         store(vertex(i) + m_normal_offset, n);
     }
+#else
+        using DynamicIndex    = DynamicBuffer<uint32_t>;
+        using DynamicVector3f = Array<DynamicBuffer<Float>, 3>;
+
+        DynamicVector3f tmp_normals = zero<DynamicVector3f>(m_vertex_count);
+
+        auto fi = face_indices(arange<DynamicIndex>(m_face_count));
+
+        DynamicVector3f v[3] = {
+            vertex_position(fi[0]),
+            vertex_position(fi[1]),
+            vertex_position(fi[2])
+        };
+
+        auto n = normalize(cross(v[1] - v[0], v[2] - v[0]));
+
+        /* Weighting scheme based on "Computing Vertex Normals from Polygonal Facets"
+           by Grit Thuermer and Charles A. Wuethrich, JGT 1998, Vol 3 */
+        for (int i = 0; i < 3; ++i) {
+            auto d0 = normalize(v[(i + 1) % 3] - v[i]);
+            auto d1 = normalize(v[(i + 2) % 3] - v[i]);
+            auto face_angle = safe_acos(dot(d0, d1));
+            scatter_add(tmp_normals, n * face_angle, fi[i]);
+        }
+
+        tmp_normals = normalize(tmp_normals);
+
+        auto ni = 3 * arange<DynamicIndex>(m_vertex_count);
+        for (size_t i = 0; i < 3; ++i)
+            scatter((float*)m_vertex_normals_buf.data() + i, tmp_normals[i], ni);
+#endif
 
     if (invalid_counter == 0)
         Log(Debug, "\"%s\": computed vertex normals (took %s)", m_name,
@@ -339,8 +375,8 @@ Mesh<Float, Spectrum>::normal_derivative(const SurfaceInteraction3f &si, bool sh
              n2 = vertex_normal(fi[2], active);
 
     Vector3f rel = si.p - p0,
-            du  = p1 - p0,
-            dv  = p2 - p0;
+             du  = p1 - p0,
+             dv  = p2 - p0;
 
     /* Solve a least squares problem to determine
        the UV coordinates within the current triangle */
@@ -385,8 +421,8 @@ size_t sutherland_hodgman(Point3d *input, size_t in_count, Point3d *output, int 
     Point3d cur        = input[0];
     double sign        = is_minimum ? 1.0 : -1.0;
     double distance    = sign * (cur[axis] - split_pos);
-    bool  cur_is_inside = (distance >= 0);
-    size_t out_count    = 0;
+    bool cur_is_inside = (distance >= 0);
+    size_t out_count   = 0;
 
     for (size_t i = 0; i < in_count; ++i) {
         size_t next_idx = i + 1;
@@ -426,6 +462,7 @@ size_t sutherland_hodgman(Point3d *input, size_t in_count, Point3d *output, int 
 }
 }  // end namespace
 
+// TODO this should only be done on CPU
 MTS_VARIANT typename Mesh<Float, Spectrum>::ScalarBoundingBox3f
 Mesh<Float, Spectrum>::bbox(ScalarIndex index, const ScalarBoundingBox3f &clip) const {
     using ScalarPoint3d = mitsuba::Point<double, 3>;
@@ -441,6 +478,7 @@ Mesh<Float, Spectrum>::bbox(ScalarIndex index, const ScalarBoundingBox3f &clip) 
     Assert(idx[1] < m_vertex_count);
     Assert(idx[2] < m_vertex_count);
 
+    // TODO wrong type
     ScalarPoint3f v0 = vertex_position(idx[0]),
                   v1 = vertex_position(idx[1]),
                   v2 = vertex_position(idx[2]);
@@ -474,6 +512,7 @@ Mesh<Float, Spectrum>::bbox(ScalarIndex index, const ScalarBoundingBox3f &clip) 
     return result;
 }
 
+// TODO update this
 MTS_VARIANT std::string Mesh<Float, Spectrum>::to_string() const {
     std::ostringstream oss;
     oss << class_()->name() << "[" << std::endl
@@ -495,10 +534,10 @@ MTS_VARIANT std::string Mesh<Float, Spectrum>::to_string() const {
 MTS_VARIANT RTCGeometry Mesh<Float, Spectrum>::embree_geometry(RTCDevice device) const {
     RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
 
-    rtcSetSharedGeometryBuffer(geom, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, m_vertices.get(),
-            0, m_vertex_size, m_vertex_count);
-    rtcSetSharedGeometryBuffer(geom, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, m_faces.get(),
-            0, m_face_size, m_face_count);
+    rtcSetSharedGeometryBuffer(geom, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, m_vertex_positions_buf.data(),
+            0, 3 * sizeof(InputFloat), m_vertex_count);
+    rtcSetSharedGeometryBuffer(geom, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, m_faces_buf.data(),
+            0, 3 * sizeof(ScalarIndex), m_face_count);
 
     rtcCommitGeometry(geom);
     return geom;
@@ -519,40 +558,42 @@ MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed() {
                vertex_range_3 = vertex_range * 3,
                face_range_3   = arange<UInt32>(m_face_count) * 3;
 
-        for (size_t i = 0; i < 3; ++i)
-            scatter((uint32_t*)m_optix->faces_buf + i, m_optix->faces[i], face_range_3);
+        // for (size_t i = 0; i < 3; ++i)
+        //     scatter((uint32_t*)m_optix->faces_buf + i, m_optix->faces[i], face_range_3);
 
-        for (size_t i = 0; i < 3; ++i)
-            scatter((float*)m_optix->vertex_positions_buf + i, m_optix->vertex_positions[i], vertex_range_3);
+        // for (size_t i = 0; i < 3; ++i)
+        //     scatter((float*)m_optix->vertex_positions_buf + i, m_optix->vertex_positions[i], vertex_range_3);
 
-        if (has_vertex_texcoords())
-            for (size_t i = 0; i < 2; ++i)
-                scatter((float*)m_optix->vertex_texcoords_buf + i, m_optix->vertex_texcoords[i], vertex_range_2);
+        // if (has_vertex_texcoords())
+        //     for (size_t i = 0; i < 2; ++i)
+        //         scatter((float*)m_optix->vertex_texcoords_buf + i, m_optix->vertex_texcoords[i], vertex_range_2);
 
         if (has_vertex_normals()) {
-            if (requires_gradient(m_optix->vertex_positions)) {
-                m_optix->vertex_normals = zero<Vector3f>(m_vertex_count);
-                Vector3f v[3] = {
-                    gather<Vector3f>(m_optix->vertex_positions, m_optix->faces.x()),
-                    gather<Vector3f>(m_optix->vertex_positions, m_optix->faces.y()),
-                    gather<Vector3f>(m_optix->vertex_positions, m_optix->faces.z())
-                };
-                Normal3f n = normalize(cross(v[1] - v[0], v[2] - v[0]));
+            //TODO Only do this if vertex_positions have changed
 
-                /* Weighting scheme based on "Computing Vertex Normals from Polygonal Facets"
-                   by Grit Thuermer and Charles A. Wuethrich, JGT 1998, Vol 3 */
-                for (int i = 0; i < 3; ++i) {
-                    Vector3f d0 = normalize(v[(i + 1) % 3] - v[i]);
-                    Vector3f d1 = normalize(v[(i + 2) % 3] - v[i]);
-                    Float face_angle = safe_acos(dot(d0, d1));
-                    scatter_add(m_optix->vertex_normals, n * face_angle, m_optix->faces[i]);
-                }
+            recompute_vertex_normals()
 
-                m_optix->vertex_normals = normalize(m_optix->vertex_normals);
-            }
+            // m_optix->vertex_normals = zero<Vector3f>(m_vertex_count);
+            // Vector3f v[3] = {
+            //     gather<Vector3f>(m_optix->vertex_positions, m_optix->faces.x()),
+            //     gather<Vector3f>(m_optix->vertex_positions, m_optix->faces.y()),
+            //     gather<Vector3f>(m_optix->vertex_positions, m_optix->faces.z())
+            // };
+            // Normal3f n = normalize(cross(v[1] - v[0], v[2] - v[0]));
 
-            for (size_t i = 0; i < 3; ++i)
-                scatter((float*)m_optix->vertex_normals_buf + i, m_optix->vertex_normals[i], vertex_range_3);
+            // /* Weighting scheme based on "Computing Vertex Normals from Polygonal Facets"
+            //     by Grit Thuermer and Charles A. Wuethrich, JGT 1998, Vol 3 */
+            // for (int i = 0; i < 3; ++i) {
+            //     Vector3f d0 = normalize(v[(i + 1) % 3] - v[i]);
+            //     Vector3f d1 = normalize(v[(i + 2) % 3] - v[i]);
+            //     Float face_angle = safe_acos(dot(d0, d1));
+            //     scatter_add(m_optix->vertex_normals, n * face_angle, m_optix->faces[i]);
+            // }
+
+            // m_optix->vertex_normals = normalize(m_optix->vertex_normals);
+
+            // for (size_t i = 0; i < 3; ++i)
+            //     scatter((float*)m_optix->vertex_normals_buf + i, m_optix->vertex_normals[i], vertex_range_3);
         }
 
         if (m_area_distr.empty())
@@ -560,64 +601,64 @@ MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed() {
     }
 }
 
-template <typename Value, size_t Dim, typename Func,
-          typename Result = Array<Value, Dim>>
-Result cuda_upload(size_t size, Func func) {
-    using ScalarValue = scalar_t<Value>;
-    ScalarValue *tmp = (ScalarValue *) cuda_host_malloc(size * Dim * sizeof(ScalarValue));
+// template <typename Value, size_t Dim, typename Func,
+//           typename Result = Array<Value, Dim>>
+// Result cuda_upload(size_t size, Func func) {
+//     using ScalarValue = scalar_t<Value>;
+//     ScalarValue *tmp = (ScalarValue *) cuda_host_malloc(size * Dim * sizeof(ScalarValue));
 
-    for (size_t i = 0; i < size; ++i) {
-        auto value = func((uint32_t) i);
-        for (size_t j = 0; j < Dim; ++j)
-            tmp[i + j * size] = value[j];
-    }
+//     for (size_t i = 0; i < size; ++i) {
+//         auto value = func((uint32_t) i);
+//         for (size_t j = 0; j < Dim; ++j)
+//             tmp[i + j * size] = value[j];
+//     }
 
-    Result result;
-    for (size_t j = 0; j < Dim; ++j) {
-        void *dst = cuda_malloc(size * sizeof(ScalarValue));
-        cuda_memcpy_to_device_async(dst, tmp + j * size,
-                                    size * sizeof(ScalarValue));
-        result[j] = CUDAArray<ScalarValue>::map(dst, size, true);
-    }
+//     Result result;
+//     for (size_t j = 0; j < Dim; ++j) {
+//         void *dst = cuda_malloc(size * sizeof(ScalarValue));
+//         cuda_memcpy_to_device_async(dst, tmp + j * size,
+//                                     size * sizeof(ScalarValue));
+//         result[j] = CUDAArray<ScalarValue>::map(dst, size, true);
+//     }
 
-    cuda_host_free(tmp);
+//     cuda_host_free(tmp);
 
-    return result;
-}
+//     return result;
+// }
 
 MTS_VARIANT const uint32_t Mesh<Float, Spectrum>::triangle_input_flags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
 
 MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry() {
     if constexpr (is_cuda_array_v<Float>) {
         using Index = replace_scalar_t<Float, ScalarIndex>;
-        if (m_optix != nullptr)
-            Throw("Mesh::optix_geometry(): OptiX geometry was already created.");
-        m_optix = std::unique_ptr<OptixData>(new OptixData());
+        // if (m_optix != nullptr)
+        //     Throw("Mesh::optix_geometry(): OptiX geometry was already created.");
+        // m_optix = std::unique_ptr<OptixData>(new OptixData());
 
-        /// Face indices
-        m_optix->faces_buf = cuda_malloc(m_face_count * 3 * sizeof(uint32_t));
-        m_optix->faces = cuda_upload<Index, 3>(
-            m_face_count, [this](ScalarIndex i) { return face_indices(i); });
+        // /// Face indices
+        // m_optix->faces_buf = cuda_malloc(m_face_count * 3 * sizeof(uint32_t));
+        // m_optix->faces = cuda_upload<Index, 3>(
+        //     m_face_count, [this](ScalarIndex i) { return face_indices(i); });
 
-        // Vertex positions
-        m_optix->vertex_positions_buf = cuda_malloc(m_vertex_count * 3 * sizeof(float));
-        m_optix->vertex_positions = cuda_upload<Float, 3>(
-            m_vertex_count, [this](ScalarIndex i) { return vertex_position(i); });
+        // // Vertex positions
+        // m_optix->vertex_positions_buf = cuda_malloc(m_vertex_count * 3 * sizeof(float));
+        // m_optix->vertex_positions = cuda_upload<Float, 3>(
+        //     m_vertex_count, [this](ScalarIndex i) { return vertex_position(i); });
 
-        // Vertex texture coordinates
-        m_optix->vertex_texcoords_buf = cuda_malloc(has_vertex_texcoords() ? m_vertex_count * 2 * sizeof(float) : 0);
-        if (has_vertex_texcoords())
-            m_optix->vertex_texcoords = cuda_upload<Float, 2>(
-                m_vertex_count, [this](ScalarIndex i) { return vertex_texcoord(i); });
+        // // Vertex texture coordinates
+        // m_optix->vertex_texcoords_buf = cuda_malloc(has_vertex_texcoords() ? m_vertex_count * 2 * sizeof(float) : 0);
+        // if (has_vertex_texcoords())
+        //     m_optix->vertex_texcoords = cuda_upload<Float, 2>(
+        //         m_vertex_count, [this](ScalarIndex i) { return vertex_texcoord(i); });
 
-        // Vertex normals
-        m_optix->vertex_normals_buf = cuda_malloc(has_vertex_normals() ? m_vertex_count * 3 * sizeof(float) : 0);
-        if (has_vertex_normals())
-            m_optix->vertex_normals = cuda_upload<Float, 3>(
-                m_vertex_count, [this](ScalarIndex i) { return vertex_normal(i); });
+        // // Vertex normals
+        // m_optix->vertex_normals_buf = cuda_malloc(has_vertex_normals() ? m_vertex_count * 3 * sizeof(float) : 0);
+        // if (has_vertex_normals())
+        //     m_optix->vertex_normals = cuda_upload<Float, 3>(
+        //         m_vertex_count, [this](ScalarIndex i) { return vertex_normal(i); });
 
-        parameters_changed();
-        cuda_eval();
+        // parameters_changed();
+        // cuda_eval();
     }
 }
 
@@ -626,39 +667,37 @@ MTS_VARIANT void Mesh<Float, Spectrum>::optix_build_input(OptixBuildInput &build
     build_input.triangleArray.vertexFormat     = OPTIX_VERTEX_FORMAT_FLOAT3;
     build_input.triangleArray.indexFormat      = OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
     build_input.triangleArray.numVertices      = m_vertex_count;
-    build_input.triangleArray.vertexBuffers    = (CUdeviceptr*)&m_optix->vertex_positions_buf;
+    build_input.triangleArray.vertexBuffers    = (CUdeviceptr*)&m_vertex_positions_buf.data();
     build_input.triangleArray.numIndexTriplets = m_face_count;
-    build_input.triangleArray.indexBuffer      = (CUdeviceptr)m_optix->faces_buf;
+    build_input.triangleArray.indexBuffer      = (CUdeviceptr)m_faces_buf.data();
     build_input.triangleArray.flags            = Mesh::triangle_input_flags;
     build_input.triangleArray.numSbtRecords    = 1;
 }
 
 MTS_VARIANT void Mesh<Float, Spectrum>::optix_hit_group_data(HitGroupData& hitgroup) const {
     hitgroup.shape_ptr           = (uintptr_t) this;
-    hitgroup.faces               = m_optix->faces_buf;
-    hitgroup.vertex_positions    = m_optix->vertex_positions_buf;
-    hitgroup.vertex_normals      = m_optix->vertex_normals_buf;
-    hitgroup.vertex_texcoords    = m_optix->vertex_texcoords_buf;
+    hitgroup.faces               = m_faces_buf.data();
+    hitgroup.vertex_positions    = m_vertex_positions_buf.data();
+    hitgroup.vertex_normals      = m_vertex_normals_buf.data();
+    hitgroup.vertex_texcoords    = m_vertex_texcoords_buf.data();
 }
 
 MTS_VARIANT void Mesh<Float, Spectrum>::traverse(TraversalCallback *callback) {
     Base::traverse(callback);
 
     if constexpr (is_cuda_array_v<Float>) {
-        callback->put_parameter("vertex_count",     m_vertex_count);
-        callback->put_parameter("face_count",       m_face_count);
-        callback->put_parameter("faces",            m_optix->faces);
-        callback->put_parameter("vertex_positions", m_optix->vertex_positions);
-        callback->put_parameter("vertex_normals",   m_optix->vertex_normals);
-        callback->put_parameter("vertex_texcoords", m_optix->vertex_texcoords);
+        callback->put_parameter("vertex_count",         m_vertex_count);
+        callback->put_parameter("face_count",           m_face_count);
+        callback->put_parameter("faces_buf",            m_faces_buf);
+        callback->put_parameter("vertex_positions_buf", m_vertex_positions_buf);
+        callback->put_parameter("vertex_normals_buf",   m_vertex_normals_buf);
+        callback->put_parameter("vertex_texcoords_buf", m_vertex_texcoords_buf);
     }
 }
 
 #else // MTS_ENABLE_OPTIX off
-MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed() {
-}
-MTS_VARIANT void Mesh<Float, Spectrum>::traverse(TraversalCallback * /*callback*/) {
-}
+MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed() {}
+MTS_VARIANT void Mesh<Float, Spectrum>::traverse(TraversalCallback * /*callback*/) {}
 #endif
 
 MTS_IMPLEMENT_CLASS_VARIANT(Mesh, Shape)
