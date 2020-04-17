@@ -102,14 +102,15 @@ MTS_VARIANT typename Mesh<Float, Spectrum>::ScalarBoundingBox3f
 Mesh<Float, Spectrum>::bbox(ScalarIndex index) const {
     Assert(index <= m_face_count);
 
-    auto idx = (const ScalarIndex *) face(index);
-    Assert(idx[0] < m_vertex_count &&
-           idx[1] < m_vertex_count &&
-           idx[2] < m_vertex_count);
+    auto fi = face_indices(index);
 
-    ScalarPoint3f v0 = vertex_position(idx[0]),
-                  v1 = vertex_position(idx[1]),
-                  v2 = vertex_position(idx[2]);
+    Assert(fi[0] < m_vertex_count &&
+           fi[1] < m_vertex_count &&
+           fi[2] < m_vertex_count);
+
+    ScalarPoint3f v0 = vertex_position(fi[0]),
+                  v1 = vertex_position(fi[1]),
+                  v2 = vertex_position(fi[2]);
 
     return typename Mesh<Float, Spectrum>::ScalarBoundingBox3f(min(min(v0, v1), v2),
                                                                max(max(v0, v1), v2));
@@ -120,91 +121,78 @@ MTS_VARIANT void Mesh<Float, Spectrum>::recompute_vertex_normals() {
         Throw("Storing new normals in a Mesh that didn't have normals at "
               "construction time is not implemented yet.");
 
-    std::vector<InputNormal3f> normals(m_vertex_count, zero<InputNormal3f>());
-    size_t invalid_counter = 0;
-    Timer timer;
-
     /* Weighting scheme based on "Computing Vertex Normals from Polygonal Facets"
        by Grit Thuermer and Charles A. Wuethrich, JGT 1998, Vol 3 */
 
-    // TODO vectorize this
-#if 0
-    for (ScalarSize i = 0; i < m_face_count; ++i) {
-        const ScalarIndex *idx = (const ScalarIndex *) face(i);
-        Assert(idx[0] < m_vertex_count && idx[1] < m_vertex_count && idx[2] < m_vertex_count);
+    if constexpr (!is_dynamic_v<Float>) {
+        size_t invalid_counter = 0;
+        std::vector<InputNormal3f> normals(m_vertex_count, zero<InputNormal3f>());
 
-        // TODO wrong type!
-        InputPoint3f v[3]{ vertex_position(idx[0]),
-                           vertex_position(idx[1]),
-                           vertex_position(idx[2]) };
+        for (ScalarSize i = 0; i < m_face_count; ++i) {
+            auto fi = face_indices(i);
+            Assert(fi[0] < m_vertex_count &&
+                   fi[1] < m_vertex_count &&
+                   fi[2] < m_vertex_count);
 
-        InputVector3f side_0 = v[1] - v[0],
-                      side_1 = v[2] - v[0];
-        InputNormal3f n = cross(side_0, side_1);
-        InputFloat length_sqr = squared_norm(n);
-        if (likely(length_sqr > 0)) {
-            n *= rsqrt(length_sqr);
+            InputPoint3f v[3] = { vertex_position(fi[0]),
+                                  vertex_position(fi[1]),
+                                  vertex_position(fi[2]) };
 
-            // Use Enoki to compute the face angles at the same time
-            auto side1 = transpose(Array<Packet<InputFloat, 3>, 3>{ side_0, v[2] - v[1], v[0] - v[2] });
-            auto side2 = transpose(Array<Packet<InputFloat, 3>, 3>{ side_1, v[0] - v[1], v[1] - v[2] });
-            InputVector3f face_angles = unit_angle(normalize(side1), normalize(side2));
+            InputVector3f side_0 = v[1] - v[0],
+                          side_1 = v[2] - v[0];
+            InputNormal3f n = cross(side_0, side_1);
+            InputFloat length_sqr = squared_norm(n);
+            if (likely(length_sqr > 0)) {
+                n *= rsqrt(length_sqr);
 
-            for (size_t j = 0; j < 3; ++j)
-                normals[idx[j]] += n * face_angles[j];
-        }
-    }
+                // Use Enoki to compute the face angles at the same time
+                auto side1 = transpose(Array<Packet<InputFloat, 3>, 3>{ side_0, v[2] - v[1], v[0] - v[2] });
+                auto side2 = transpose(Array<Packet<InputFloat, 3>, 3>{ side_1, v[0] - v[1], v[1] - v[2] });
+                InputVector3f face_angles = unit_angle(normalize(side1), normalize(side2));
 
-    for (ScalarSize i = 0; i < m_vertex_count; i++) {
-        InputNormal3f n = normals[i];
-        InputFloat length = norm(n);
-        if (likely(length != 0.f)) {
-            n /= length;
-        } else {
-            n = InputNormal3f(1, 0, 0); // Choose some bogus value
-            invalid_counter++;
+                for (size_t j = 0; j < 3; ++j)
+                    normals[fi[j]] += n * face_angles[j];
+            }
         }
 
-        store(vertex(i) + m_normal_offset, n);
-    }
-#else
-        using DynamicIndex    = DynamicBuffer<uint32_t>;
-        using DynamicVector3f = Array<DynamicBuffer<Float>, 3>;
+        for (ScalarSize i = 0; i < m_vertex_count; i++) {
+            InputNormal3f n = normals[i];
+            InputFloat length = norm(n);
+            if (likely(length != 0.f)) {
+                n /= length;
+            } else {
+                n = InputNormal3f(1, 0, 0); // Choose some bogus value
+                invalid_counter++;
+            }
 
-        DynamicVector3f tmp_normals = zero<DynamicVector3f>(m_vertex_count);
+            store(m_vertex_normals_buf.data() + 3 * i, n);
+        }
 
-        auto fi = face_indices(arange<DynamicIndex>(m_face_count));
+        if (invalid_counter > 0)
+            Log(Warn, "\"%s\": computed vertex normals (%i invalid vertices!)",
+                m_name, invalid_counter);
+    } else {
+        auto fi = face_indices(arange<UInt32>(m_face_count));
 
-        DynamicVector3f v[3] = {
-            vertex_position(fi[0]),
-            vertex_position(fi[1]),
-            vertex_position(fi[2])
-        };
+        Vector3f v[3] = { vertex_position(fi[0]),
+                          vertex_position(fi[1]),
+                          vertex_position(fi[2]) };
 
         auto n = normalize(cross(v[1] - v[0], v[2] - v[0]));
 
-        /* Weighting scheme based on "Computing Vertex Normals from Polygonal Facets"
-           by Grit Thuermer and Charles A. Wuethrich, JGT 1998, Vol 3 */
+        Vector3f normals = zero<Vector3f>(m_vertex_count);
         for (int i = 0; i < 3; ++i) {
             auto d0 = normalize(v[(i + 1) % 3] - v[i]);
             auto d1 = normalize(v[(i + 2) % 3] - v[i]);
             auto face_angle = safe_acos(dot(d0, d1));
-            scatter_add(tmp_normals, n * face_angle, fi[i]);
+            scatter_add(normals, n * face_angle, fi[i]);
         }
+        normals = normalize(normals);
 
-        tmp_normals = normalize(tmp_normals);
-
-        auto ni = 3 * arange<DynamicIndex>(m_vertex_count);
+        auto ni = 3 * arange<UInt32>(m_vertex_count);
         for (size_t i = 0; i < 3; ++i)
-            scatter((float*)m_vertex_normals_buf.data() + i, tmp_normals[i], ni);
-#endif
-
-    if (invalid_counter == 0)
-        Log(Debug, "\"%s\": computed vertex normals (took %s)", m_name,
-            util::time_string(timer.value()));
-    else
-        Log(Warn, "\"%s\": computed vertex normals (took %s, %i invalid vertices!)",
-            m_name, util::time_string(timer.value()), invalid_counter);
+            scatter(m_vertex_normals_buf, normals[i], ni + i);
+    }
 }
 
 MTS_VARIANT void Mesh<Float, Spectrum>::recompute_bbox() {
@@ -218,14 +206,24 @@ MTS_VARIANT void Mesh<Float, Spectrum>::area_distr_build() {
         Throw("Cannot create sampling table for an empty mesh: %s", to_string());
 
     std::lock_guard<tbb::spin_mutex> lock(m_mutex);
-    std::unique_ptr<ScalarFloat[]> table(new ScalarFloat[m_face_count]);
-    for (ScalarIndex i = 0; i < m_face_count; i++)
-        table[i] = face_area(i);
+    // TODO could use manage() as area_distr doesn't need to be differentiable
+    if constexpr (!is_dynamic_v<Float>) {
+        std::unique_ptr<ScalarFloat[]> table(new ScalarFloat[m_face_count]);
+        for (ScalarIndex i = 0; i < m_face_count; i++)
+            table[i] = face_area(i);
 
-    m_area_distr = DiscreteDistribution<Float>(
-        table.get(),
-        m_face_count
-    );
+        m_area_distr = DiscreteDistribution<Float>(
+            table.get(),
+            m_face_count
+        );
+    } else {
+        Float table = face_area(arange<UInt32>(m_face_count)).managed();
+
+        m_area_distr = DiscreteDistribution<Float>(
+            table.data(),
+            m_face_count
+        );
+    }
 }
 
 MTS_VARIANT typename Mesh<Float, Spectrum>::ScalarSize
@@ -473,15 +471,14 @@ Mesh<Float, Spectrum>::bbox(ScalarIndex index, const ScalarBoundingBox3f &clip) 
 
     Assert(index <= m_face_count);
 
-    auto idx = (const ScalarIndex *) face(index);
-    Assert(idx[0] < m_vertex_count);
-    Assert(idx[1] < m_vertex_count);
-    Assert(idx[2] < m_vertex_count);
+    auto fi = face_indices(index);
+    Assert(fi[0] < m_vertex_count);
+    Assert(fi[1] < m_vertex_count);
+    Assert(fi[2] < m_vertex_count);
 
-    // TODO wrong type
-    ScalarPoint3f v0 = vertex_position(idx[0]),
-                  v1 = vertex_position(idx[1]),
-                  v2 = vertex_position(idx[2]);
+    ScalarPoint3f v0 = vertex_position(fi[0]),
+                  v1 = vertex_position(fi[1]),
+                  v2 = vertex_position(fi[2]);
 
     /* The kd-tree code will frequently call this function with
        almost-collapsed bounding boxes. It's extremely important not to
@@ -518,12 +515,12 @@ MTS_VARIANT std::string Mesh<Float, Spectrum>::to_string() const {
     oss << class_()->name() << "[" << std::endl
         << "  name = \"" << m_name << "\"," << std::endl
         << "  bbox = " << string::indent(m_bbox) << "," << std::endl
-        << "  vertex_struct = " << string::indent(m_vertex_struct) << "," << std::endl
+        // << "  vertex_struct = " << string::indent(m_vertex_struct) << "," << std::endl
         << "  vertex_count = " << m_vertex_count << "," << std::endl
-        << "  vertices = [" << util::mem_string(m_vertex_size * m_vertex_count) << " of vertex data]," << std::endl
-        << "  face_struct = " << string::indent(m_face_struct) << "," << std::endl
+        // << "  vertices = [" << util::mem_string(m_vertex_size * m_vertex_count) << " of vertex data]," << std::endl
+        // << "  face_struct = " << string::indent(m_face_struct) << "," << std::endl
         << "  face_count = " << m_face_count << "," << std::endl
-        << "  faces = [" << util::mem_string(m_face_size * m_face_count) << " of face data]," << std::endl
+        // << "  faces = [" << util::mem_string(m_face_size * m_face_count) << " of face data]," << std::endl
         << "  disable_vertex_normals = " << m_disable_vertex_normals << "," << std::endl
         << "  surface_area = " << m_area_distr.sum() << std::endl
         << "]";
@@ -551,114 +548,13 @@ MTS_VARIANT RTCGeometry Mesh<Float, Spectrum>::embree_geometry(RTCDevice device)
 extern void __rt_check(OptixResult errval, const char *file, const int line);
 extern void __rt_check_log(OptixResult errval, const char *file, const int line);
 
-MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed() {
-    if constexpr (is_cuda_array_v<Float>) {
-        UInt32 vertex_range   = arange<UInt32>(m_vertex_count),
-               vertex_range_2 = vertex_range * 2,
-               vertex_range_3 = vertex_range * 3,
-               face_range_3   = arange<UInt32>(m_face_count) * 3;
-
-        // for (size_t i = 0; i < 3; ++i)
-        //     scatter((uint32_t*)m_optix->faces_buf + i, m_optix->faces[i], face_range_3);
-
-        // for (size_t i = 0; i < 3; ++i)
-        //     scatter((float*)m_optix->vertex_positions_buf + i, m_optix->vertex_positions[i], vertex_range_3);
-
-        // if (has_vertex_texcoords())
-        //     for (size_t i = 0; i < 2; ++i)
-        //         scatter((float*)m_optix->vertex_texcoords_buf + i, m_optix->vertex_texcoords[i], vertex_range_2);
-
-        if (has_vertex_normals()) {
-            //TODO Only do this if vertex_positions have changed
-
-            recompute_vertex_normals()
-
-            // m_optix->vertex_normals = zero<Vector3f>(m_vertex_count);
-            // Vector3f v[3] = {
-            //     gather<Vector3f>(m_optix->vertex_positions, m_optix->faces.x()),
-            //     gather<Vector3f>(m_optix->vertex_positions, m_optix->faces.y()),
-            //     gather<Vector3f>(m_optix->vertex_positions, m_optix->faces.z())
-            // };
-            // Normal3f n = normalize(cross(v[1] - v[0], v[2] - v[0]));
-
-            // /* Weighting scheme based on "Computing Vertex Normals from Polygonal Facets"
-            //     by Grit Thuermer and Charles A. Wuethrich, JGT 1998, Vol 3 */
-            // for (int i = 0; i < 3; ++i) {
-            //     Vector3f d0 = normalize(v[(i + 1) % 3] - v[i]);
-            //     Vector3f d1 = normalize(v[(i + 2) % 3] - v[i]);
-            //     Float face_angle = safe_acos(dot(d0, d1));
-            //     scatter_add(m_optix->vertex_normals, n * face_angle, m_optix->faces[i]);
-            // }
-
-            // m_optix->vertex_normals = normalize(m_optix->vertex_normals);
-
-            // for (size_t i = 0; i < 3; ++i)
-            //     scatter((float*)m_optix->vertex_normals_buf + i, m_optix->vertex_normals[i], vertex_range_3);
-        }
-
-        if (m_area_distr.empty())
-            area_distr_build();
-    }
-}
-
-// template <typename Value, size_t Dim, typename Func,
-//           typename Result = Array<Value, Dim>>
-// Result cuda_upload(size_t size, Func func) {
-//     using ScalarValue = scalar_t<Value>;
-//     ScalarValue *tmp = (ScalarValue *) cuda_host_malloc(size * Dim * sizeof(ScalarValue));
-
-//     for (size_t i = 0; i < size; ++i) {
-//         auto value = func((uint32_t) i);
-//         for (size_t j = 0; j < Dim; ++j)
-//             tmp[i + j * size] = value[j];
-//     }
-
-//     Result result;
-//     for (size_t j = 0; j < Dim; ++j) {
-//         void *dst = cuda_malloc(size * sizeof(ScalarValue));
-//         cuda_memcpy_to_device_async(dst, tmp + j * size,
-//                                     size * sizeof(ScalarValue));
-//         result[j] = CUDAArray<ScalarValue>::map(dst, size, true);
-//     }
-
-//     cuda_host_free(tmp);
-
-//     return result;
-// }
-
 MTS_VARIANT const uint32_t Mesh<Float, Spectrum>::triangle_input_flags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
 
 MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry() {
     if constexpr (is_cuda_array_v<Float>) {
-        using Index = replace_scalar_t<Float, ScalarIndex>;
-        // if (m_optix != nullptr)
-        //     Throw("Mesh::optix_geometry(): OptiX geometry was already created.");
-        // m_optix = std::unique_ptr<OptixData>(new OptixData());
+        m_vertex_buffer_ptr = (void*) m_vertex_positions_buf.data();
 
-        // /// Face indices
-        // m_optix->faces_buf = cuda_malloc(m_face_count * 3 * sizeof(uint32_t));
-        // m_optix->faces = cuda_upload<Index, 3>(
-        //     m_face_count, [this](ScalarIndex i) { return face_indices(i); });
-
-        // // Vertex positions
-        // m_optix->vertex_positions_buf = cuda_malloc(m_vertex_count * 3 * sizeof(float));
-        // m_optix->vertex_positions = cuda_upload<Float, 3>(
-        //     m_vertex_count, [this](ScalarIndex i) { return vertex_position(i); });
-
-        // // Vertex texture coordinates
-        // m_optix->vertex_texcoords_buf = cuda_malloc(has_vertex_texcoords() ? m_vertex_count * 2 * sizeof(float) : 0);
-        // if (has_vertex_texcoords())
-        //     m_optix->vertex_texcoords = cuda_upload<Float, 2>(
-        //         m_vertex_count, [this](ScalarIndex i) { return vertex_texcoord(i); });
-
-        // // Vertex normals
-        // m_optix->vertex_normals_buf = cuda_malloc(has_vertex_normals() ? m_vertex_count * 3 * sizeof(float) : 0);
-        // if (has_vertex_normals())
-        //     m_optix->vertex_normals = cuda_upload<Float, 3>(
-        //         m_vertex_count, [this](ScalarIndex i) { return vertex_normal(i); });
-
-        // parameters_changed();
-        // cuda_eval();
+        parameters_changed();
     }
 }
 
@@ -667,7 +563,7 @@ MTS_VARIANT void Mesh<Float, Spectrum>::optix_build_input(OptixBuildInput &build
     build_input.triangleArray.vertexFormat     = OPTIX_VERTEX_FORMAT_FLOAT3;
     build_input.triangleArray.indexFormat      = OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
     build_input.triangleArray.numVertices      = m_vertex_count;
-    build_input.triangleArray.vertexBuffers    = (CUdeviceptr*)&m_vertex_positions_buf.data();
+    build_input.triangleArray.vertexBuffers    = (CUdeviceptr*) &m_vertex_buffer_ptr;
     build_input.triangleArray.numIndexTriplets = m_face_count;
     build_input.triangleArray.indexBuffer      = (CUdeviceptr)m_faces_buf.data();
     build_input.triangleArray.flags            = Mesh::triangle_input_flags;
@@ -675,30 +571,34 @@ MTS_VARIANT void Mesh<Float, Spectrum>::optix_build_input(OptixBuildInput &build
 }
 
 MTS_VARIANT void Mesh<Float, Spectrum>::optix_hit_group_data(HitGroupData& hitgroup) const {
-    hitgroup.shape_ptr           = (uintptr_t) this;
-    hitgroup.faces               = m_faces_buf.data();
-    hitgroup.vertex_positions    = m_vertex_positions_buf.data();
-    hitgroup.vertex_normals      = m_vertex_normals_buf.data();
-    hitgroup.vertex_texcoords    = m_vertex_texcoords_buf.data();
-}
-
-MTS_VARIANT void Mesh<Float, Spectrum>::traverse(TraversalCallback *callback) {
-    Base::traverse(callback);
-
-    if constexpr (is_cuda_array_v<Float>) {
-        callback->put_parameter("vertex_count",         m_vertex_count);
-        callback->put_parameter("face_count",           m_face_count);
-        callback->put_parameter("faces_buf",            m_faces_buf);
-        callback->put_parameter("vertex_positions_buf", m_vertex_positions_buf);
-        callback->put_parameter("vertex_normals_buf",   m_vertex_normals_buf);
-        callback->put_parameter("vertex_texcoords_buf", m_vertex_texcoords_buf);
-    }
+    hitgroup.shape_ptr        = (uintptr_t) this;
+    hitgroup.faces            = (void*) m_faces_buf.data();
+    hitgroup.vertex_positions = (void*) m_vertex_positions_buf.data();
+    hitgroup.vertex_normals   = (void*) m_vertex_normals_buf.data();
+    hitgroup.vertex_texcoords = (void*) m_vertex_texcoords_buf.data();
 }
 
 #else // MTS_ENABLE_OPTIX off
-MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed() {}
-MTS_VARIANT void Mesh<Float, Spectrum>::traverse(TraversalCallback * /*callback*/) {}
 #endif
+
+MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed() {
+    //TODO Only do this if vertex_positions have changed
+    if (has_vertex_normals())
+        recompute_vertex_normals();
+
+    if (m_area_distr.empty())
+        area_distr_build();
+}
+MTS_VARIANT void Mesh<Float, Spectrum>::traverse(TraversalCallback *callback) {
+    Base::traverse(callback);
+
+    callback->put_parameter("vertex_count",         m_vertex_count);
+    callback->put_parameter("face_count",           m_face_count);
+    callback->put_parameter("faces_buf",            m_faces_buf);
+    callback->put_parameter("vertex_positions_buf", m_vertex_positions_buf);
+    callback->put_parameter("vertex_normals_buf",   m_vertex_normals_buf);
+    callback->put_parameter("vertex_texcoords_buf", m_vertex_texcoords_buf);
+}
 
 MTS_IMPLEMENT_CLASS_VARIANT(Mesh, Shape)
 MTS_INSTANTIATE_CLASS(Mesh)

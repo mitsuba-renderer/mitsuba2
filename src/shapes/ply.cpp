@@ -278,8 +278,12 @@ public:
             util::time_string(timer.value())
         );
 
-        if (!m_disable_vertex_normals && !has_vertex_normals)
+        if (!m_disable_vertex_normals && !has_vertex_normals) {
+            Timer timer;
             recompute_vertex_normals();
+            Log(Debug, "\"%s\": computed vertex normals (took %s)", m_name,
+                util::time_string(timer.value()));
+        }
 
         if (is_emitter())
             emitter()->set_shape(this);

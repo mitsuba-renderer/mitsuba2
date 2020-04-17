@@ -193,7 +193,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         std::vector<HitGroupSbtRecord>  hg_sbts(shapes_count);
 
         for (Shape* shape: m_shapes) {
-            shape->optix_geometry();
+            shape->optix_geometry(); // TODO this call isn't needed anymore
             // Setup the hitgroup record and copy it to the hitgroup records array
             rt_check(optixSbtRecordPackHeader(s.program_groups[2], &hg_sbts[shape_index]));
             // compute optix geometry for this shape

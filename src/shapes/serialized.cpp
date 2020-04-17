@@ -341,8 +341,12 @@ public:
             }
         }
 
-        if (!m_disable_vertex_normals && !has_flag(flags, TriMeshFlags::HasNormals))
+        if (!m_disable_vertex_normals && !has_flag(flags, TriMeshFlags::HasNormals)) {
+            Timer timer;
             recompute_vertex_normals();
+            Log(Debug, "\"%s\": computed vertex normals (took %s)", m_name,
+                util::time_string(timer.value()));
+        }
 
         if (is_emitter())
             emitter()->set_shape(this);
