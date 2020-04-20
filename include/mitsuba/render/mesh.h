@@ -22,6 +22,8 @@ public:
     using InputVector3f = Vector<InputFloat, 3>;
     using InputNormal3f = Normal<InputFloat, 3>;
 
+    using FloatStorage = DynamicBuffer<replace_scalar_t<Float, InputFloat>>;
+
     using typename Base::ScalarSize;
     using typename Base::ScalarIndex;
 
@@ -37,6 +39,26 @@ public:
     ScalarSize vertex_count() const { return m_vertex_count; }
     /// Return the total number of faces
     ScalarSize face_count() const { return m_face_count; }
+
+    /// Return vertex positions buffer
+    FloatStorage& vertex_positions_buffer() { return m_vertex_positions_buf; }
+    /// Const variant of \ref vertex_positions_buffer.
+    const FloatStorage& vertex_positions_buffer() const { return m_vertex_positions_buf; }
+
+    /// Return vertex normals buffer
+    FloatStorage& vertex_normals_buffer() { return m_vertex_normals_buf; }
+    /// Const variant of \ref vertex_normals_buffer.
+    const FloatStorage& vertex_normals_buffer() const { return m_vertex_normals_buf; }
+
+    /// Return vertex texcoords buffer
+    FloatStorage& vertex_texcoords_buffer() { return m_vertex_texcoords_buf; }
+    /// Const variant of \ref vertex_texcoords_buffer.
+    const FloatStorage& vertex_texcoords_buffer() const { return m_vertex_texcoords_buf; }
+
+    /// Return face indices buffer
+    DynamicBuffer<UInt32>& faces_buffer() { return m_faces_buf; }
+    /// Const variant of \ref faces_buffer.
+    const DynamicBuffer<UInt32>& faces_buffer() const { return m_faces_buf; }
 
     /// Returns the face indices associated with triangle \c index
     template <typename Index>
@@ -220,9 +242,9 @@ protected:
     ScalarSize m_vertex_count = 0;
     ScalarSize m_face_count = 0;
 
-    DynamicBuffer<Float> m_vertex_positions_buf;
-    DynamicBuffer<Float> m_vertex_normals_buf;
-    DynamicBuffer<Float> m_vertex_texcoords_buf;
+    FloatStorage m_vertex_positions_buf;
+    FloatStorage m_vertex_normals_buf;
+    FloatStorage m_vertex_texcoords_buf;
 
     DynamicBuffer<UInt32> m_faces_buf;
 

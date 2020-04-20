@@ -37,12 +37,12 @@ MTS_VARIANT Mesh<Float, Spectrum>::Mesh(const std::string &name,
                                         bool has_vertex_texcoords)
     : m_name(name), m_vertex_count(vertex_count), m_face_count(face_count) {
 
-    m_faces_buf = empty<DynamicBuffer<UInt32>>(m_face_count * 3);
-    m_vertex_positions_buf = empty<DynamicBuffer<Float>>(m_vertex_count * 3);
+    m_faces_buf = zero<DynamicBuffer<UInt32>>(m_face_count * 3);
+    m_vertex_positions_buf = zero<FloatStorage>(m_vertex_count * 3);
     if (has_vertex_normals)
-        m_vertex_normals_buf = empty<DynamicBuffer<Float>>(m_vertex_count * 3);
+        m_vertex_normals_buf = zero<FloatStorage>(m_vertex_count * 3);
     if (has_vertex_texcoords)
-        m_vertex_texcoords_buf = empty<DynamicBuffer<Float>>(m_vertex_count * 2);
+        m_vertex_texcoords_buf = zero<FloatStorage>(m_vertex_count * 2);
 
     m_faces_buf.managed();
     m_vertex_positions_buf.managed();

@@ -86,6 +86,7 @@ public:
     using typename Base::InputVector2f;
     using typename Base::InputVector3f;
     using typename Base::InputNormal3f;
+    using typename Base::FloatStorage;
 
     InputFloat strtof(const char *nptr, char **endptr) {
             return std::strtof(nptr, endptr);
@@ -277,16 +278,14 @@ public:
         m_face_count = (ScalarSize) triangles.size();
 
         m_faces_buf = DynamicBuffer<UInt32>::copy(triangles.data(), m_face_count * 3);
+        m_vertex_positions_buf = empty<FloatStorage>(m_vertex_count * 3);
+        if (!m_disable_vertex_normals)
+            m_vertex_normals_buf = empty<FloatStorage>(m_vertex_count * 3);
+        if (!texcoords.empty())
+            m_vertex_texcoords_buf = empty<FloatStorage>(m_vertex_count * 2);
+
         // TODO this is needed for the bbox(..) methods, but is it slower?
         m_faces_buf.managed();
-
-        // set other buffers
-        m_vertex_positions_buf = empty<DynamicBuffer<Float>>(m_vertex_count * 3);
-        if (!m_disable_vertex_normals)
-            m_vertex_normals_buf = empty<DynamicBuffer<Float>>(m_vertex_count * 3);
-        if (!texcoords.empty())
-            m_vertex_texcoords_buf = empty<DynamicBuffer<Float>>(m_vertex_count * 2);
-
         m_vertex_positions_buf.managed();
         m_vertex_normals_buf.managed();
         m_vertex_texcoords_buf.managed();
@@ -295,12 +294,12 @@ public:
             const VertexBinding *v = &v_;
 
             while (v && v->key != ScalarIndex3{{0, 0, 0}}) {
-                ScalarFloat* vertex_ptr   = m_vertex_positions_buf.data() + v->value * 3;
-                ScalarFloat* normal_ptr   = m_vertex_normals_buf.data() + v->value * 3;
-                ScalarFloat* texcoord_ptr = m_vertex_texcoords_buf.data() + v->value * 2;
+                InputFloat* position_ptr   = m_vertex_positions_buf.data() + v->value * 3;
+                InputFloat* normal_ptr   = m_vertex_normals_buf.data() + v->value * 3;
+                InputFloat* texcoord_ptr = m_vertex_texcoords_buf.data() + v->value * 2;
                 auto key = v->key;
 
-                store_unaligned(vertex_ptr, vertices[key[0] - 1]);
+                store_unaligned(position_ptr, vertices[key[0] - 1]);
 
                 if (key[1]) {
                     size_t map_index = key[1] - 1;
@@ -320,10 +319,18 @@ public:
             }
         }
 
+        size_t vertex_data_bytes = 3 * sizeof(InputFloat);
+        if (has_vertex_normals())
+            vertex_data_bytes += 3 * sizeof(InputFloat);
+        if (!texcoords.empty())
+            vertex_data_bytes += 2 * sizeof(InputFloat);
+
+        size_t face_data_bytes = 3 * sizeof(ScalarIndex);
+
         Log(Debug, "\"%s\": read %i faces, %i vertices (%s in %s)",
             m_name, m_face_count, m_vertex_count,
-            util::mem_string(m_face_count * 3 * sizeof(ScalarIndex) +
-                             m_vertex_count * 8 * sizeof(ScalarIndex)),
+            util::mem_string(m_face_count * face_data_bytes +
+                             m_vertex_count * vertex_data_bytes),
             util::time_string(timer.value())
         );
 
