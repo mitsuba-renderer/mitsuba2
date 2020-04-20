@@ -127,8 +127,7 @@ def test05_load_simple_mesh(variant_scalar_rgb):
         assert ek.allclose(positions[:5], [130, 165, 65, 82, 165])
 
 
-# @pytest.mark.parametrize('mesh_format', ['obj', 'ply', 'serialized'])
-@pytest.mark.parametrize('mesh_format', ['obj', 'ply'])
+@pytest.mark.parametrize('mesh_format', ['obj', 'ply', 'serialized'])
 @pytest.mark.parametrize('features', ['normals', 'uv', 'normals_uv'])
 @pytest.mark.parametrize('face_normals', [True, False])
 def test06_load_various_features(variant_scalar_rgb, mesh_format, features, face_normals):

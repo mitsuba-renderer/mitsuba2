@@ -325,11 +325,9 @@ public:
         if (!texcoords.empty())
             vertex_data_bytes += 2 * sizeof(InputFloat);
 
-        size_t face_data_bytes = 3 * sizeof(ScalarIndex);
-
         Log(Debug, "\"%s\": read %i faces, %i vertices (%s in %s)",
             m_name, m_face_count, m_vertex_count,
-            util::mem_string(m_face_count * face_data_bytes +
+            util::mem_string(m_face_count * 3 * sizeof(ScalarIndex) +
                              m_vertex_count * vertex_data_bytes),
             util::time_string(timer.value())
         );
