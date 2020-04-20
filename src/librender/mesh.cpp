@@ -30,62 +30,27 @@ MTS_VARIANT Mesh<Float, Spectrum>::Mesh(const Properties &props) : Base(props) {
     m_mesh = true;
 }
 
-// MTS_VARIANT Mesh<Float, Spectrum>::Mesh(const std::string &name, Struct *vertex_struct,
-//                                         ScalarSize vertex_count, Struct *face_struct,
-//                                         ScalarSize face_count)
-//     : m_name(name), m_vertex_count(vertex_count), m_face_count(face_count),
-//       m_vertex_struct(vertex_struct), m_face_struct(face_struct) {
-//     /* Helper lambda function to determine compatibility (offset/type) of a 'Struct' field */
-//     auto check_field = [](const Struct *s, size_t idx,
-//                           const std::string &suffix_exp,
-//                           Struct::Type type_exp) {
-//         if (idx >= s->field_count())
-//             Throw("Mesh::Mesh(): Incompatible data structure %s", s->to_string());
-//         auto field = s->operator[](idx);
-//         std::string suffix = field.name;
-//         auto it = suffix.rfind(".");
-//         if (it != std::string::npos)
-//             suffix = suffix.substr(it + 1);
-//         if (suffix != suffix_exp || field.type != type_exp)
-//             Throw("Mesh::Mesh(): Incompatible data structure %s", s->to_string());
-//     };
+MTS_VARIANT Mesh<Float, Spectrum>::Mesh(const std::string &name,
+                                        ScalarSize vertex_count,
+                                        ScalarSize face_count,
+                                        bool has_vertex_normals,
+                                        bool has_vertex_texcoords)
+    : m_name(name), m_vertex_count(vertex_count), m_face_count(face_count) {
 
-//     check_field(vertex_struct, 0, "x",  struct_type_v<InputFloat>);
-//     check_field(vertex_struct, 1, "y",  struct_type_v<InputFloat>);
-//     check_field(vertex_struct, 2, "z",  struct_type_v<InputFloat>);
+    m_faces_buf = empty<DynamicBuffer<UInt32>>(m_face_count * 3);
+    m_vertex_positions_buf = empty<DynamicBuffer<Float>>(m_vertex_count * 3);
+    if (has_vertex_normals)
+        m_vertex_normals_buf = empty<DynamicBuffer<Float>>(m_vertex_count * 3);
+    if (has_vertex_texcoords)
+        m_vertex_texcoords_buf = empty<DynamicBuffer<Float>>(m_vertex_count * 2);
 
-//     check_field(face_struct,   0, "i0", struct_type_v<ScalarIndex>);
-//     check_field(face_struct,   1, "i1", struct_type_v<ScalarIndex>);
-//     check_field(face_struct,   2, "i2", struct_type_v<ScalarIndex>);
+    m_faces_buf.managed();
+    m_vertex_positions_buf.managed();
+    m_vertex_normals_buf.managed();
+    m_vertex_texcoords_buf.managed();
 
-//     if (vertex_struct->has_field("nx") &&
-//         vertex_struct->has_field("ny") &&
-//         vertex_struct->has_field("nz")) {
-//         check_field(vertex_struct, 3, "nx", struct_type_v<InputFloat>);
-//         check_field(vertex_struct, 4, "ny", struct_type_v<InputFloat>);
-//         check_field(vertex_struct, 5, "nz", struct_type_v<InputFloat>);
-//         m_normal_offset = (ScalarIndex) vertex_struct->field("nx").offset;
-//     }
-
-//     if (vertex_struct->has_field("u") && vertex_struct->has_field("v")) {
-//         if (m_normal_offset == 0) {
-//             check_field(vertex_struct, 3, "u", struct_type_v<InputFloat>);
-//             check_field(vertex_struct, 4, "v", struct_type_v<InputFloat>);
-//         } else {
-//             check_field(vertex_struct, 6, "u", struct_type_v<InputFloat>);
-//             check_field(vertex_struct, 7, "v", struct_type_v<InputFloat>);
-//         }
-//         m_texcoord_offset = (ScalarIndex) vertex_struct->field("u").offset;
-//     }
-
-//     m_vertex_size = (ScalarSize) m_vertex_struct->size();
-//     m_face_size   = (ScalarSize) m_face_struct->size();
-
-//     m_vertices = VertexHolder(new uint8_t[(vertex_count + 1) * m_vertex_size]);
-//     m_faces    = VertexHolder(new uint8_t[(face_count + 1) * m_face_size]);
-
-//     m_mesh = true;
-// }
+    m_mesh = true;
+}
 
 MTS_VARIANT Mesh<Float, Spectrum>::~Mesh() { }
 
@@ -460,7 +425,6 @@ size_t sutherland_hodgman(Point3d *input, size_t in_count, Point3d *output, int 
 }
 }  // end namespace
 
-// TODO this should only be done on CPU
 MTS_VARIANT typename Mesh<Float, Spectrum>::ScalarBoundingBox3f
 Mesh<Float, Spectrum>::bbox(ScalarIndex index, const ScalarBoundingBox3f &clip) const {
     using ScalarPoint3d = mitsuba::Point<double, 3>;
@@ -509,18 +473,23 @@ Mesh<Float, Spectrum>::bbox(ScalarIndex index, const ScalarBoundingBox3f &clip) 
     return result;
 }
 
-// TODO update this
 MTS_VARIANT std::string Mesh<Float, Spectrum>::to_string() const {
+    size_t vertex_data_bytes = 3 * sizeof(ScalarFloat);
+    if (has_vertex_normals())
+        vertex_data_bytes += 3 * sizeof(ScalarFloat);
+    if (has_vertex_texcoords())
+        vertex_data_bytes += 2 * sizeof(ScalarFloat);
+
+    size_t face_data_bytes = 3 * sizeof(ScalarIndex);
+
     std::ostringstream oss;
     oss << class_()->name() << "[" << std::endl
         << "  name = \"" << m_name << "\"," << std::endl
         << "  bbox = " << string::indent(m_bbox) << "," << std::endl
-        // << "  vertex_struct = " << string::indent(m_vertex_struct) << "," << std::endl
         << "  vertex_count = " << m_vertex_count << "," << std::endl
-        // << "  vertices = [" << util::mem_string(m_vertex_size * m_vertex_count) << " of vertex data]," << std::endl
-        // << "  face_struct = " << string::indent(m_face_struct) << "," << std::endl
+        << "  vertices = [" << util::mem_string(vertex_data_bytes * m_vertex_count) << " of vertex data]," << std::endl
         << "  face_count = " << m_face_count << "," << std::endl
-        // << "  faces = [" << util::mem_string(m_face_size * m_face_count) << " of face data]," << std::endl
+        << "  faces = [" << util::mem_string(face_data_bytes * m_face_count) << " of face data]," << std::endl
         << "  disable_vertex_normals = " << m_disable_vertex_normals << "," << std::endl
         << "  surface_area = " << m_area_distr.sum() << std::endl
         << "]";
@@ -531,10 +500,12 @@ MTS_VARIANT std::string Mesh<Float, Spectrum>::to_string() const {
 MTS_VARIANT RTCGeometry Mesh<Float, Spectrum>::embree_geometry(RTCDevice device) const {
     RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
 
-    rtcSetSharedGeometryBuffer(geom, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, m_vertex_positions_buf.data(),
-            0, 3 * sizeof(InputFloat), m_vertex_count);
-    rtcSetSharedGeometryBuffer(geom, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, m_faces_buf.data(),
-            0, 3 * sizeof(ScalarIndex), m_face_count);
+    rtcSetSharedGeometryBuffer(geom, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3,
+                               m_vertex_positions_buf.data(), 0, 3 * sizeof(InputFloat),
+                               m_vertex_count);
+    rtcSetSharedGeometryBuffer(geom, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3,
+                               m_faces_buf.data(), 0, 3 * sizeof(ScalarIndex),
+                               m_face_count);
 
     rtcCommitGeometry(geom);
     return geom;
@@ -553,7 +524,6 @@ MTS_VARIANT const uint32_t Mesh<Float, Spectrum>::triangle_input_flags[1] = { OP
 MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry() {
     if constexpr (is_cuda_array_v<Float>) {
         m_vertex_buffer_ptr = (void*) m_vertex_positions_buf.data();
-
         parameters_changed();
     }
 }
@@ -585,6 +555,8 @@ MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed() {
     //TODO Only do this if vertex_positions have changed
     if (has_vertex_normals())
         recompute_vertex_normals();
+
+    recompute_bbox();
 
     if (m_area_distr.empty())
         area_distr_build();
