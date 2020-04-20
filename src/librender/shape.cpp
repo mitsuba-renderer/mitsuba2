@@ -329,7 +329,8 @@ Shape<Float, Spectrum>::effective_primitive_count() const {
 }
 
 MTS_VARIANT void Shape<Float, Spectrum>::traverse(TraversalCallback *callback) {
-    callback->put_object("bsdf", m_bsdf.get());
+    if (m_bsdf)
+        callback->put_object("bsdf", m_bsdf.get());
     if (m_emitter)
         callback->put_object("emitter", m_emitter.get());
     if (m_sensor)

@@ -15,24 +15,21 @@ public:
     MTS_IMPORT_TYPES()
     MTS_IMPORT_BASE(Shape, m_mesh)
 
-    // TODO change this
+    // Mesh is always stored in single precision
     using InputFloat = float;
     using InputPoint3f  = Point<InputFloat, 3>;
     using InputVector2f = Vector<InputFloat, 2>;
     using InputVector3f = Vector<InputFloat, 3>;
     using InputNormal3f = Normal<InputFloat, 3>;
 
+    using FloatStorage = DynamicBuffer<replace_scalar_t<Float, InputFloat>>;
+
     using typename Base::ScalarSize;
     using typename Base::ScalarIndex;
 
-    // TODO remove this
-    using FaceHolder   = std::unique_ptr<uint8_t[]>;
-    using VertexHolder = std::unique_ptr<uint8_t[]>;
-
     /// Create a new mesh with the given vertex and face data structures
-    // Mesh(const std::string &name,
-    //      Struct *vertex_struct, ScalarSize vertex_count,
-    //      Struct *face_struct,   ScalarSize face_count);
+    Mesh(const std::string &name, ScalarSize vertex_count, ScalarSize face_count,
+         bool has_vertex_normals = false, bool has_vertex_texcoords = false);
 
     // =========================================================================
     //! @{ \name Accessors (vertices, faces, normals, etc)
@@ -43,45 +40,25 @@ public:
     /// Return the total number of faces
     ScalarSize face_count() const { return m_face_count; }
 
-    // TODO remove this
-    // /// Return a \c Struct instance describing the contents of the vertex buffer
-    // const Struct *vertex_struct() const { return m_vertex_struct.get(); }
-    // /// Return a \c Struct instance describing the contents of the face buffer
-    // const Struct *face_struct() const { return m_face_struct.get(); }
+    /// Return vertex positions buffer
+    FloatStorage& vertex_positions_buffer() { return m_vertex_positions_buf; }
+    /// Const variant of \ref vertex_positions_buffer.
+    const FloatStorage& vertex_positions_buffer() const { return m_vertex_positions_buf; }
 
-    // TODO update those, only used in python bindings for now
-    // /// Return a pointer to the raw vertex buffer
-    // uint8_t *vertices() { return m_vertices.get(); }
-    // /// Const variant of \ref vertices.
-    // const uint8_t *vertices() const { return m_vertices.get(); }
-    // /// Const variant of \ref faces.
-    // uint8_t *faces() { return (uint8_t *) m_faces.get(); }
-    // /// Return a pointer to the raw face buffer
-    // const uint8_t *faces() const { return m_faces.get(); }
+    /// Return vertex normals buffer
+    FloatStorage& vertex_normals_buffer() { return m_vertex_normals_buf; }
+    /// Const variant of \ref vertex_normals_buffer.
+    const FloatStorage& vertex_normals_buffer() const { return m_vertex_normals_buf; }
 
-    // /// Return a pointer (or packet of pointers) to a specific vertex
-    // template <typename Index, typename VertexPtr = replace_scalar_t<Index, uint8_t *>>
-    // MTS_INLINE VertexPtr vertex(const Index &index) {
-    //     return VertexPtr(m_vertices.get()) + m_vertex_size * index;
-    // }
+    /// Return vertex texcoords buffer
+    FloatStorage& vertex_texcoords_buffer() { return m_vertex_texcoords_buf; }
+    /// Const variant of \ref vertex_texcoords_buffer.
+    const FloatStorage& vertex_texcoords_buffer() const { return m_vertex_texcoords_buf; }
 
-    // /// Return a pointer (or packet of pointers) to a specific vertex (const version)
-    // template <typename Index, typename VertexPtr = replace_scalar_t<Index, const uint8_t *>>
-    // MTS_INLINE VertexPtr vertex(const Index &index) const {
-    //     return VertexPtr(m_vertices.get()) + m_vertex_size * index;
-    // }
-
-    // /// Return a pointer (or packet of pointers) to a specific face
-    // template <typename Index, typename FacePtr = replace_scalar_t<Index, uint8_t *>>
-    // MTS_INLINE FacePtr face(const Index &index) {
-    //     return FacePtr(m_faces.get()) + m_face_size * index;
-    // }
-
-    // /// Return a pointer (or packet of pointers) to a specific face (const version)
-    // template <typename Index, typename FacePtr = replace_scalar_t<Index, const uint8_t *>>
-    // MTS_INLINE FacePtr face(const Index &index) const {
-    //     return FacePtr(m_faces.get()) + m_face_size * index;
-    // }
+    /// Return face indices buffer
+    DynamicBuffer<UInt32>& faces_buffer() { return m_faces_buf; }
+    /// Const variant of \ref faces_buffer.
+    const DynamicBuffer<UInt32>& faces_buffer() const { return m_faces_buf; }
 
     /// Returns the face indices associated with triangle \c index
     template <typename Index>
@@ -244,7 +221,6 @@ public:
     /// @}
     // =========================================================================
 
-
     /// Return a human-readable string representation of the shape contents.
     virtual std::string to_string() const override;
 
@@ -304,9 +280,9 @@ protected:
     ScalarSize m_vertex_count = 0;
     ScalarSize m_face_count = 0;
 
-    DynamicBuffer<Float> m_vertex_positions_buf;
-    DynamicBuffer<Float> m_vertex_normals_buf;
-    DynamicBuffer<Float> m_vertex_texcoords_buf;
+    FloatStorage m_vertex_positions_buf;
+    FloatStorage m_vertex_normals_buf;
+    FloatStorage m_vertex_texcoords_buf;
 
     DynamicBuffer<UInt32> m_faces_buf;
 
@@ -321,7 +297,6 @@ protected:
     // END NEW DESIGN
 
 #if defined(MTS_ENABLE_OPTIX)
-    // TODO this shouldn't be necessary
     void* m_vertex_buffer_ptr;
     static const uint32_t triangle_input_flags[1];
 #endif
@@ -345,8 +320,6 @@ NAMESPACE_END(mitsuba)
 // Enable usage of array pointers for our types
 ENOKI_CALL_SUPPORT_TEMPLATE_BEGIN(mitsuba::Mesh)
     ENOKI_CALL_SUPPORT_METHOD(fill_surface_interaction)
-    // ENOKI_CALL_SUPPORT_GETTER_TYPE(faces, m_faces, uint8_t*)
-    // ENOKI_CALL_SUPPORT_GETTER_TYPE(vertices, m_vertices, uint8_t*)
 ENOKI_CALL_SUPPORT_TEMPLATE_END(mitsuba::Mesh)
 
 //! @}

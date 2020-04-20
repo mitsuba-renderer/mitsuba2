@@ -50,28 +50,29 @@ MTS_PY_EXPORT(Shape) {
         .def_method(Shape, primitive_count)
         .def_method(Shape, effective_primitive_count);
 
-    // TODO upgrade this
     using ScalarSize = typename Mesh::ScalarSize;
     MTS_PY_CLASS(Mesh, Shape)
-        // .def(py::init<const std::string &, Struct *, ScalarSize, Struct *, ScalarSize>(),
-            // D(Mesh, Mesh)) //TODO remove this?
-        // .def_method(Mesh, vertex_struct)
-        // .def_method(Mesh, face_struct)
+        .def(py::init<const std::string&, ScalarSize, ScalarSize, bool, bool>(),
+             "name"_a, "vertex_count"_a, "face_count"_a,
+             "has_vertex_normals"_a = false, "has_vertex_texcoords"_a = false,
+             D(Mesh, Mesh))
         .def_method(Mesh, has_vertex_normals)
         .def_method(Mesh, has_vertex_texcoords)
         .def_method(Mesh, write)
         .def_method(Mesh, recompute_vertex_normals)
         .def_method(Mesh, recompute_bbox)
-        // .def("vertices", [](py::object &o) {
-        //     Mesh &m = py::cast<Mesh&>(o);
-        //     py::dtype dtype = o.attr("vertex_struct")().attr("dtype")();
-        //     return py::array(dtype, m.vertex_count(), m.vertices(), o);
-        // }, D(Mesh, vertices))
-        // .def("faces", [](py::object &o) {
-        //     Mesh &m = py::cast<Mesh&>(o);
-        //     py::dtype dtype = o.attr("face_struct")().attr("dtype")();
-        //     return py::array(dtype, m.face_count(), m.faces(), o);
-        // }, D(Mesh, faces))
+        .def("vertex_positions_buffer",
+             py::overload_cast<>(&Mesh::vertex_positions_buffer),
+             /*D(Mesh, vertex_positions_buffer),*/ py::return_value_policy::reference_internal)
+        .def("vertex_normals_buffer",
+             py::overload_cast<>(&Mesh::vertex_normals_buffer),
+             /*D(Mesh, vertex_normals_buffer),*/ py::return_value_policy::reference_internal)
+        .def("vertex_texcoords_buffer",
+             py::overload_cast<>(&Mesh::vertex_texcoords_buffer),
+             /*D(Mesh, vertex_texcoords_buffer),*/ py::return_value_policy::reference_internal)
+        .def("faces_buffer",
+             py::overload_cast<>(&Mesh::faces_buffer),
+             /*D(Mesh, faces_buffer),*/ py::return_value_policy::reference_internal)
         .def("ray_intersect_triangle", vectorize(&Mesh::ray_intersect_triangle),
-            "index"_a, "ray"_a, "active"_a = true, D(Mesh, ray_intersect_triangle));
+             "index"_a, "ray"_a, "active"_a = true, D(Mesh, ray_intersect_triangle));
 }
