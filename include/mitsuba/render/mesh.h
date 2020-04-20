@@ -111,6 +111,14 @@ public:
         return gather<Result>(m_vertex_texcoords_buf, index, active);
     }
 
+    /// Returns the vertex attribute of the vertex with index \c index
+    template <uint32_t Size, typename Index>
+    MTS_INLINE auto vertex_attribute(uint32_t attribute_index, Index index, mask_t<Index> active = true) const {
+        using Result = Point<replace_scalar_t<Index, InputFloat>, Size>;
+        return gather<Result>(m_vertex_attributes[attribute_index], index, active);
+    }
+
+
     /// Returns the surface area of the face with index \c index
     template <typename Index>
     auto face_area(Index index, mask_t<Index> active = true) const {
@@ -160,6 +168,8 @@ public:
                                              Mask active = true) const override;
 
     virtual Float pdf_position(const PositionSample3f &ps, Mask active = true) const override;
+
+    virtual std::tuple<Float, Float, Float> barycentric_coordinates(const SurfaceInteraction3f &si, Mask active = true) const;
 
     virtual void fill_surface_interaction(const Ray3f &ray,
                                           const Float *cache,
@@ -238,6 +248,34 @@ public:
     /// Return a human-readable string representation of the shape contents.
     virtual std::string to_string() const override;
 
+    // Evaluates the vertex attribute given by name and Size, at surface interaction si
+    template<uint32_t Size>
+    auto eval_attibute(const SurfaceInteraction3f& si, const std::string& name, Mask active = true) {
+        using Result = Point<replace_scalar_t<Mask, InputFloat>, Size>;
+        uint32_t i = 0;
+        for (const auto& attribute_descriptor: m_vertex_attributes_descriptors) {
+            if (attribute_descriptor.name == name)
+                break;
+            ++i;
+        }
+        if (i == m_vertex_attributes_descriptors.size())
+            Throw("Mesh::eval_attibute(): Couldn't find vertex attribute named '%s'", name);
+        if (Size != m_vertex_attributes_descriptors[i].size)
+            Throw("Mesh::eval_attibute(): Vertex attribute named '%s' had size '%u', did not match requested size %u", name, m_vertex_attributes_descriptors[i].size, Size);
+
+        auto fi = face_indices(si.prim_index, active);
+        auto[b0, b1, b2] = barycentric_coordinates(si, active);
+
+        Result attrs[3] = { vertex_attribute<Size>(i, fi[0], active),
+                            vertex_attribute<Size>(i, fi[1], active),
+                            vertex_attribute<Size>(i, fi[2], active) };
+
+
+        Result attr = b0 * attrs[0] + b1 * attrs[1] + b2 * attrs[2];
+
+        return attr;
+    }
+
 protected:
     Mesh(const Properties &);
     inline Mesh() { m_mesh = true; }
@@ -271,6 +309,14 @@ protected:
     DynamicBuffer<Float> m_vertex_texcoords_buf;
 
     DynamicBuffer<UInt32> m_faces_buf;
+
+    struct AttributeDescriptor {
+        std::string name;
+        size_t size;
+    };
+
+    std::vector<DynamicBuffer<Float>> m_vertex_attributes;
+    std::vector<AttributeDescriptor> m_vertex_attributes_descriptors;
 
     // END NEW DESIGN
 
