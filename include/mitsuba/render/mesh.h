@@ -92,7 +92,7 @@ public:
     template <uint32_t Size, typename Index>
     MTS_INLINE auto vertex_attribute(uint32_t attribute_index, Index index, mask_t<Index> active = true) const {
         using Result = Point<replace_scalar_t<Index, InputFloat>, Size>;
-        return gather<Result>(m_vertex_attributes[attribute_index], index, active);
+        return gather<Result>(m_vertex_attributes_bufs[attribute_index], index, active);
     }
 
 
@@ -291,7 +291,7 @@ protected:
         size_t size;
     };
 
-    std::vector<DynamicBuffer<Float>> m_vertex_attributes;
+    std::vector<DynamicBuffer<Float>> m_vertex_attributes_bufs;
     std::vector<AttributeDescriptor> m_vertex_attributes_descriptors;
 
     // END NEW DESIGN

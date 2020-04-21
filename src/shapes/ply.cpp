@@ -53,7 +53,8 @@ class PLYMesh final : public Mesh<Float, Spectrum> {
 public:
     MTS_IMPORT_BASE(Mesh, m_name, m_bbox, m_to_world, m_vertex_count, m_face_count,
                     m_vertex_positions_buf, m_vertex_normals_buf, m_vertex_texcoords_buf,
-                    m_faces_buf, m_disable_vertex_normals, has_vertex_normals, has_vertex_texcoords,
+                    m_faces_buf, m_vertex_attributes_bufs, m_vertex_attributes_descriptors,
+                    m_disable_vertex_normals, has_vertex_normals, has_vertex_texcoords,
                     recompute_vertex_normals, is_emitter, emitter)
     MTS_IMPORT_TYPES()
 
@@ -152,8 +153,34 @@ public:
                     has_vertex_texcoords = true;
                 }
 
+                if (el.struct_->has_field("r") && el.struct_->has_field("g") && el.struct_->has_field("b")) {
+                    /* all good */
+                } else if (el.struct_->has_field("red") &&
+                           el.struct_->has_field("green") &&
+                           el.struct_->has_field("blue")) {
+                    el.struct_->field("red").name = "r";
+                    el.struct_->field("green").name = "g";
+                    el.struct_->field("blue").name = "b";
+                    if (el.struct_->has_field("alpha"))
+                        el.struct_->field("alpha").name = "a";
+                }
+                if (el.struct_->has_field("r") && el.struct_->has_field("g") && el.struct_->has_field("b")) {
+                    // vertex_attribute_structs.push_back(new Struct());
+                    size_t field_count = 3;
+                    for (auto name : { "r", "g", "b" })
+                        vertex_struct->append(name, struct_type_v<InputFloat>);
+                    if (el.struct_->has_field("a")) {
+                        vertex_struct->append("a", struct_type_v<InputFloat>);
+                        ++field_count;
+                    }
+                    m_vertex_attributes_descriptors.push_back({"color", field_count});
+                }
+
                 size_t i_struct_size = el.struct_->size();
                 size_t o_struct_size = vertex_struct->size();
+
+                std::cout << el.struct_->to_string() << std::endl;
+                std::cout << vertex_struct->to_string() << std::endl;
 
                 ref<StructConverter> conv;
                 try {
@@ -168,6 +195,11 @@ public:
                     m_vertex_normals_buf = empty<FloatStorage>(m_vertex_count * 3);
                 if (has_vertex_texcoords)
                     m_vertex_texcoords_buf = empty<FloatStorage>(m_vertex_count * 2);
+
+                for (auto descr: m_vertex_attributes_descriptors) {
+                    m_vertex_attributes_bufs.push_back(empty<FloatStorage>(m_vertex_count * descr.size));
+                    m_vertex_attributes_bufs.back().managed();
+                }
 
                 m_vertex_positions_buf.managed();
                 m_vertex_normals_buf.managed();
@@ -185,6 +217,10 @@ public:
                 InputFloat* position_ptr = m_vertex_positions_buf.data();
                 InputFloat* normal_ptr   = m_vertex_normals_buf.data();
                 InputFloat* texcoord_ptr = m_vertex_texcoords_buf.data();
+
+                std::vector<InputFloat*> vertex_attribute_ptrs;
+                for (auto& buf: m_vertex_attributes_bufs)
+                    vertex_attribute_ptrs.push_back(buf.data());
 
                 for (size_t i = 0; i <= packet_count; ++i) {
                     uint8_t *target = (uint8_t *) buf_o.get();
@@ -220,6 +256,17 @@ public:
                             store_unaligned(texcoord_ptr, uv);
                             texcoord_ptr += 2;
                         }
+
+                        size_t target_offset = sizeof(InputFloat) * (!m_disable_vertex_normals ? has_vertex_texcoords ? 8 : 6 : 3);
+
+                        for (size_t k = 0; k < vertex_attribute_ptrs.size(); ++k) {
+                            InputFloat* &buf = vertex_attribute_ptrs[k];
+                            size_t size = m_vertex_attributes_descriptors[k].size;
+                            memcpy(buf, target + target_offset, size * sizeof(InputFloat));
+                            buf += size;
+                            target_offset += size * sizeof(InputFloat);
+                        }
+
                         target += o_struct_size;
                     }
                 }
