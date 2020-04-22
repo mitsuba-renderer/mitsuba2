@@ -13,9 +13,10 @@
 #endif
 
 #if defined(MTS_ENABLE_OPTIX)
-    #include <optix.h>
-    #include <optix_stubs.h>
+    #include "optix_api.h"
+# if !defined(MTS_DYNAMIC_OPTIX)
     #include <optix_function_table_definition.h>
+# endif
 #endif
 
 NAMESPACE_BEGIN(mitsuba)
@@ -521,12 +522,6 @@ MTS_VARIANT RTCGeometry Mesh<Float, Spectrum>::embree_geometry(RTCDevice device)
 #endif
 
 #if defined(MTS_ENABLE_OPTIX)
-#define rt_check(err)       __rt_check(err, __FILE__, __LINE__)
-#define rt_check_log(err)   __rt_check_log(err, __FILE__, __LINE__)
-
-extern void __rt_check(OptixResult errval, const char *file, const int line);
-extern void __rt_check_log(OptixResult errval, const char *file, const int line);
-
 MTS_VARIANT const uint32_t Mesh<Float, Spectrum>::triangle_input_flags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
 
 MTS_VARIANT void Mesh<Float, Spectrum>::optix_geometry() {

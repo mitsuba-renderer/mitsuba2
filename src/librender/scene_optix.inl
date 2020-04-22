@@ -1,45 +1,10 @@
-#include <optix.h>
-#include <optix_stubs.h>
+#include "optix_api.h"
 #include "librender_ptx.h"
 #include <iomanip>
 
 #include <mitsuba/render/optix_structs.h>
 
 NAMESPACE_BEGIN(mitsuba)
-
-constexpr int kDeviceID = 0;
-
-static size_t optix_log_buffer_size;
-static char optix_log_buffer[2024];
-
-#define rt_check(err)       __rt_check(err, __FILE__, __LINE__)
-#define rt_check_log(err)   __rt_check_log(err, __FILE__, __LINE__)
-
-void __rt_check(OptixResult errval, const char *file, const int line) {
-    if (errval != OPTIX_SUCCESS) {
-        const char *message = optixGetErrorString(errval);
-        if (errval == 1546)
-            message = "Failed to load OptiX library! Very likely, your NVIDIA graphics "
-                "driver is too old and not compatible with the version of OptiX that is "
-                "being used. In particular, OptiX 6.5 requires driver revision R435.80 or newer.";
-        fprintf(stderr,
-                "rt_check(): OptiX API error = %04d (%s) in "
-                "%s:%i.\n", (int) errval, message, file, line);
-        exit(EXIT_FAILURE);
-    }
-}
-
-void __rt_check_log(OptixResult errval, const char *file, const int line) {
-    if (errval != OPTIX_SUCCESS) {
-        const char *message = optixGetErrorString(errval);
-        fprintf(stderr,
-                "rt_check(): OptiX API error = %04d (%s) in "
-                "%s:%i.\n", (int) errval, message, file, line);
-        fprintf(stderr,
-                "\tLog: %s%s", optix_log_buffer, optix_log_buffer_size > sizeof(optix_log_buffer) ? "<TRUNCATED>" : "");
-        exit(EXIT_FAILURE);
-    }
-}
 
 static void context_log_cb(unsigned int level, const char* tag, const char* message, void* /*cbdata */) {
     std::cerr << "[" << std::setw(2) << level << "][" << std::setw(12) << tag
@@ -76,7 +41,9 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
     OptixState &s = *(OptixState *) m_accel;
 
     CUcontext cuCtx = 0;  // zero means take the current context
-    rt_check(optixInit());
+
+    optix_init();
+
     OptixDeviceContextOptions options = {};
     options.logCallbackFunction       = &context_log_cb;
     options.logCallbackLevel          = 4;
@@ -311,6 +278,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_release_gpu() {
     rt_check(optixDeviceContextDestroy(s.context));
     delete (OptixState *) m_accel;
     m_accel = nullptr;
+    optix_shutdown();
 }
 
 MTS_VARIANT typename Scene<Float, Spectrum>::SurfaceInteraction3f

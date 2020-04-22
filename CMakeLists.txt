@@ -61,6 +61,9 @@ endif()
 option(MTS_ENABLE_PYTHON  "Build Python bindings for Mitsuba, Enoki, and NanoGUI?" ON)
 option(MTS_ENABLE_EMBREE  "Use Embree for ray tracing operations?" OFF)
 option(MTS_ENABLE_GUI     "Build GUI" OFF)
+if (MTS_ENABLE_OPTIX)
+  option(MTS_DYNAMIC_OPTIX  "Resolve CUDA dynamically at run time" ON)
+endif()
 
 if (UNIX)
   option(MTS_ENABLE_PROFILER     "Enable sampling profiler" ON)
@@ -84,7 +87,7 @@ endif()
 # For developers: ability to disable Link Time Optimization to speed up builds
 option(MTS_ENABLE_LTO "Enable Link Time Optimization (LTO)?" ON)
 
-if (MTS_ENABLE_OPTIX)
+if (MTS_ENABLE_OPTIX AND NOT MTS_DYNAMIC_OPTIX)
   set(MTS_OPTIX_PATH "/opt/optix" CACHE STRING "Path to OptiX installation")
 endif()
 
@@ -227,7 +230,7 @@ else()
 endif()
 
 if (MTS_ENABLE_OPTIX)
-  if(NOT EXISTS "${MTS_OPTIX_PATH}/include/optix.h")
+  if(NOT MTS_DYNAMIC_OPTIX AND NOT EXISTS "${MTS_OPTIX_PATH}/include/optix.h")
     message(FATAL_ERROR "optix.h not found, run CMake with -DMTS_OPTIX_PATH=...")
   endif()
   message(STATUS "Mitsuba: using OptiX for GPU ray tracing.")
