@@ -10,6 +10,10 @@ void __rt_check(RTcontext context, RTresult errval, const char *file, const int 
     if (errval != RT_SUCCESS) {
         const char *message;
         rtContextGetErrorString(context, errval, &message);
+        if (errval == 1546)
+            message = "Failed to load OptiX library! Very likely, your NVIDIA graphics "
+                "driver is too old and not compatible with the version of OptiX that is "
+                "being used. In particular, OptiX 6.5 requires driver revision R435.80 or newer.";
         fprintf(stderr,
                 "rt_check(): OptiX API error = %04d (%s) in "
                 "%s:%i.\n", (int) errval, message, file, line);
@@ -64,7 +68,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
         else if (strstr(var_names[i], "_mask") != nullptr ||
                  strstr(var_names[i], "_hit") != nullptr)
             fmt = RT_FORMAT_UNSIGNED_BYTE;
-        rt_check(rtBufferCreate(s.context, RT_BUFFER_INPUT, &s.var_buf[i]));
+        rt_check(rtBufferCreate(s.context, RT_BUFFER_INPUT | RT_BUFFER_COPY_ON_DIRTY, &s.var_buf[i]));
         rt_check(rtBufferSetFormat(s.var_buf[i], fmt));
         rt_check(rtBufferSetSize1D(s.var_buf[i], 0));
         rt_check(rtBufferSetDevicePointer(s.var_buf[i], kDeviceID, (void *) 8));
@@ -109,7 +113,7 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_gpu(const Properties &/*prop
 
     rt_check(rtGeometryGroupCreate(s.context, &s.group));
     rt_check(rtGeometryGroupSetAcceleration(s.group, s.accel));
-    rt_check(rtGeometryGroupSetChildCount(s.group, m_shapes.size()));
+    rt_check(rtGeometryGroupSetChildCount(s.group, (uint32_t) m_shapes.size()));
 
     RTvariable top_object;
     rt_check(rtContextDeclareVariable(s.context, "top_object", &top_object));
@@ -168,6 +172,32 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, Mask active) const 
         set_slices(active, ray_count);
 
         SurfaceInteraction3f si = empty<SurfaceInteraction3f>(ray_count);
+
+        // DEBUG mode: Explicitly instantiate `si` with NaN values.
+        // As the integrator should only deal with the lanes of `si` for which
+        // `si.is_valid()==true`, this makes it easier to catch bugs in the
+        // masking logic implemented in the integrator.
+#if !defined(NDEBUG)
+            si.t    = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.time = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.p.x() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.p.y() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.p.z() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.uv.x() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.uv.y() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.n.x() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.n.y() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.n.z() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.sh_frame.n.x() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.sh_frame.n.y() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.sh_frame.n.z() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.dp_du.x() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.dp_du.y() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.dp_du.z() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.dp_dv.x() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.dp_dv.y() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+            si.dp_dv.z() = full<Float>(std::numeric_limits<scalar_t<Float>>::quiet_NaN(), ray_count);
+#endif  // !defined(NDEBUG)
 
         cuda_eval();
 
@@ -274,7 +304,7 @@ Scene<Float, Spectrum>::ray_test_gpu(const Ray3f &ray_, Mask active) const {
             nullptr, nullptr, nullptr,
             // Out: Texture space derivative (U)
             nullptr, nullptr, nullptr,
-            // Ovt: Textvre space derivative (V)
+            // Out: Texture space derivative (V)
             nullptr, nullptr, nullptr,
             // Out: Shape pointer (on host)
             nullptr,

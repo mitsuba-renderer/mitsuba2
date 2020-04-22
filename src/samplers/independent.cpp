@@ -17,10 +17,14 @@ Independent sampler (:monosp:`independent`)
  * - sample_count
    - |int|
    - Number of samples per pixel (Default: 4)
+ * - seed
+   - |int|
+   - Seed offset (Default: 0)
 
 The independent sampler produces a stream of independent and uniformly
-distributed pseudorandom numbers. Internally, it relies on a fast SIMD version
-of the Mersenne Twister random number generator :cite:`Saito2008SIMD`.
+distributed pseudorandom numbers. Internally, it relies on the
+`PCG32 random number generator <https://www.pcg-random.org/>`_
+by Melissa O’Neill.
 
 This is the most basic sample generator; because no precautions are taken to avoid
 sample clumping, images produced using this plugin will usually take longer to converge.
@@ -34,7 +38,7 @@ ordering of samples is influenced by the operating system scheduler.
 template <typename Float, typename Spectrum>
 class IndependentSampler final : public Sampler<Float, Spectrum> {
 public:
-    MTS_IMPORT_BASE(Sampler, m_sample_count)
+    MTS_IMPORT_BASE(Sampler, m_sample_count, m_base_seed)
     MTS_IMPORT_TYPES()
 
     using PCG32 = mitsuba::PCG32<UInt32>;
@@ -56,6 +60,8 @@ public:
     void seed(UInt64 seed_value) override {
         if (!m_rng)
             m_rng = std::make_unique<PCG32>();
+
+        seed_value += m_base_seed;
 
         if constexpr (is_dynamic_array_v<Float>) {
             UInt64 idx = arange<UInt64>(seed_value.size());
@@ -86,8 +92,12 @@ public:
         return Point2f(f1, f2);
     }
 
-    bool ready() const override {
-        return m_rng != nullptr;
+    /// Return the size of the wavefront (or 0, if not seeded)
+    size_t wavefront_size() const override {
+        if (m_rng == nullptr)
+            return 0;
+        else
+            return enoki::slices(m_rng->state);
     }
 
     std::string to_string() const override {

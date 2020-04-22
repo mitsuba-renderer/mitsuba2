@@ -285,6 +285,8 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
                                                  in_forward_world, in_basis_current, in_basis_target,
                                                  out_forward_world, out_basis_current, out_basis_target);
         } else {
+            ENOKI_MARK_USED(in_forward_local);
+            ENOKI_MARK_USED(out_forward_local);
             return M_local;
         }
     }
@@ -357,7 +359,7 @@ struct MediumInteraction : Interaction<Float_, Spectrum_> {
     using Spectrum = Spectrum_;
     MTS_IMPORT_RENDER_BASIC_TYPES()
     MTS_IMPORT_OBJECT_TYPES()
-    using Index            = typename CoreAliases::UInt32;
+    using Index = typename CoreAliases::UInt32;
 
     // Make parent fields/functions visible
     MTS_IMPORT_BASE(Interaction, t, time, wavelengths, p, is_valid)

@@ -13,7 +13,6 @@
 
 NAMESPACE_BEGIN(mitsuba)
 
-
 /**!
 
 .. _shape-disk:
@@ -23,17 +22,19 @@ Disk (:monosp:`disk`)
 
 .. pluginparameters::
 
- * - to_world
-   - |transform|
-   - Specifies a linear object-to-world transformation. Note that non-uniform scales are not
-     permitted! (Default: none (i.e. object space = world space))
  * - flip_normals
    - |bool|
    - Is the disk inverted, i.e. should the normal vectors be flipped? (Default: |false|)
+ * - to_world
+   - |transform|
+   - Specifies a linear object-to-world transformation. Note that non-uniform scales are not
+     permitted! (Default: none, i.e. object space = world space)
 
 .. subfigstart::
 .. subfigure:: ../../resources/data/docs/images/render/shape_disk.jpg
-   :caption: Rendering with an disk emitter and a textured disk, showing the default parameterization.
+   :caption: Basic example
+.. subfigure:: ../../resources/data/docs/images/render/shape_disk_parameterization.jpg
+   :caption: A textured disk with the default parameterization
 .. subfigend::
    :label: fig-disk
 
@@ -45,29 +46,19 @@ surface normal points into the positive Z-direction.
 To change the disk scale, rotation, or translation, use the
 :monosp:`to_world` parameter.
 
-The following XML snippet showcases a simple example involving two disk instances:
+The following XML snippet instantiates an example of a textured disk shape:
 
 .. code-block:: xml
 
-    <scene version="2.0.0">
-        <shape type="disk">
-            <bsdf type="diffuse">
-                <texture name="reflectance" type="checkerboard">
-                    <float name="uvscale" value="5"/>
-                </texture>
-            </bsdf>
-        </shape>
-        <shape type="disk">
-            <transform name="to_world">
-                <rotate x="1" angle="90"/>
-                <scale value="0.3"/>
-                <translate y="1" z="0.3"/>
-            </transform>
-            <emitter type="area">
-                <spectrum name="intensity" value="4"/>
-            </emitter>
-        </shape>
-    </scene>
+    <shape type="disk">
+        <bsdf type="diffuse">
+            <texture name="reflectance" type="checkerboard">
+                <transform name="to_uv">
+                    <scale x="2" y="10" />
+                </transform>
+            </texture>
+        </bsdf>
+    </shape>
 
 .. warning:: This plugin is currently not supported by the Embree and OptiX raytracing backend.
 
@@ -158,7 +149,7 @@ public:
         MTS_MASK_ARGUMENT(active);
 
         Ray3f ray     = m_world_to_object.transform_affine(ray_);
-        Float t      = -ray.o.z() / ray.d.z();
+        Float t       = -ray.o.z() / ray.d.z();
         Point3f local = ray(t);
 
         // Is intersection within ray segment and disk?
@@ -191,16 +182,27 @@ public:
                                   SurfaceInteraction3f &si_out, Mask active) const override {
         MTS_MASK_ARGUMENT(active);
 
+#if !defined(MTS_ENABLE_EMBREE)
+        Float local_x = cache[0];
+        Float local_y = cache[1];
+#else
+        Ray3f ray_    = m_world_to_object.transform_affine(ray);
+        Float t       = -ray_.o.z() / ray_.d.z();
+        Point3f local = ray_(t);
+        Float local_x = local.x();
+        Float local_y = local.y();
+#endif
+
         SurfaceInteraction3f si(si_out);
 
-        Float r = norm(Point2f(cache[0], cache[1])),
+        Float r = norm(Point2f(local_x, local_y)),
               inv_r = rcp(r);
 
-        Float v = atan2(cache[1], cache[0]) * math::InvTwoPi<Float>;
+        Float v = atan2(local_y, local_x) * math::InvTwoPi<Float>;
         masked(v, v < 0.f) += 1.f;
 
-        Float cos_phi = select(neq(r, 0.f), cache[0] * inv_r, 1.f),
-              sin_phi = select(neq(r, 0.f), cache[1] * inv_r, 0.f);
+        Float cos_phi = select(neq(r, 0.f), local_x * inv_r, 1.f),
+              sin_phi = select(neq(r, 0.f), local_y * inv_r, 0.f);
 
         si.dp_du      = m_object_to_world * Vector3f( cos_phi, sin_phi, 0.f);
         si.dp_dv      = m_object_to_world * Vector3f(-sin_phi, cos_phi, 0.f);

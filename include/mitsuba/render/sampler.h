@@ -40,11 +40,11 @@ public:
     /// Retrieve the next two component values from the current sample
     virtual Point2f next_2d(Mask active = true);
 
-    /// Check whether the sampler is ready (i.e. properly seeded)
-    virtual bool ready() const;
-
     /// Return the number of samples per pixel
     size_t sample_count() const { return m_sample_count; }
+
+    /// Return the size of the wavefront (or 0, if not seeded)
+    virtual size_t wavefront_size() const = 0;
 
     MTS_DECLARE_CLASS()
 protected:
@@ -53,6 +53,7 @@ protected:
 
 protected:
     size_t m_sample_count;
+    ScalarUInt64 m_base_seed;
 };
 
 MTS_EXTERN_CLASS_RENDER(Sampler)

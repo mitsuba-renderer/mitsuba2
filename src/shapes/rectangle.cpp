@@ -21,21 +21,23 @@ Rectangle (:monosp:`rectangle`)
 
 .. pluginparameters::
 
+ * - flip_normals
+   - |bool|
+   - Is the rectangle inverted, i.e. should the normal vectors be flipped? (Default: |false|)
  * - to_world
    - |transform|
    - Specifies a linear object-to-world transformation. It is allowed to use non-uniform scaling,
      but no shear. (Default: none (i.e. object space = world space))
- * - flip_normals
-   - |bool|
-   - Is the rectangle inverted, i.e. should the normal vectors be flipped? (Default: |false|)
 
 .. subfigstart::
 .. subfigure:: ../../resources/data/docs/images/render/shape_rectangle.jpg
-   :caption: Two rectangles configured as a reflective surface and an emitter
+   :caption: Basic example
+.. subfigure:: ../../resources/data/docs/images/render/shape_rectangle_parameterization.jpg
+   :caption: A textured rectangle with the default parameterization
 .. subfigend::
    :label: fig-rectangle
 
-This shape plugin describes a simple rectangular intersection primitive.
+This shape plugin describes a simple rectangular shape primitive.
 It is mainly provided as a convenience for those cases when creating and
 loading an external mesh with two triangles is simply too tedious, e.g.
 when an area light source or a simple ground plane are needed.
@@ -45,26 +47,19 @@ To change the rectangle scale, rotation, or translation, use the
 :monosp:`to_world` parameter.
 
 
-The following XML snippet showcases a simple example involving two rectangle instances:
+The following XML snippet showcases a simple example of a textured rectangle:
 
 .. code-block:: xml
 
-    <scene version=$\MtsVer$>
-        <shape type="rectangle">
-            <bsdf type="diffuse"/>
-        </shape>
-        <shape type="rectangle">
-            <transform name="to_world">
-                <rotate x="1" angle="90"/>
-                <scale x="0.4" y="0.3" z="0.2"/>
-                <translate y="1" z="0.2"/>
-            </transform>
-            <emitter type="area">
-                <spectrum name="intensity" value="3"/>
-            </emitter>
-        </shape>
-        <!-- ... other definitions ... -->
-    </scene>
+    <shape type="rectangle">
+        <bsdf type="diffuse">
+            <texture name="reflectance" type="checkerboard">
+                <transform name="to_uv">
+                    <scale x="5" y="5" />
+                </transform>
+            </texture>
+        </bsdf>
+    </shape>
 
 .. warning:: This plugin is currently not supported by the Embree and OptiX raytracing backend.
 
@@ -213,9 +208,20 @@ public:
                       && abs(local.y()) <= 1.f;
     }
 
-    void fill_surface_interaction(const Ray3f &ray, const Float *cache,
+    void fill_surface_interaction(const Ray3f &ray_, const Float *cache,
                                   SurfaceInteraction3f &si_out, Mask active) const override {
         MTS_MASK_ARGUMENT(active);
+
+#if !defined(MTS_ENABLE_EMBREE)
+        Float local_x = cache[0];
+        Float local_y = cache[1];
+#else
+        Ray3f ray     = m_world_to_object.transform_affine(ray_);
+        Float t       = -ray.o.z() * ray.d_rcp.z();
+        Point3f local = ray(t);
+        Float local_x = local.x();
+        Float local_y = local.y();
+#endif
 
         SurfaceInteraction3f si(si_out);
 
@@ -223,10 +229,10 @@ public:
         si.sh_frame.n = m_frame.n;
         si.dp_du      = m_du * m_frame.s;
         si.dp_dv      = m_dv * m_frame.t;
-        si.p          = ray(si.t);
-        si.time       = ray.time;
-        si.uv         = Point2f(fmadd(cache[0], .5f, .5f),
-                                fmadd(cache[1], .5f, .5f));
+        si.p          = ray_(si.t);
+        si.time       = ray_.time;
+        si.uv         = Point2f(fmadd(local_x, .5f, .5f),
+                                fmadd(local_y, .5f, .5f));
 
         si_out[active] = si;
     }

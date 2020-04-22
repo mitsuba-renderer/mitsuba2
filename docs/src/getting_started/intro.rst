@@ -16,7 +16,7 @@ different set of goals.
 The most significant change of Mitsuba 2 is that it is a *retargetable*
 renderer: this means that the underlying implementations and data structures
 are specified in a generic fashion that can be transformed to accomplish a
-number of different tasks.
+number of different tasks. For example:
 
 1. In the simplest case, Mitsuba 2 is an ordinary CPU-based RGB renderer that
    processes one ray at a time similar to its predecessor `Mitsuba
@@ -30,9 +30,9 @@ number of different tasks.
    inverse problems including computational material design and scene reconstruction.
 
 3. Another type of transformation turns Mitsuba 2 into a vectorized CPU
-   renderer that leverages leverage Single Instruction/Multiple Data (SIMD)
-   instruction sets such as AVX512 on modern CPUs to efficiently sample many
-   light paths in parallel.
+   renderer that leverages Single Instruction/Multiple Data (SIMD) instruction
+   sets such as AVX512 on modern CPUs to efficiently sample many light paths in
+   parallel.
 
 4. Yet another type of transformation rewrites physical aspects of the
    simulation: Mitsuba can be used as a monochromatic renderer, a RGB-based

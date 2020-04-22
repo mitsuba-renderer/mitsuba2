@@ -274,7 +274,7 @@ template <typename Float, typename Spectrum> struct BSDFSample3 {
  * coordinates.
  *
  * \sa mitsuba.render.BSDFContext
- * \sa mitsuba.render.BSDFSample3
+ * \sa mitsuba.render.BSDFSample3f
  */
 template <typename Float, typename Spectrum>
 class MTS_EXPORT_RENDER BSDF : public Object {
@@ -432,7 +432,7 @@ public:
     }
 
     /// Return a string identifier
-    std::string id() const override { return m_id; }
+    std::string id() const override;
 
     /// Return a human-readable representation of the BSDF
     std::string to_string() const override = 0;
@@ -491,6 +491,8 @@ typename SurfaceInteraction<Float, Spectrum>::BSDFPtr SurfaceInteraction<Float, 
     if constexpr (!is_diff_array_v<Float>) {
         if (!has_uv_partials() && any(bsdf->needs_differentials()))
             compute_partials(ray);
+    } else {
+        ENOKI_MARK_USED(ray);
     }
 
     return bsdf;

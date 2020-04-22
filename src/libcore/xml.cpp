@@ -35,7 +35,7 @@ NAMESPACE_BEGIN(xml)
 
 // Set of supported XML tags
 enum class Tag {
-    Boolean, Integer, Float, String, Point, Vector, Spectrum, RGB, SRGB,
+    Boolean, Integer, Float, String, Point, Vector, Spectrum, RGB,
     Transform, Translate, Matrix, Rotate, Scale, LookAt, Object,
     NamedReference, Include, Alias, Default, Invalid
 };
@@ -138,7 +138,6 @@ void register_class(const Class *class_) {
         (*tags)["ref"]        = Tag::NamedReference;
         (*tags)["spectrum"]   = Tag::Spectrum;
         (*tags)["rgb"]        = Tag::RGB;
-        (*tags)["srgb"]       = Tag::SRGB;
         (*tags)["include"]    = Tag::Include;
         (*tags)["alias"]      = Tag::Alias;
         (*tags)["default"]    = Tag::Default;
@@ -760,10 +759,17 @@ static std::pair<std::string, std::string> parse_xml(XMLSource &src, XMLParseCon
                 break;
 
             case Tag::Spectrum: {
-                    check_attributes(src, node, { "name", "value" });
-                    std::vector<std::string> tokens = string::tokenize(node.attribute("value").value());
+                    check_attributes(src, node, { "name", "value", "filename" }, false);
 
-                    if (tokens.size() == 1) {
+                    bool has_value = !node.attribute("value").empty(),
+                         has_filename = !node.attribute("filename").empty(),
+                         is_constant = has_value && string::tokenize(node.attribute("value").value()).size() == 1;
+                    if (has_value == has_filename) {
+                        src.throw_error(node, "'spectrum' tag requires one of \"value\" or \"filename\" attributes");
+                    } else if (is_constant) {
+                        /* A constant spectrum is specified. */
+                        std::vector<std::string> tokens = string::tokenize(node.attribute("value").value());
+
                         Properties props2("uniform");
                         ScalarFloat value;
                         try {
@@ -786,14 +792,32 @@ static std::pair<std::string, std::string> parse_xml(XMLSource &src, XMLParseCon
                         if (!expanded.empty())
                             obj = expanded[0];
                         props.set_object(node.attribute("name").value(), obj);
-
                     } else {
-                        /* Parse wavelength:value pairs, where wavelengths are expected to be
-                           specified in increasing order. Automatically detect whether wavelengths
-                           are regularly sampled, and instantiate the appropriate spectrum plugin. */
+                        /* Parse wavelength:value pairs, either inlined or from an external file.
+                           Wavelengths are expected to be specified in increasing order. */
                         std::vector<Float> wavelengths, values;
-                        bool is_regular = true;
-                        Float interval = 0.f;
+                        if (has_value) {
+                            std::vector<std::string> tokens = string::tokenize(node.attribute("value").value());
+
+                            for (const std::string &token : tokens) {
+                                std::vector<std::string> pair = string::tokenize(token, ":");
+                                if (pair.size() != 2)
+                                    src.throw_error(node, "invalid spectrum (expected wavelength:value pairs)");
+
+                                Float wavelength, value;
+                                try {
+                                    wavelength = detail::stof(pair[0]);
+                                    value = detail::stof(pair[1]);
+                                } catch (...) {
+                                    src.throw_error(node, "could not parse wavelength:value pair: \"%s\"", token);
+                                }
+
+                                wavelengths.push_back(wavelength);
+                                values.push_back(value);
+                            }
+                        } else if (has_filename) {
+                            spectrum_from_file(node.attribute("filename").value(), wavelengths, values);
+                        }
 
                         /* Values are scaled so that integrating the spectrum against the CIE curves
                            and converting to sRGB yields (1, 1, 1) for D65. */
@@ -801,37 +825,25 @@ static std::pair<std::string, std::string> parse_xml(XMLSource &src, XMLParseCon
                         if (within_emitter || ctx.color_mode != ColorMode::Spectral)
                             unit_conversion = MTS_CIE_Y_NORMALIZATION;
 
-                        for (const std::string &token : tokens) {
-                            std::vector<std::string> pair = string::tokenize(token, ":");
-                            if (pair.size() != 2)
-                                src.throw_error(node, "invalid spectrum (expected wavelength:value pairs)");
+                        /* Detect whether wavelengths are regularly sampled and potentially
+                           apply the conversion factor. */
+                        bool is_regular = true;
+                        Float interval = 0.f;
 
-                            Float wavelength, value;
-                            try {
-                                wavelength = detail::stof(pair[0]);
-                                value = detail::stof(pair[1]);
-                            } catch (...) {
-                                src.throw_error(node, "could not parse wavelength:value pair: \"%s\"", token);
-                            }
+                        for (size_t n = 0; n < wavelengths.size(); ++n) {
+                            values[n] *= unit_conversion;
 
-                            wavelengths.push_back(wavelength);
-                            values.push_back(unit_conversion * value);
-
-                            size_t n = wavelengths.size();
-                            if (n <= 1)
+                            if (n <= 0)
                                 continue;
 
-                            Float distance = (wavelengths[n - 1] - wavelengths[n - 2]);
+                            Float distance = (wavelengths[n] - wavelengths[n - 1]);
                             if (distance < 0.f)
                                 src.throw_error(node, "wavelengths must be specified in increasing order");
-                            if (n == 2)
+                            if (n == 1)
                                 interval = distance;
                             else if (std::abs(distance - interval) > math::Epsilon<Float>)
                                 is_regular = false;
                         }
-
-                        if (!is_regular)
-                            Throw("Not implemented yet: irregularly sampled spectra");
 
                         Properties props2;
 
@@ -853,61 +865,19 @@ static std::pair<std::string, std::string> parse_xml(XMLSource &src, XMLParseCon
 
                         // In non-spectral mode, pre-integrate against the CIE matching curves
                         if (ctx.color_mode != ColorMode::Spectral) {
-                            Color3f color = zero<Color3f>();
 
-                            const int steps = 1000;
-                            for (int i = 0; i < steps; ++i) {
-                                Float x = MTS_WAVELENGTH_MIN +
-                                          (i / (Float) (steps - 1)) *
-                                              (MTS_WAVELENGTH_MAX - MTS_WAVELENGTH_MIN);
+                            /// Spectral IOR values are unbounded and require special handling
+                            std::string name = node.attribute("name").value();
+                            bool is_ior = name == "eta" || name == "k" || name == "int_ior" ||
+                                          name == "ext_ior";
 
-                                if (x < wavelengths.front() || x > wavelengths.back())
-                                    continue;
-
-                                // Find interval containing 'x'
-                                UInt32 index = math::find_interval(
-                                    (uint32_t) wavelengths.size(),
-                                    [&](uint32_t idx) {
-                                        return wavelengths[idx] <= x;
-                                    });
-
-                                Float x0 = wavelengths[index],
-                                      x1 = wavelengths[index + 1],
-                                      y0 = values[index],
-                                      y1 = values[index + 1];
-
-                                // Linear interpolant at 'x'
-                                Float y = (x*y0 - x1*y0 - x*y1 + x0*y1) / (x0 - x1);
-
-                                Color3f xyz = cie1931_xyz(x);
-                                color += xyz * y;
-                            }
-
-                            // Last specified value repeats implicitly
-                            color *= (MTS_WAVELENGTH_MAX - MTS_WAVELENGTH_MIN) / (Float) steps;
-                            color = xyz_to_srgb(color);
-
-                            if (!within_emitter && any(color < 0.f || color > 1.f)) {
-                                Log(Warn, "Spectrum (at %s): clamping out-of-gamut color %s",
-                                    src.offset(node.offset_debug()), color);
-                                color = clamp(color, 0.f, 1.f);
-                            } else if (within_emitter && any(color < 0.f)) {
-                                Log(Warn, "Spectrum (at %s): clamping out-of-gamut emission %s",
-                                    src.offset(node.offset_debug()), color);
-                                color = max(color, 0.f);
-                            }
+                            Color3f color = spectrum_to_rgb(wavelengths, values, !(within_emitter || is_ior));
 
                             Properties props3;
                             if (ctx.color_mode == ColorMode::Monochromatic) {
                                 props3 = Properties("uniform");
                                 props3.set_float("value", luminance(color));
                             } else {
-                                std::string name = node.attribute("name").value();
-
-                                /// Spectral IOR values are unbounded and require special handling
-                                bool is_ior = name == "eta" || name == "k" || name == "int_ior" ||
-                                              name == "ext_ior";
-
                                 props3 = Properties(within_emitter ? "srgb_d65" : "srgb");
                                 props3.set_color("color", color);
 
@@ -1145,6 +1115,7 @@ ref<Object> load_file(const fs::path &filename_, const std::string &variant,
         Throw("\"%s\": file does not exist!", filename);
 
     Log(Info, "Loading XML file \"%s\" ..", filename);
+    Log(Info, "Using variant \"%s\"", variant);
 
     pugi::xml_document doc;
     pugi::xml_parse_result result = doc.load_file(filename.native().c_str(),

@@ -21,6 +21,26 @@ Rough plastic material (:monosp:`roughplastic`)
 
 .. pluginparameters::
 
+ * - diffuse_reflectance
+   - |spectrum| or |texture|
+   - Optional factor used to modulate the diffuse reflection component. (Default: 0.5)
+ * - nonlinear
+   - |bool|
+   - Account for nonlinear color shifts due to internal scattering? See the
+     :ref:`plastic <bsdf-plastic>` plugin for details.
+     \default{Don't account for them and preserve the texture colors. (Default: |false|)
+
+ * - int_ior
+   - |float| or |string|
+   - Interior index of refraction specified numerically or using a known material name. (Default: polypropylene / 1.49)
+ * - ext_ior
+   - |float| or |string|
+   - Exterior index of refraction specified numerically or using a known material name.  (Default: air / 1.000277)
+ * - specular_reflectance
+   - |spectrum| or |texture|
+   - Optional factor that can be used to modulate the specular reflection component.
+     Note that for physical realism, this parameter should never be touched. (Default: 1.0)
+
  * - distribution
    - |string|
    - Specifies the type of microfacet normal distribution used to model the surface roughness.
@@ -36,32 +56,19 @@ Rough plastic material (:monosp:`roughplastic`)
    - Specifies the roughness of the unresolved surface micro-geometry along the tangent and
      bitangent directions. When the Beckmann distribution is used, this parameter is equal to the
      **root mean square** (RMS) slope of the microfacets. (Default: 0.1)
- * - int_ior
-   - |float| or |string|
-   - Interior index of refraction specified numerically or using a known material name. (Default: bk7 / 1.5046)
- * - ext_ior
-   - |float| or |string|
-   - Exterior index of refraction specified numerically or using a known material name.  (Default: air / 1.000277)
  * - sample_visible
    - |bool|
    - Enables a sampling technique proposed by Heitz and D'Eon :cite:`Heitz1014Importance`, which
      focuses computation on the visible parts of the microfacet normal distribution, considerably
      reducing variance in some cases. (Default: |true|, i.e. use visible normal sampling)
- * - specular_reflectance
-   - |spectrum| or |texture|
-   - Optional factor that can be used to modulate the specular reflection component.
-     Note that for physical realism, this parameter should never be touched. (Default: 1.0)
- * - nonlinear
-   - |bool|
-   - Account for nonlinear color shifts due to internal scattering? See the :ref:`bsdf-plastic`
-     plugin for details.\default{Don't account for them and preserve the texture colors.
-     (Default: |false|)
+
+
 
 This plugin implements a realistic microfacet scattering model for rendering
 rough dielectric materials with internal scattering, such as plastic.
 
 Microfacet theory describes rough surfaces as an arrangement of unresolved and ideally specular
-facets, whose normal directions are given by a specially chosen **microfacet distribution**.
+facets, whose normal directions are given by a specially chosen *microfacet distribution*.
 By accounting for shadowing and masking effects between these facets, it is possible to reproduce
 the important off-specular reflections peaks observed in real-world measurements of such materials.
 
@@ -74,17 +81,36 @@ the important off-specular reflections peaks observed in real-world measurements
     :label: fig-bsdf-roughplastic
 
 This plugin is essentially the *roughened* equivalent of the (smooth) plugin
-:ref:`bsdf-plastic`. For very low values of :math:`\alpha`, the two will
+:ref:`plastic <bsdf-plastic>`. For very low values of :math:`\alpha`, the two will
 be identical, though scenes using this plugin will take longer to render
 due to the additional computational burden of tracking surface roughness.
 
-For convenience, this model allows to specify IOR values either numerically,
-or based on a list of known materials (see Table :num:`ior-table-list` for an overview).
-When no parameters are given, the plugin activates the defaults,
-which describe a white polypropylene plastic material with a light amount
-of roughness modeled using the Beckmann distribution.
+For convenience, this model allows to specify IOR values either numerically, or
+based on a list of known materials (see the corresponding table in the
+:ref:`dielectric <bsdf-dielectric>` reference). When no parameters are given,
+the plugin activates the defaults, which describe a white polypropylene plastic
+material with a light amount of roughness modeled using the Beckmann distribution.
 
-Like the :ref:`bsdf-plastic` material, this model internally simulates the
+To get an intuition about the effect of the surface roughness parameter
+:math:`\alpha`, consider the following approximate classification: a value of
+:math:`\alpha=0.001-0.01` corresponds to a material with slight imperfections
+on an otherwise smooth surface finish, :math:`\alpha=0.1` is relatively rough,
+and :math:`\alpha=0.3-0.7` is **extremely** rough (e.g. an etched or ground
+finish). Values significantly above that are probably not too realistic.
+
+The following XML snippet describes a material definition for black plastic material.
+
+.. code-block:: xml
+    :name: lst-roughplastic-black
+
+    <bsdf type="roughplastic">
+        <string name="distribution" value="beckmann"/>
+        <float name="int_ior" value="1.61"/>
+        <spectrum name="diffuse_reflectance" value="0"/>
+    </bsdf>
+
+
+Like the :ref:`plastic <bsdf-plastic>` material, this model internally simulates the
 interaction of light with a diffuse base surface coated by a thin dielectric
 layer (where the coating layer is now **rough**). This is a convenient
 abstraction rather than a restriction. In other words, there are many
@@ -93,15 +119,7 @@ fit this description perfectly well.
 
 The simplicity of this setup makes it possible to account for interesting
 nonlinear effects due to internal scattering, which is controlled by
-the :monosp:`nonlinear` parameter. For more details, please refer to the description
-of this parameter given in the :ref:`bsdf-plastic` plugin section.
-
-To get an intuition about the effect of the surface roughness parameter
-:math:`\alpha`, consider the following approximate classification: a value of
-:math:`\alpha=0.001-0.01` corresponds to a material with slight imperfections
-on an otherwise smooth surface finish, :math:`\alpha=0.1` is relatively rough,
-and :math:`\alpha=0.3-0.7` is **extremely** rough (e.g. an etched or ground
-finish). Values significantly above that are probably not too realistic.
+the :monosp:`nonlinear` parameter:
 
 .. subfigstart::
 .. subfigure:: ../../resources/data/docs/images/render/bsdf_roughplastic_diffuse.jpg
@@ -116,22 +134,8 @@ finish). Values significantly above that are probably not too realistic.
 .. subfigend::
     :label: fig-bsdf-roughplastic-nonlinear
 
-When asked to do so, this model can account for subtle nonlinear color shifts due
-to internal scattering processes. The above images show a textured
-object first rendered using a diffuse material (Figure :num:`fig-roughplastic-diffuse`), then
-with the default parameters (Figure :num:`fig-roughplastic-preserve`), and finally with support for
-nonlinear color shifts (Figure :num:`fig-roughplastic-nopreserve`).
-
-The following XML snippet describes a material definition for black plastic material.
-
-.. code-block:: xml
-    :name: lst-roughplastic-black
-
-    <bsdf type="roughplastic">
-        <string name="distribution" value="beckmann"/>
-        <float name="int_ior" value="1.61"/>
-        <spectrum name="diffuse_reflectance" value="0"/>
-    </bsdf>
+For more details, please refer to the description
+of this parameter given in the :ref:`plastic <bsdf-plastic>` plugin section.
 
  */
 
@@ -154,8 +158,10 @@ public:
 
         m_eta = int_ior / ext_ior;
 
-        m_specular_reflectance = props.texture<Texture>("specular_reflectance", 1.f);
         m_diffuse_reflectance  = props.texture<Texture>("diffuse_reflectance",  .5f);
+
+        if (props.has_property("specular_reflectance"))
+            m_specular_reflectance = props.texture<Texture>("specular_reflectance", 1.f);
 
         m_nonlinear = props.bool_("nonlinear", false);
 
@@ -183,7 +189,10 @@ public:
         /* Compute weights that further steer samples towards
            the specular or diffuse components */
         ScalarFloat d_mean = m_diffuse_reflectance->mean(),
-                    s_mean = m_specular_reflectance->mean();
+                    s_mean = 1.f;
+
+        if (m_specular_reflectance)
+            s_mean = m_specular_reflectance->mean();
 
         m_specular_sampling_weight = s_mean / (d_mean + s_mean);
 
@@ -279,7 +288,7 @@ public:
 
         MicrofacetDistribution distr(m_type, m_alpha, m_sample_visible);
 
-        Spectrum result(0.f);
+        UnpolarizedSpectrum result(0.f);
         if (unlikely((!has_specular && !has_diffuse) || none_or<false>(active)))
             return result;
 
@@ -297,9 +306,12 @@ public:
             Float G = distr.G(si.wi, wo, H);
 
             // Calculate the specular reflection component
-            Float value = F * D * G / (4.f * cos_theta_i);
+            UnpolarizedSpectrum value = F * D * G / (4.f * cos_theta_i);
 
-            result += m_specular_reflectance->eval(si, active) * value;
+            if (m_specular_reflectance)
+                value *= m_specular_reflectance->eval(si, active);
+
+            result += value;
         }
 
         if (has_diffuse) {
@@ -308,7 +320,7 @@ public:
                   t_o = lerp_gather(m_external_transmittance.data(), cos_theta_o,
                                     MTS_ROUGH_TRANSMITTANCE_RES, active);
 
-            UnpolarizedSpectrum diff = depolarize(m_diffuse_reflectance->eval(si, active));
+            UnpolarizedSpectrum diff = m_diffuse_reflectance->eval(si, active);
             diff /= 1.f - (m_nonlinear ? (diff * m_internal_reflectance)
                                        : UnpolarizedSpectrum(m_internal_reflectance));
 
@@ -325,12 +337,10 @@ public:
 
         UInt index = min(UInt(x), scalar_t<UInt>(size - 2));
 
-        Float w1 = x - Float(index),
-              w0 = 1.f - w1,
-              v0 = gather<Float>(data, index, active),
+        Float v0 = gather<Float>(data, index, active),
               v1 = gather<Float>(data + 1, index, active);
 
-        return w0 * v0 + w1 * v1;
+        return lerp(v0, v1, x - Float(index));
     }
 
     Float pdf(const BSDFContext &ctx, const SurfaceInteraction3f &si,
@@ -381,7 +391,8 @@ public:
         callback->put_parameter("alpha", m_alpha);
         callback->put_parameter("eta", m_eta);
         callback->put_object("diffuse_reflectance", m_diffuse_reflectance.get());
-        callback->put_object("specular_reflectance", m_specular_reflectance.get());
+        if (m_specular_reflectance)
+            callback->put_object("specular_reflectance", m_specular_reflectance.get());
     }
 
     std::string to_string() const override {
@@ -390,9 +401,12 @@ public:
             << "  distribution = " << m_type << "," << std::endl
             << "  sample_visible = "           << m_sample_visible                    << "," << std::endl
             << "  alpha = "                    << m_alpha                             << "," << std::endl
-            << "  specular_reflectance = "     << m_specular_reflectance              << "," << std::endl
-            << "  diffuse_reflectance = "      << m_diffuse_reflectance               << "," << std::endl
-            << "  specular_sampling_weight = " << m_specular_sampling_weight          << "," << std::endl
+            << "  diffuse_reflectance = "      << m_diffuse_reflectance               << "," << std::endl;
+
+        if (m_specular_reflectance)
+            oss << "  specular_reflectance = "     << m_specular_reflectance              << "," << std::endl;
+
+        oss << "  specular_sampling_weight = " << m_specular_sampling_weight          << "," << std::endl
             << "  eta = "                      << m_eta                               << "," << std::endl
             << "  nonlinear = "                << m_nonlinear                         << std::endl
             << "]";
@@ -404,7 +418,8 @@ private:
     ref<Texture> m_diffuse_reflectance;
     ref<Texture> m_specular_reflectance;
     MicrofacetType m_type;
-    ScalarFloat m_eta, m_inv_eta_2;
+    ScalarFloat m_eta;
+    ScalarFloat m_inv_eta_2;
     ScalarFloat m_alpha;
     ScalarFloat m_specular_sampling_weight;
     bool m_nonlinear;

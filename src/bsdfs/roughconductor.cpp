@@ -16,6 +16,17 @@ Rough conductor material (:monosp:`roughconductor`)
 
 .. pluginparameters::
 
+ * - material
+   - |string|
+   - Name of the material preset, see :num:`conductor-ior-list`. (Default: none)
+ * - eta, k
+   - |spectrum| or |texture|
+   - Real and imaginary components of the material's index of refraction. (Default: based on the value of :monosp:`material`)
+ * - specular_reflectance
+   - |spectrum| or |texture|
+   - Optional factor that can be used to modulate the specular reflection component.
+     Note that for physical realism, this parameter should never be touched. (Default: 1.0)
+
  * - distribution
    - |string|
    - Specifies the type of microfacet normal distribution used to model the surface roughness.
@@ -27,23 +38,16 @@ Rough conductor material (:monosp:`roughconductor`)
        tails observed in measurements of ground surfaces, which are not modeled by the Beckmann
        distribution.
  * - alpha, alpha_u, alpha_v
-   - |float|
+   - |texture| or |float|
    - Specifies the roughness of the unresolved surface micro-geometry along the tangent and
      bitangent directions. When the Beckmann distribution is used, this parameter is equal to the
      **root mean square** (RMS) slope of the microfacets. :monosp:`alpha` is a convenience
      parameter to initialize both :monosp:`alpha_u` and :monosp:`alpha_v` to the same value. (Default: 0.1)
- * - eta, k
-   - |spectrum| or |texture|
-   - Real and imaginary components of the material's index of refraction. (Default: 0.0/1.0)
  * - sample_visible
    - |bool|
    - Enables a sampling technique proposed by Heitz and D'Eon :cite:`Heitz1014Importance`, which
      focuses computation on the visible parts of the microfacet normal distribution, considerably
      reducing variance in some cases. (Default: |true|, i.e. use visible normal sampling)
- * - specular_reflectance
-   - |spectrum| or |texture|
-   - Optional factor that can be used to modulate the specular reflection component.
-     Note that for physical realism, this parameter should never be touched. (Default: 1.0)
 
 This plugin implements a realistic microfacet scattering model for rendering
 rough conducting materials, such as metals.
@@ -52,38 +56,38 @@ rough conducting materials, such as metals.
 .. subfigure:: ../../resources/data/docs/images/render/bsdf_roughconductor_copper.jpg
    :caption: Rough copper (Beckmann, :math:`\alpha=0.1`)
 .. subfigure:: ../../resources/data/docs/images/render/bsdf_roughconductor_anisotropic_aluminium.jpg
-   :caption: Vertically brushed aluminium (Anisotropic Phong, :math:`\alpha_u=0.05,\ \alpha_v=0.3`)
+   :caption: Vertically brushed aluminium (Anisotropic Beckmann, :math:`\alpha_u=0.05,\ \alpha_v=0.3`)
+.. subfigure:: ../../resources/data/docs/images/render/bsdf_roughconductor_textured_carbon.jpg
+   :caption: Carbon fiber using two inverted checkerboard textures for ``alpha_u`` and ``alpha_v``
 .. subfigend::
     :label: fig-bsdf-roughconductor
 
 
 Microfacet theory describes rough surfaces as an arrangement of unresolved
 and ideally specular facets, whose normal directions are given by a
-specially chosen \emph{microfacet distribution}. By accounting for shadowing
+specially chosen *microfacet distribution*. By accounting for shadowing
 and masking effects between these facets, it is possible to reproduce the
 important off-specular reflections peaks observed in real-world measurements
 of such materials.
 
 This plugin is essentially the *roughened* equivalent of the (smooth) plugin
-:ref:`bsdf-conductor`. For very low values of :math:`\alpha`, the two will
+:ref:`conductor <bsdf-conductor>`. For very low values of :math:`\alpha`, the two will
 be identical, though scenes using this plugin will take longer to render
 due to the additional computational burden of tracking surface roughness.
 
 The implementation is based on the paper *Microfacet Models
 for Refraction through Rough Surfaces* by Walter et al.
-:cite:`Walter07Microfacet`. It supports three different types of microfacet
-distributions and has a texturable roughness parameter.
+:cite:`Walter07Microfacet` and it supports two different types of microfacet
+distributions.
+
 To facilitate the tedious task of specifying spectrally-varying index of
 refraction information, this plugin can access a set of measured materials
 for which visible-spectrum information was publicly available
-(see Table :num:`ior-table-list` for the full list).
-There is also a special material profile named :monosp:`none`, which disables
-the computation of Fresnel reflectances and produces an idealized
-100% reflecting mirror.
+(see the corresponding table in the :ref:`conductor <bsdf-conductor>` reference).
 
 When no parameters are given, the plugin activates the default settings,
-which describe copper with a medium amount of roughness modeled using a
-Beckmann distribution.
+which describe a 100% reflective mirror with a medium amount of roughness modeled
+using a Beckmann distribution.
 
 To get an intuition about the effect of the surface roughness parameter
 :math:`\alpha`, consider the following approximate classification: a value of
@@ -99,8 +103,7 @@ The following XML snippet describes a material definition for brushed aluminium:
     :name: lst-roughconductor-aluminium
 
     <bsdf type="roughconductor">
-        <spectrum name="eta" value="0.789000"/>
-        <spectrum name="k" value="6.150000"/>
+        <string name="material" value="Al"/>
         <string name="distribution" value="ggx"/>
         <float name="alphaU" value="0.05"/>
         <float name="alphaV" value="0.3"/>
@@ -108,6 +111,7 @@ The following XML snippet describes a material definition for brushed aluminium:
 
 Technical details
 *****************
+
 All microfacet distributions allow the specification of two distinct
 roughness values along the tangent and bitangent directions. This can be
 used to provide a material with a *brushed* appearance. The alignment
@@ -119,17 +123,18 @@ Since Mitsuba 0.5.1, this plugin uses a new importance sampling technique
 contributed by Eric Heitz and Eugene D'Eon, which restricts the sampling
 domain to the set of visible (unmasked) microfacet normals. The previous
 approach of sampling all normals is still available and can be enabled
-by setting :monosp:`sample_visible` to :monosp:`false`.
+by setting :monosp:`sample_visible` to :monosp:`false`. However this will lead
+to significantly slower convergence.
 
 When using this plugin, you should ideally compile Mitsuba with support for
 spectral rendering to get the most accurate results. While it also works
 in RGB mode, the computations will be more approximate in nature.
 Also note that this material is one-sided---that is, observed from the
 back side, it will be completely black. If this is undesirable,
-consider using the :ref:`bsdf-twosided` BRDF adapter.
+consider using the :ref:`twosided <bsdf-twosided>` BRDF adapter.
 
 In *polarized* rendering modes, the material automatically switches to a polarized
-implementation of the Fresnel equations.
+implementation of the underlying Fresnel equations.
 
  */
 
@@ -140,23 +145,51 @@ public:
     MTS_IMPORT_TYPES(Texture, MicrofacetDistribution)
 
     RoughConductor(const Properties &props) : Base(props) {
-        m_eta = props.texture<Texture>("eta", 0.f);
-        m_k   = props.texture<Texture>("k", 1.f);
+        std::string material = props.string("material", "none");
+        if (props.has_property("eta") || material == "none") {
+            m_eta = props.texture<Texture>("eta", 0.f);
+            m_k   = props.texture<Texture>("k",   1.f);
+            if (material != "none")
+                Throw("Should specify either (eta, k) or material, not both.");
+        } else {
+            std::tie(m_eta, m_k) = complex_ior_from_file<Spectrum, Texture>(props.string("material", "Cu"));
+        }
 
-        mitsuba::MicrofacetDistribution<ScalarFloat, Spectrum> distr(props);
-        m_type = distr.type();
-        m_sample_visible = distr.sample_visible();
+        if (props.has_property("distribution")) {
+            std::string distr = string::to_lower(props.string("distribution"));
+            if (distr == "beckmann")
+                m_type = MicrofacetType::Beckmann;
+            else if (distr == "ggx")
+                m_type = MicrofacetType::GGX;
+            else
+                Throw("Specified an invalid distribution \"%s\", must be "
+                      "\"beckmann\" or \"ggx\"!", distr.c_str());
+        } else {
+            m_type = MicrofacetType::Beckmann;
+        }
 
+        m_sample_visible = props.bool_("sample_visible", true);
 
-        m_alpha_u = distr.alpha_u();
-        m_alpha_v = distr.alpha_v();
+        if (props.has_property("alpha_u") || props.has_property("alpha_v")) {
+            if (!props.has_property("alpha_u") || !props.has_property("alpha_v"))
+                Throw("Microfacet model: both 'alpha_u' and 'alpha_v' must be specified.");
+            if (props.has_property("alpha"))
+                Throw("Microfacet model: please specify"
+                      "either 'alpha' or 'alpha_u'/'alpha_v'.");
+            m_alpha_u = props.texture<Texture>("alpha_u");
+            m_alpha_v = props.texture<Texture>("alpha_v");
+        } else {
+            m_alpha_u = m_alpha_v = props.texture<Texture>("alpha", 0.1f);
+        }
+
+        if (props.has_property("specular_reflectance"))
+            m_specular_reflectance = props.texture<Texture>("specular_reflectance", 1.f);
 
         parameters_changed();
     }
 
     void parameters_changed() override {
         m_flags = BSDFFlags::GlossyReflection | BSDFFlags::FrontSide;
-
         if (m_alpha_u != m_alpha_v)
             m_flags = m_flags | BSDFFlags::Anisotropic;
 
@@ -180,8 +213,10 @@ public:
 
         /* Construct a microfacet distribution matching the
            roughness values at the current surface position. */
-        MicrofacetDistribution distr(m_type, m_alpha_u, m_alpha_v,
-                                            m_sample_visible);
+        MicrofacetDistribution distr(m_type,
+                                     m_alpha_u->eval_1(si, active),
+                                     m_alpha_v->eval_1(si, active),
+                                     m_sample_visible);
 
         // Sample M, the microfacet normal
         Normal3f m;
@@ -196,7 +231,7 @@ public:
         // Ensure that this is a valid sample
         active &= neq(bs.pdf, 0.f) && Frame3f::cos_theta(bs.wo) > 0.f;
 
-        Float weight;
+        UnpolarizedSpectrum weight;
         if (likely(m_sample_visible))
             weight = distr.smith_g1(bs.wo, m);
         else
@@ -242,6 +277,10 @@ public:
             F = fresnel_conductor(UnpolarizedSpectrum(dot(si.wi, m)), eta_c);
         }
 
+        /* If requested, include the specular reflectance component */
+        if (m_specular_reflectance)
+            weight *= m_specular_reflectance->eval(si, active);
+
         return { bs, (F * weight) & active };
     }
 
@@ -262,7 +301,9 @@ public:
 
         /* Construct a microfacet distribution matching the
            roughness values at the current surface position. */
-        MicrofacetDistribution distr(m_type, m_alpha_u, m_alpha_v,
+        MicrofacetDistribution distr(m_type,
+                                     m_alpha_u->eval_1(si, active),
+                                     m_alpha_v->eval_1(si, active),
                                      m_sample_visible);
 
         // Evaluate the microfacet normal distribution
@@ -274,7 +315,7 @@ public:
         Float G = distr.G(si.wi, wo, H);
 
         // Evaluate the full microfacet model (except Fresnel)
-        Float result = D * G / (4.f * Frame3f::cos_theta(si.wi));
+        UnpolarizedSpectrum result = D * G / (4.f * Frame3f::cos_theta(si.wi));
 
         // Evaluate the Fresnel factor
         Complex<UnpolarizedSpectrum> eta_c(m_eta->eval(si, active),
@@ -312,6 +353,10 @@ public:
             F = fresnel_conductor(UnpolarizedSpectrum(dot(si.wi, H)), eta_c);
         }
 
+        /* If requested, include the specular reflectance component */
+        if (m_specular_reflectance)
+            result *= m_specular_reflectance->eval(si, active);
+
         return (F * result) & active;
     }
 
@@ -337,7 +382,10 @@ public:
 
         /* Construct a microfacet distribution matching the
            roughness values at the current surface position. */
-        MicrofacetDistribution distr(m_type, m_alpha_u, m_alpha_v, m_sample_visible);
+        MicrofacetDistribution distr(m_type,
+                                     m_alpha_u->eval_1(si, active),
+                                     m_alpha_v->eval_1(si, active),
+                                     m_sample_visible);
 
         Float result;
         if (likely(m_sample_visible))
@@ -350,10 +398,16 @@ public:
     }
 
     void traverse(TraversalCallback *callback) override {
-        callback->put_parameter("alpha_u", m_alpha_u);
-        callback->put_parameter("alpha_v", m_alpha_v);
+        if (m_alpha_u == m_alpha_v)
+            callback->put_object("alpha", m_alpha_u.get());
+        else {
+            callback->put_object("alpha_u", m_alpha_u.get());
+            callback->put_object("alpha_v", m_alpha_v.get());
+        }
         callback->put_object("eta", m_eta.get());
         callback->put_object("k", m_k.get());
+        if (m_specular_reflectance)
+            callback->put_object("specular_reflectance", m_specular_reflectance.get());
     }
 
     std::string to_string() const override {
@@ -361,9 +415,11 @@ public:
         oss << "RoughConductor[" << std::endl
             << "  distribution = " << m_type << "," << std::endl
             << "  sample_visible = " << m_sample_visible << "," << std::endl
-            << "  alpha_u = " << m_alpha_u << "," << std::endl
-            << "  alpha_v = " << m_alpha_v << "," << std::endl
-            << "  eta = " << string::indent(m_eta) << "," << std::endl
+            << "  alpha_u = " << string::indent(m_alpha_u) << "," << std::endl
+            << "  alpha_v = " << string::indent(m_alpha_v) << "," << std::endl;
+        if (m_specular_reflectance)
+           oss << "  specular_reflectance = " << string::indent(m_specular_reflectance) << "," << std::endl;
+        oss << "  eta = " << string::indent(m_eta) << "," << std::endl
             << "  k = " << string::indent(m_k) << std::endl
             << "]";
         return oss.str();
@@ -374,13 +430,15 @@ private:
     /// Specifies the type of microfacet distribution
     MicrofacetType m_type;
     /// Anisotropic roughness values
-    ScalarFloat m_alpha_u, m_alpha_v;
+    ref<Texture> m_alpha_u, m_alpha_v;
     /// Importance sample the distribution of visible normals?
     bool m_sample_visible;
     /// Relative refractive index (real component)
     ref<Texture> m_eta;
     /// Relative refractive index (imaginary component).
     ref<Texture> m_k;
+    /// Specular reflectance component
+    ref<Texture> m_specular_reflectance;
 };
 
 MTS_IMPLEMENT_CLASS_VARIANT(RoughConductor, BSDF)

@@ -17,6 +17,14 @@ Smooth plastic material (:monosp:`plastic`)
 
 .. pluginparameters::
 
+ * - diffuse_reflectance
+   - |spectrum| or |texture|
+   - Optional factor used to modulate the diffuse reflection component. (Default: 0.5)
+ * - nonlinear
+   - |bool|
+   - Account for nonlinear color shifts due to internal scattering? See the main text for details..
+     (Default: Don't account for them and preserve the texture colors, i.e. |false|)
+
  * - int_ior
    - |float| or |string|
    - Interior index of refraction specified numerically or using a known material name.
@@ -29,13 +37,6 @@ Smooth plastic material (:monosp:`plastic`)
    - |spectrum| or |texture|
    - Optional factor that can be used to modulate the specular reflection component. Note that for
      physical realism, this parameter should never be touched. (Default: 1.0)
- * - diffuse_reflectance
-   - |spectrum| or |texture|
-   - Optional factor used to modulate the diffuse reflection component. (Default: 0.5)
- * - nonlinear
-   - |bool|
-   - Account for nonlinear color shifts due to internal scattering? See the main text for details..
-     (Default: Don't account for them and preserve the texture colors, i.e. |false|)
 
 .. subfigstart::
 .. subfigure:: ../../resources/data/docs/images/render/bsdf_plastic_default.jpg
@@ -48,11 +49,11 @@ Smooth plastic material (:monosp:`plastic`)
 This plugin describes a smooth plastic-like material with internal scattering. It uses the Fresnel
 reflection and transmission coefficients to provide direction-dependent specular and diffuse
 components. Since it is simple, realistic, and fast, this model is often a better choice than the
-:ref:`bsdf-roughplastic` plugins when rendering smooth plastic-like materials. For convenience, this
-model allows to specify IOR values either numerically, or based on a list of known materials
-(see Table :num:`ior-table-list` for an overview). This plugin accounts for multiple
-interreflections inside the material (read on for details), which avoids a serious energy loss
-problem of the aforementioned plugin combination.
+:ref:`roughplastic <bsdf-roughplastic>` plugins when rendering smooth plastic-like materials.
+For convenience, this model allows to specify IOR values either numerically, or based on a list of
+known materials (see the corresponding table in the :ref:`dielectric <bsdf-dielectric>` reference).
+When no parameters are given, the plugin activates the defaults, which describe a white polypropylene
+plastic material.
 
 The following XML snippet describes a shiny material whose diffuse reflectance is specified using
 sRGB:
@@ -65,6 +66,51 @@ sRGB:
         <float name="int_ior" value="1.9"/>
     </bsdf>
 
+Internal scattering
+*******************
+
+Internally, this model simulates the interaction of light with a diffuse
+base surface coated by a thin dielectric layer. This is a convenient
+abstraction rather than a restriction. In other words, there are many
+materials that can be rendered with this model, even if they might not
+fit this description perfectly well.
+
+.. subfigstart::
+.. subfigure:: ../../resources/data/docs/images/bsdf/plastic_intscat_1.svg
+    :caption: (**a**) At the boundary, incident illumination is partly reflected and refracted
+    :label: fig-plastic-intscat-a
+.. subfigure:: ../../resources/data/docs/images/bsdf/plastic_intscat_2.svg
+    :caption: (**b**) The refracted portion scatters diffusely at the base layer
+    :label: fig-plastic-intscat-b
+.. subfigure:: ../../resources/data/docs/images/bsdf/plastic_intscat_3.svg
+    :caption: (**c**) An illustration of the scattering events that are internally handled by this plugin
+    :label: fig-plastic-intscat-c
+.. subfigend::
+    :label: fig-bsdf-plastic-intscat
+
+Given illumination that is incident upon such a material, a portion
+of the illumination is specularly reflected at the material
+boundary, which results in a sharp reflection in the mirror direction (**a**).
+The remaining illumination refracts into the material, where it
+scatters from the diffuse base layer (**b**).
+While some of the diffusely scattered illumination is able to
+directly refract outwards again, the remainder is reflected from the
+interior side of the dielectric boundary and will in fact remain
+trapped inside the material for some number of internal scattering
+events until it is finally able to escape (**c**).
+
+Due to the mathematical simplicity of this setup, it is possible to work
+out the correct form of the model without actually having to simulate
+the potentially large number of internal scattering events.
+
+Note that due to the internal scattering, the diffuse color of the
+material is in practice slightly different from the color of the
+base layer on its own---in particular, the material color will tend to shift towards
+darker colors with higher saturation. Since this can be counter-intuitive when
+using bitmap textures, these color shifts are disabled by default. Specify
+the parameter :code:`nonlinear=true` to enable them. The following renderings
+illustrate the resulting change:
+
 .. subfigstart::
 .. subfigure:: ../../resources/data/docs/images/render/bsdf_plastic_diffuse.jpg
    :caption: Diffuse textured rendering
@@ -75,56 +121,10 @@ sRGB:
 .. subfigend::
     :label: fig-bsdf-plastic-nonlinear
 
-When asked to do so, this model can account for subtle nonlinear color shifts due to internal
-scattering processes. The above images show a textured object first rendered using :ref:`bsdf-diffuse`,
-then :ref:`bsdf-plastic` with the default parameters, and finally using :ref:`bsdf-plastic` and
-support for nonlinear color shifts.
-
-Internal scattering
--------------------
-
-Internally, this is model simulates the interaction of light with a diffuse
-base surface coated by a thin dielectric layer. This is a convenient
-abstraction rather than a restriction. In other words, there are many
-materials that can be rendered with this model, even if they might not
-fit this description perfectly well.
-
-.. subfigstart::
-.. subfigure:: ../../resources/data/docs/images/bsdf/plastic_intscat_1.svg
-    :caption: At the boundary, incident illumination is partly reflected and refracted
-    :label: fig-plastic-intscat-a
-.. subfigure:: ../../resources/data/docs/images/bsdf/plastic_intscat_2.svg
-    :caption: The refracted portion scatters diffusely at the base layer
-    :label: fig-plastic-intscat-b
-.. subfigure:: ../../resources/data/docs/images/bsdf/plastic_intscat_3.svg
-    :caption: An illustration of the scattering events that are internally handled by this plugin
-    :label: fig-plastic-intscat-c
-.. subfigend::
-    :label: fig-bsdf-plastic-intscat
-
-Given illumination that is incident upon such a material, a portion
-of the illumination is specularly reflected at the material
-boundary, which results in a sharp reflection in the mirror direction
-(Figure :num:`fig-plastic-intscat-a`).
-The remaining illumination refracts into the material, where it
-scatters from the diffuse base layer. (Figure :num:`fig-plastic-intscat-b`).
-While some of the diffusely scattered illumination is able to
-directly refract outwards again, the remainder is reflected from the
-interior side of the dielectric boundary and will in fact remain
-trapped inside the material for some number of internal scattering
-events until it is finally able to escape (Figure :num:`fig-plastic-intscat-c`).
-Due to the mathematical simplicity of this setup, it is possible to work
-out the correct form of the model without actually having to simulate
-the potentially large number of internal scattering events.
-Note that due to the internal scattering, the diffuse color of the
-material is in practice slightly different from the color of the
-base layer on its own---in particular, the material color will tend to shift towards
-darker colors with higher saturation. Since this can be counter-intuitive when
-using bitmap textures, these color shifts are disabled by default. Specify
-the parameter :code:`nonlinear=true` to enable them. Figure :num:`fig-bsdf-plastic-nonlinear`
-illustrates the resulting change. This effect is also seen in real life,
+This effect is also seen in real life,
 for instance a piece of wood will look slightly darker after coating it
 with a layer of varnish.
+
 */
 
 template <typename Float, typename Spectrum>
@@ -146,8 +146,10 @@ public:
 
         m_eta = int_ior / ext_ior;
 
-        m_specular_reflectance = props.texture<Texture>("specular_reflectance", 1.f);
         m_diffuse_reflectance  = props.texture<Texture>("diffuse_reflectance", .5f);
+
+        if (props.has_property("specular_reflectance"))
+            m_specular_reflectance = props.texture<Texture>("specular_reflectance", 1.f);
 
         m_nonlinear = props.bool_("nonlinear", false);
 
@@ -167,7 +169,10 @@ public:
 
         // Compute weights that further steer samples towards the specular or diffuse components
         ScalarFloat d_mean = m_diffuse_reflectance->mean(),
-                    s_mean = m_specular_reflectance->mean();
+                    s_mean = 1.f;
+
+        if (m_specular_reflectance)
+            s_mean = m_specular_reflectance->mean();
 
         m_specular_sampling_weight = s_mean / (d_mean + s_mean);
     }
@@ -186,7 +191,7 @@ public:
         active &= cos_theta_i > 0.f;
 
         BSDFSample3f bs = zero<BSDFSample3f>();
-        Spectrum result(0.f);
+        UnpolarizedSpectrum result(0.f);
         if (unlikely((!has_specular && !has_diffuse) || none_or<false>(active)))
             return { bs, result };
 
@@ -214,8 +219,10 @@ public:
             masked(bs.sampled_component, sample_specular) = 0;
             masked(bs.sampled_type, sample_specular) = +BSDFFlags::DeltaReflection;
 
-            Spectrum spec = m_specular_reflectance->eval(si, sample_specular) * f_i / bs.pdf;
-            masked(result, sample_specular) = spec;
+            UnpolarizedSpectrum value = f_i / bs.pdf;
+            if (m_specular_reflectance)
+                value *= m_specular_reflectance->eval(si, sample_specular);
+            result[sample_specular] = value;
         }
 
         if (any_or<true>(sample_diffuse)) {
@@ -225,11 +232,10 @@ public:
             masked(bs.sampled_type, sample_diffuse) = +BSDFFlags::DiffuseReflection;
 
             Float f_o = std::get<0>(fresnel(Frame3f::cos_theta(bs.wo), Float(m_eta)));
-            // TODO: handle polarization instead of discarding it here
-            UnpolarizedSpectrum diff = depolarize(m_diffuse_reflectance->eval(si, sample_diffuse));
-            diff /= 1.f - (m_nonlinear ? (diff * m_fdr_int) : m_fdr_int);
-            diff *= m_inv_eta_2 * (1.f - f_i) * (1.f - f_o) / prob_diffuse;
-            masked(result, sample_diffuse) = diff;
+            UnpolarizedSpectrum value = m_diffuse_reflectance->eval(si, sample_diffuse);
+            value /= 1.f - (m_nonlinear ? (value * m_fdr_int) : m_fdr_int);
+            value *= m_inv_eta_2 * (1.f - f_i) * (1.f - f_o) / prob_diffuse;
+            result[sample_diffuse] = value;
         }
 
         return { bs, unpolarized<Spectrum>(result) };
@@ -252,8 +258,7 @@ public:
         Float f_i = std::get<0>(fresnel(cos_theta_i, Float(m_eta))),
               f_o = std::get<0>(fresnel(cos_theta_o, Float(m_eta)));
 
-        // TODO: handle polarization instead of discarding it here
-        UnpolarizedSpectrum diff = depolarize(m_diffuse_reflectance->eval(si, active));
+        UnpolarizedSpectrum diff = m_diffuse_reflectance->eval(si, active);
         diff /= 1.f - (m_nonlinear ? (diff * m_fdr_int) : m_fdr_int);
 
         diff *= warp::square_to_cosine_hemisphere_pdf(wo) *
@@ -291,16 +296,20 @@ public:
     void traverse(TraversalCallback *callback) override {
         callback->put_parameter("eta", m_eta);
         callback->put_object("diffuse_reflectance", m_diffuse_reflectance.get());
-        callback->put_object("specular_reflectance", m_specular_reflectance.get());
+
+        if (m_specular_reflectance)
+            callback->put_object("specular_reflectance", m_specular_reflectance.get());
     }
 
     std::string to_string() const override {
         std::ostringstream oss;
         oss << "SmoothPlastic[" << std::endl
-            << "  specular_reflectance = "     << m_specular_reflectance              << "," << std::endl
-            << "  diffuse_reflectance = "      << m_diffuse_reflectance               << "," << std::endl
-            << "  specular_sampling_weight = " << m_specular_sampling_weight          << "," << std::endl
-            << "  specular_sampling_weight = " << (1.f - m_specular_sampling_weight)  << "," << std::endl
+            << "  diffuse_reflectance = "      << m_diffuse_reflectance               << "," << std::endl;
+
+        if (m_specular_reflectance)
+            oss << "  specular_reflectance = "     << m_specular_reflectance              << "," << std::endl;
+
+        oss << "  specular_sampling_weight = " << m_specular_sampling_weight          << "," << std::endl
             << "  nonlinear = "                << (int) m_nonlinear                   << "," << std::endl
             << "  eta = "                      << m_eta                               << "," << std::endl
             << "  fdr_int = "                  << m_fdr_int                           << "," << std::endl
@@ -313,8 +322,10 @@ public:
 private:
     ref<Texture> m_diffuse_reflectance;
     ref<Texture> m_specular_reflectance;
-    ScalarFloat m_eta, m_inv_eta_2;
-    ScalarFloat m_fdr_int, m_fdr_ext;
+    ScalarFloat m_eta;
+    ScalarFloat m_inv_eta_2;
+    ScalarFloat m_fdr_int;
+    ScalarFloat m_fdr_ext;
     ScalarFloat m_specular_sampling_weight;
     bool m_nonlinear;
 };

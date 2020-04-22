@@ -1,11 +1,17 @@
 Debugging
 =========
 
-When debugging Mitsuba using `LLDB <https://lldb.llvm.org/>`_ or `GDB
-<https://www.gnu.org/software/gdb/>`_, the stringified versions of vectors and
-spectra are needlessly verbose and reveal various private implementation
-details of the Enoki library. For instance, printing a simple statically sized
-3D vector like ``Array<float, 3>(1, 2, 3)`` in LLDB yields
+We generally recommend Mitsuba's ``scalar_*`` variants for tracking down
+compilation errors and debugging misbehaving code (see the section on
+:ref:`variants <sec-variants>` for details). These variants make minimal use of
+nested C++ templates, which reduces the length of compiler error messages and
+facilitates the use of debuggers like `LLDB <https://lldb.llvm.org/>`_ or `GDB
+<https://www.gnu.org/software/gdb/>`_.
+
+When using a debugger, the stringified versions of vectors and spectra are
+needlessly verbose and reveal various private implementation details of the
+Enoki library. For instance, printing a simple statically sized 3D vector like
+``Vector3f(1, 2, 3)`` in LLDB yields
 
 .. code-block:: text
 
@@ -17,7 +23,8 @@ details of the Enoki library. For instance, printing a simple statically sized
       }
     }
 
-Dynamic arrays (e.g. ``FloatX(1, 2, 3)``) are even worse, as the values are
+Dynamic arrays used in vectorized backends (e.g.
+``DynamicArray<Packet<Float>>(1, 2, 3)``) are even worse, as the values are
 obscured behind a pointer:
 
 .. code-block:: text

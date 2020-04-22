@@ -48,10 +48,10 @@
     #      scene has to be up-sampled into plausible equivalent spectra
     #      in this case.
     #
-    #    - 'spectral_polarized': Building on the properties of the 'spectral'
-    #      variant, additionally keep track of the polarization state of
-    #      light. Builtin materials based on specular reflection and refraction
-    #      will also switch to the polarized form of the Fresnel equations.
+    #  Each color mode can additionally have the suffix "_polarized", in which
+    #  case Mitsuba will additionally keep track of the polarization state of
+    #  light. Builtin materials based on specular reflection and refraction
+    #  will also switch to the polarized form of the Fresnel equations.
     #
     # 3. Precision
     #
@@ -69,6 +69,7 @@
     # 'spectrum' C++ types.
 
     "enabled": [
+        # The "scalar_rgb" variant *must* be included at the moment.
         "scalar_rgb",
         "scalar_spectral"
     ],
@@ -77,6 +78,17 @@
     # the configuration below will be used by default
 
     "default": "scalar_spectral",
+
+    # The variant below will automatically be set when importing the Python
+    # mitsuba module. If the value is "", the desired variant will need to be
+    # specified using "mitsuba.set_variant(..)" before importing any packages.
+
+    "python-default": "",
+
+    # -------------------------------------------------------------
+    # The remainder of this file defines the variants and does not
+    # need to be edited (unless you wish to create new variants).
+    # -------------------------------------------------------------
 
     # Scalar variant definitions
 
@@ -108,6 +120,16 @@
     "scalar_rgb_double": {
         "float": "double",
         "spectrum": "Color<Float, 3>"
+    },
+
+    "scalar_rgb_polarized": {
+        "float": "float",
+        "spectrum": "MuellerMatrix<Color<Float, 3>>"
+    },
+
+    "scalar_rgb_polarized_double": {
+        "float": "double",
+        "spectrum": "MuellerMatrix<Color<Float, 3>>"
     },
 
     "scalar_spectral": {
@@ -162,6 +184,16 @@
         "spectrum": "Color<Float, 3>"
     },
 
+    "packet_rgb_polarized": {
+        "float": "Packet<float>",
+        "spectrum": "MuellerMatrix<Color<Float, 3>>"
+    },
+
+    "packet_rgb_polarized_double": {
+        "float": "Packet<double>",
+        "spectrum": "MuellerMatrix<Color<Float, 3>>"
+    },
+
     "packet_spectral": {
         "float": "Packet<float>",
         "spectrum": "Spectrum<Float, 4>"
@@ -190,9 +222,19 @@
         "spectrum": "Color<Float, 1>"
     },
 
+    "gpu_mono_polarized": {
+        "float": "CUDAArray<float>",
+        "spectrum": "MuellerMatrix<Color<Float, 1>>"
+    },
+
     "gpu_rgb": {
         "float": "CUDAArray<float>",
         "spectrum": "Color<Float, 3>"
+    },
+
+    "gpu_rgb_polarized": {
+        "float": "CUDAArray<float>",
+        "spectrum": "MuellerMatrix<Color<Float, 3>>"
     },
 
     "gpu_spectral": {
@@ -210,9 +252,19 @@
         "spectrum": "Color<Float, 1>"
     },
 
+    "gpu_autodiff_mono_polarized": {
+        "float": "DiffArray<CUDAArray<float>>",
+        "spectrum": "MuellerMatrix<Color<Float, 1>>"
+    },
+
     "gpu_autodiff_rgb": {
         "float": "DiffArray<CUDAArray<float>>",
         "spectrum": "Color<Float, 3>"
+    },
+
+    "gpu_autodiff_rgb_polarized": {
+        "float": "DiffArray<CUDAArray<float>>",
+        "spectrum": "MuellerMatrix<Color<Float, 3>>"
     },
 
     "gpu_autodiff_spectral": {

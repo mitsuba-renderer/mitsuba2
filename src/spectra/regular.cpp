@@ -5,7 +5,18 @@
 
 NAMESPACE_BEGIN(mitsuba)
 
-/// Linear interpolant of a regularly sampled spectrum
+/**!
+
+.. _spectrum-regular:
+
+Regular spectrum (:monosp:`regular`)
+------------------------------------
+
+This spectrum returns linearly interpolated reflectance or emission values from *regularly*
+placed samples.
+
+ */
+
 template <typename Float, typename Spectrum>
 class RegularSpectrum final : public Texture<Float, Spectrum> {
 public:
@@ -79,8 +90,10 @@ public:
 
         if constexpr (is_spectral_v<Spectrum>)
             return { m_distr.sample(sample, active), m_distr.integral() };
-        else
+        else {
+            ENOKI_MARK_USED(sample);
             NotImplementedError("sample");
+        }
     }
 
     ScalarFloat mean() const override {

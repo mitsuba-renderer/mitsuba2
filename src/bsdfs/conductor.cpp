@@ -2,6 +2,7 @@
 #include <mitsuba/core/warp.h>
 #include <mitsuba/render/bsdf.h>
 #include <mitsuba/render/fresnel.h>
+#include <mitsuba/render/ior.h>
 #include <mitsuba/render/texture.h>
 
 NAMESPACE_BEGIN(mitsuba)
@@ -15,9 +16,12 @@ Smooth conductor (:monosp:`conductor`)
 
 .. pluginparameters::
 
+ * - material
+   - |string|
+   - Name of the material preset, see :num:`conductor-ior-list`. (Default: none)
  * - eta, k
    - |spectrum| or |texture|
-   - Real and imaginary components of the material's index of refraction. (Default: 0.0/1.0)
+   - Real and imaginary components of the material's index of refraction. (Default: based on the value of :paramtype:`material`)
  * - specular_reflectance
    - |spectrum| or |texture|
    - Optional factor that can be used to modulate the specular reflection component.
@@ -32,32 +36,158 @@ Smooth conductor (:monosp:`conductor`)
     :label: fig-bsdf-conductor
 
 This plugin implements a perfectly smooth interface to a conducting material,
-such as a metal. For a similar model that instead describes a rough surface
-microstructure, take a look at the separately available
-:ref:`bsdf-roughconductor` plugin.
+such as a metal that is described using a Dirac delta distribution. For a
+similar model that instead describes a rough surface microstructure, take a look
+at the separately available :ref:`roughconductor <bsdf-roughconductor>` plugin.
 In contrast to dielectric materials, conductors do not transmit
 any light. Their index of refraction is complex-valued and tends to undergo
 considerable changes throughout the visible color spectrum.
 
-When using this plugin, you should ideally one of the :monosp:`spectral` modes
-of the renderer to get the most accurate results. While it also works
+When using this plugin, you should ideally enable one of the :monosp:`spectral`
+modes of the renderer to get the most accurate results. While it also works
 in RGB mode, the computations will be more approximate in nature.
 Also note that this material is one-sided---that is, observed from the
 back side, it will be completely black. If this is undesirable,
-consider using the :ref:`bsdf-twosided` BRDF adapter plugin.
+consider using the :ref:`twosided <bsdf-twosided>` BRDF adapter plugin.
 
-The following XML snippet describes a material definition for aluminium:
+The following XML snippet describes a material definition for gold:
 
 .. code-block:: xml
-    :name: lst-conductor-aluminium
+    :name: lst-conductor-gold
 
     <bsdf type="conductor">
-        <spectrum name="eta" value="0.789000"/>
-        <spectrum name="k" value="6.150000"/>
+        <string name="material" value="Au"/>
+    </bsdf>
+
+It is also possible to load spectrally varying index of refraction data from
+two external files containing the real and imaginary components,
+respectively (see :ref:`Scene format <sec-file-format>` for details on the file format):
+
+.. code-block:: xml
+    :name: lst-conductor-files
+
+    <bsdf type="conductor">
+        <spectrum name="eta" filename="conductorIOR.eta.spd"/>
+        <spectrum name="k" filename="conductorIOR.k.spd"/>
     </bsdf>
 
 In *polarized* rendering modes, the material automatically switches to a polarized
-implementation of the Fresnel equations.
+implementation of the underlying Fresnel equations.
+
+To facilitate the tedious task of specifying spectrally-varying index of
+refraction information, Mitsuba 2 ships with a set of measured data for several
+materials, where visible-spectrum information was publicly
+available:
+
+.. figtable::
+    :label: conductor-ior-list
+    :caption: This table lists all supported materials that can be passed into the
+       :ref:`conductor <bsdf-conductor>` and :ref:`roughconductor <bsdf-roughconductor>`
+       plugins. Note that some of them are not actually conductors---this is not a
+       problem, they can be used regardless (though only the reflection component
+       and no transmission will be simulated). In most cases, there are multiple
+       entries for each material, which represent measurements by different
+       authors.
+    :alt: List table
+
+    .. list-table::
+        :widths: 15 30 15 30
+        :header-rows: 1
+
+        * - Preset(s)
+          - Description
+          - Preset(s)
+          - Description
+        * - :paramtype:`a-C`
+          - Amorphous carbon
+          - :paramtype:`Na_palik`
+          - Sodium
+        * - :paramtype:`Ag`
+          - Silver
+          - :paramtype:`Nb`, :paramtype:`Nb_palik`
+          - Niobium
+        * - :paramtype:`Al`
+          - Aluminium
+          - :paramtype:`Ni_palik`
+          - Nickel
+        * - :paramtype:`AlAs`, :paramtype:`AlAs_palik`
+          - Cubic aluminium arsenide
+          - :paramtype:`Rh`, :paramtype:`Rh_palik`
+          - Rhodium
+        * - :paramtype:`AlSb`, :paramtype:`AlSb_palik`
+          - Cubic aluminium antimonide
+          - :paramtype:`Se`, :paramtype:`Se_palik`
+          - Selenium
+        * - :paramtype:`Au`
+          - Gold
+          - :paramtype:`SiC`, :paramtype:`SiC_palik`
+          - Hexagonal silicon carbide
+        * - :paramtype:`Be`, :paramtype:`Be_palik`
+          - Polycrystalline beryllium
+          - :paramtype:`SnTe`, :paramtype:`SnTe_palik`
+          - Tin telluride
+        * - :paramtype:`Cr`
+          - Chromium
+          - :paramtype:`Ta`, :paramtype:`Ta_palik`
+          - Tantalum
+        * - :paramtype:`CsI`, :paramtype:`CsI_palik`
+          - Cubic caesium iodide
+          - :paramtype:`Te`, :paramtype:`Te_palik`
+          - Trigonal tellurium
+        * - :paramtype:`Cu`, :paramtype:`Cu_palik`
+          - Copper
+          - :paramtype:`ThF4`, :paramtype:`ThF4_palik`
+          - Polycryst. thorium (IV) fluoride
+        * - :paramtype:`Cu2O`, :paramtype:`Cu2O_palik`
+          - Copper (I) oxide
+          - :paramtype:`TiC`, :paramtype:`TiC_palik`
+          - Polycrystalline titanium carbide
+        * - :paramtype:`CuO`, :paramtype:`CuO_palik`
+          - Copper (II) oxide
+          - :paramtype:`TiN`, :paramtype:`TiN_palik`
+          - Titanium nitride
+        * - :paramtype:`d-C`, :paramtype:`d-C_palik`
+          - Cubic diamond
+          - :paramtype:`TiO2`, :paramtype:`TiO2_palik`
+          - Tetragonal titan. dioxide
+        * - :paramtype:`Hg`, :paramtype:`Hg_palik`
+          - Mercury
+          - :paramtype:`VC`, :paramtype:`VC_palik`
+          - Vanadium carbide
+        * - :paramtype:`HgTe`, :paramtype:`HgTe_palik`
+          - Mercury telluride
+          - :paramtype:`V_palik`
+          - Vanadium
+        * - :paramtype:`Ir`, :paramtype:`Ir_palik`
+          - Iridium
+          - :paramtype:`VN`, :paramtype:`VN_palik`
+          - Vanadium nitride
+        * - :paramtype:`K`, :paramtype:`K_palik`
+          - Polycrystalline potassium
+          - :paramtype:`W`
+          - Tungsten
+        * - :paramtype:`Li`, :paramtype:`Li_palik`
+          - Lithium
+          -
+          -
+        * - :paramtype:`MgO`, :paramtype:`MgO_palik`
+          - Magnesium oxide
+          -
+          -
+        * - :paramtype:`Mo`, :paramtype:`Mo_palik`
+          - Molybdenum
+          - :paramtype:`none`
+          - No mat. profile (100% reflecting mirror)
+
+These index of refraction values are identical to the data distributed
+with PBRT. They are originally from the `Luxpop database <http://www.luxpop.com>`_
+and are based on data by Palik et al. :cite:`Palik1998Handbook` and measurements
+of atomic scattering factors made by the Center For X-Ray Optics (CXRO) at
+Berkeley and the Lawrence Livermore National Laboratory (LLNL).
+
+There is also a special material profile named :paramtype:`none`, which disables
+the computation of Fresnel reflectances and produces an idealized
+100% reflecting mirror.
 
  */
 
@@ -73,8 +203,15 @@ public:
 
         m_specular_reflectance = props.texture<Texture>("specular_reflectance", 1.f);
 
-        m_eta = props.texture<Texture>("eta", 0.f);
-        m_k   = props.texture<Texture>("k",   1.f);
+        std::string material = props.string("material", "none");
+        if (props.has_property("eta") || material == "none") {
+            m_eta = props.texture<Texture>("eta", 0.f);
+            m_k   = props.texture<Texture>("k",   1.f);
+            if (material != "none")
+                Throw("Should specify either (eta, k) or material, not both.");
+        } else {
+            std::tie(m_eta, m_k) = complex_ior_from_file<Spectrum, Texture>(props.string("material", "Cu"));
+        }
     }
 
     std::pair<BSDFSample3f, Spectrum> sample(const BSDFContext &ctx,

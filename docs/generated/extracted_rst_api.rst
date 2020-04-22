@@ -1,6 +1,6 @@
 .. py:class:: mitsuba.core.AnimatedTransform
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Encapsulates an animated 4x4 homogeneous coordinate transformation
 
@@ -15,7 +15,7 @@
 
     .. py:method:: __init__(self, arg0)
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Transform4f`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Transform4f`):
             *no description available*
 
     .. py:method:: mitsuba.core.AnimatedTransform.append(overloaded)
@@ -28,12 +28,12 @@
             Parameter ``arg0`` (float):
                 *no description available*
 
-            Parameter ``arg1`` (:py:class:`mitsuba.core.Transform4f`):
+            Parameter ``arg1`` (:py:obj:`mitsuba.core.Transform4f`):
                 *no description available*
 
         .. py:method:: append(self, arg0)
 
-            Parameter ``arg0`` (:py:class:`mitsuba.core.AnimatedTransform.Keyframe`):
+            Parameter ``arg0`` (:py:obj:`mitsuba.core.AnimatedTransform.Keyframe`):
                 *no description available*
 
     .. py:method:: mitsuba.core.AnimatedTransform.eval(self, time, unused=True)
@@ -47,7 +47,7 @@
         Parameter ``unused`` (bool):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Transform4f`:
+        Returns → :py:obj:`mitsuba.core.Transform4f`:
             *no description available*
 
     .. py:method:: mitsuba.core.AnimatedTransform.has_scale(self)
@@ -69,12 +69,12 @@
         Return an axis-aligned box bounding the amount of translation
         throughout the animation sequence
 
-        Returns → :py:class:`mitsuba.core.BoundingBox3f`:
+        Returns → :py:obj:`mitsuba.core.BoundingBox3f`:
             *no description available*
 
 .. py:class:: mitsuba.core.Appender
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     This class defines an abstract destination for logging-relevant
     information
@@ -86,7 +86,7 @@
 
         Append a line of text with the given log level
 
-        Parameter ``level`` (:py:class:`mitsuba.core.LogLevel`):
+        Parameter ``level`` (:py:obj:`mitsuba.core.LogLevel`):
             *no description available*
 
         Parameter ``text`` (str):
@@ -160,7 +160,7 @@
             Parameter ``prefix`` (str):
                 *no description available*
 
-            Returns → :py:class:`mitsuba.core.ArgParser.Arg`:
+            Returns → :py:obj:`mitsuba.core.ArgParser.Arg`:
                 *no description available*
 
         .. py:method:: add(self, prefixes, extra=False)
@@ -173,7 +173,7 @@
             Parameter ``extra`` (bool):
                 Indicates whether the argument accepts an extra argument value
 
-            Returns → :py:class:`mitsuba.core.ArgParser.Arg`:
+            Returns → :py:obj:`mitsuba.core.ArgParser.Arg`:
                 *no description available*
 
     .. py:method:: mitsuba.core.ArgParser.executable_name(self)
@@ -211,7 +211,7 @@
         
 .. py:class:: mitsuba.core.Bitmap
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     General-purpose bitmap class with read and write support for several
     common file formats.
@@ -229,10 +229,10 @@
         Create a bitmap of the specified type and allocate the necessary
         amount of memory
 
-        Parameter ``pixel_format`` (:py:class:`mitsuba.core.Bitmap.PixelFormat`):
+        Parameter ``pixel_format`` (:py:obj:`mitsuba.core.Bitmap.PixelFormat`):
             Specifies the pixel format (e.g. RGBA or Luminance-only)
 
-        Parameter ``component_format`` (:py:class:`mitsuba.core.Struct.Type`):
+        Parameter ``component_format`` (:py:obj:`mitsuba.core.Struct.Type`):
             Specifies how the per-pixel components are encoded (e.g. unsigned
             8 bit integers or 32-bit floating point values). The component
             format struct_type_v<Float> will be translated to the
@@ -261,23 +261,23 @@
 
     .. py:method:: __init__(self, arg0)
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Bitmap`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Bitmap`):
             *no description available*
 
     .. py:method:: __init__(self, path, format=FileFormat.Auto)
 
-        Parameter ``path`` (:py:class:`mitsuba.core.filesystem.path`):
+        Parameter ``path`` (:py:obj:`mitsuba.core.filesystem.path`):
             *no description available*
 
-        Parameter ``format`` (:py:class:`mitsuba.core.Bitmap.FileFormat`):
+        Parameter ``format`` (:py:obj:`mitsuba.core.Bitmap.FileFormat`):
             *no description available*
 
     .. py:method:: __init__(self, stream, format=FileFormat.Auto)
 
-        Parameter ``stream`` (:py:class:`mitsuba.core.Stream`):
+        Parameter ``stream`` (:py:obj:`mitsuba.core.Stream`):
             *no description available*
 
-        Parameter ``format`` (:py:class:`mitsuba.core.Bitmap.FileFormat`):
+        Parameter ``format`` (:py:obj:`mitsuba.core.Bitmap.FileFormat`):
             *no description available*
 
     .. py:class:: mitsuba.core.Bitmap.FileFormat
@@ -449,7 +449,7 @@
                 This function throws an exception when the bitmaps use different
                 component formats or channels.
 
-            Parameter ``bitmap`` (:py:class:`mitsuba.core.Bitmap`):
+            Parameter ``bitmap`` (:py:obj:`mitsuba.core.Bitmap`):
                 *no description available*
 
             Parameter ``source_offset`` (enoki.scalar.Vector2i):
@@ -475,7 +475,7 @@
                 This function throws an exception when the bitmaps use different
                 component formats or channels.
 
-            Parameter ``bitmap`` (:py:class:`mitsuba.core.Bitmap`):
+            Parameter ``bitmap`` (:py:obj:`mitsuba.core.Bitmap`):
                 *no description available*
 
             Parameter ``target_offset`` (enoki.scalar.Vector2i):
@@ -495,7 +495,7 @@
                 This function throws an exception when the bitmaps use different
                 component formats or channels.
 
-            Parameter ``bitmap`` (:py:class:`mitsuba.core.Bitmap`):
+            Parameter ``bitmap`` (:py:obj:`mitsuba.core.Bitmap`):
                 *no description available*
 
     .. py:method:: mitsuba.core.Bitmap.buffer_size(self)
@@ -530,7 +530,7 @@
 
         Return the component format of this bitmap
 
-        Returns → :py:class:`mitsuba.core.Struct.Type`:
+        Returns → :py:obj:`mitsuba.core.Struct.Type`:
             *no description available*
 
     .. py:method:: mitsuba.core.Bitmap.convert(overloaded)
@@ -580,31 +580,31 @@
             srgb_gamma Specifies whether a sRGB gamma ramp should be applied to
             the ouutput values.
 
-            Parameter ``pixel_format`` (:py:class:`mitsuba.core.Bitmap.PixelFormat`):
+            Parameter ``pixel_format`` (:py:obj:`mitsuba.core.Bitmap.PixelFormat`):
                 *no description available*
 
-            Parameter ``component_format`` (:py:class:`mitsuba.core.Struct.Type`):
+            Parameter ``component_format`` (:py:obj:`mitsuba.core.Struct.Type`):
                 *no description available*
 
             Parameter ``srgb_gamma`` (bool):
                 *no description available*
 
-            Returns → :py:class:`mitsuba.core.Bitmap`:
+            Returns → :py:obj:`mitsuba.core.Bitmap`:
                 *no description available*
 
         .. py:method:: convert(self, target)
 
-            Parameter ``target`` (:py:class:`mitsuba.core.Bitmap`):
+            Parameter ``target`` (:py:obj:`mitsuba.core.Bitmap`):
                 *no description available*
 
     .. py:method:: mitsuba.core.Bitmap.detect_file_format(arg0)
 
         Attempt to detect the bitmap file format in a given stream
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Stream`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Stream`):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Bitmap.FileFormat`:
+        Returns → :py:obj:`mitsuba.core.Bitmap.FileFormat`:
             *no description available*
 
     .. py:method:: mitsuba.core.Bitmap.has_alpha(self)
@@ -625,7 +625,7 @@
 
         Return a Properties object containing the image metadata
 
-        Returns → :py:class:`mitsuba.core.Properties`:
+        Returns → :py:obj:`mitsuba.core.Properties`:
             *no description available*
 
     .. py:method:: mitsuba.core.Bitmap.pixel_count(self)
@@ -639,7 +639,7 @@
 
         Return the pixel format of this bitmap
 
-        Returns → :py:class:`mitsuba.core.Bitmap.PixelFormat`:
+        Returns → :py:obj:`mitsuba.core.Bitmap.PixelFormat`:
             *no description available*
 
     .. py:method:: mitsuba.core.Bitmap.resample(overloaded)
@@ -661,10 +661,10 @@
             resolution ``Vector2u(target->width(), this->height())`` to avoid
             intermediate memory allocations.
 
-            Parameter ``target`` (:py:class:`mitsuba.core.Bitmap`):
+            Parameter ``target`` (:py:obj:`mitsuba.core.Bitmap`):
                 Pre-allocated bitmap of the desired target resolution
 
-            Parameter ``rfilter`` (:py:class:`mitsuba.render.ReconstructionFilter`):
+            Parameter ``rfilter`` (:py:obj:`mitsuba.render.ReconstructionFilter`):
                 A separable image reconstruction filter (default: 2-lobe Lanczos
                 filter)
 
@@ -675,10 +675,10 @@
                 Filtered image pixels will be clamped to the following range.
                 Default: -infinity..infinity (i.e. no clamping is used)
 
-            Parameter ``temp`` (:py:class:`mitsuba.core.Bitmap`):
+            Parameter ``temp`` (:py:obj:`mitsuba.core.Bitmap`):
                 Optional: image for intermediate computations
 
-            Parameter ``bc`` (Tuple[:py:class:`mitsuba.core.FilterBoundaryCondition`, :py:class:`mitsuba.core.FilterBoundaryCondition`]):
+            Parameter ``bc`` (Tuple[:py:obj:`mitsuba.core.FilterBoundaryCondition`, :py:obj:`mitsuba.core.FilterBoundaryCondition`]):
                 *no description available*
 
         .. py:method:: resample(self, res, rfilter=None, bc=(FilterBoundaryCondition.Clamp, FilterBoundaryCondition.Clamp), clamp=(-inf, inf))
@@ -700,7 +700,7 @@
             Parameter ``res`` (enoki.scalar.Vector2u):
                 Desired output resolution
 
-            Parameter ``rfilter`` (:py:class:`mitsuba.render.ReconstructionFilter`):
+            Parameter ``rfilter`` (:py:obj:`mitsuba.render.ReconstructionFilter`):
                 A separable image reconstruction filter (default: 2-lobe Lanczos
                 filter)
 
@@ -711,10 +711,10 @@
                 Filtered image pixels will be clamped to the following range.
                 Default: -infinity..infinity (i.e. no clamping is used)
 
-            Parameter ``bc`` (Tuple[:py:class:`mitsuba.core.FilterBoundaryCondition`, :py:class:`mitsuba.core.FilterBoundaryCondition`]):
+            Parameter ``bc`` (Tuple[:py:obj:`mitsuba.core.FilterBoundaryCondition`, :py:obj:`mitsuba.core.FilterBoundaryCondition`]):
                 *no description available*
 
-            Returns → :py:class:`mitsuba.core.Bitmap`:
+            Returns → :py:obj:`mitsuba.core.Bitmap`:
                 *no description available*
 
     .. py:method:: mitsuba.core.Bitmap.set_srgb_gamma(self, arg0)
@@ -739,7 +739,7 @@
         Split an multi-channel image buffer (e.g. from an OpenEXR image with
         lots of AOVs) into its constituent layers
 
-        Returns → List[Tuple[str, :py:class:`mitsuba.core.Bitmap`]]:
+        Returns → List[Tuple[str, :py:obj:`mitsuba.core.Bitmap`]]:
             *no description available*
 
     .. py:method:: mitsuba.core.Bitmap.srgb_gamma(self)
@@ -754,7 +754,7 @@
         Return a ``Struct`` instance describing the contents of the bitmap
         (const version)
 
-        Returns → :py:class:`mitsuba.core.Struct`:
+        Returns → :py:obj:`mitsuba.core.Struct`:
             *no description available*
 
     .. py:method:: mitsuba.core.Bitmap.vflip(self)
@@ -779,10 +779,10 @@
             Write an encoded form of the bitmap to a stream using the specified
             file format
 
-            Parameter ``stream`` (:py:class:`mitsuba.core.Stream`):
+            Parameter ``stream`` (:py:obj:`mitsuba.core.Stream`):
                 Target stream that will receive the encoded output
 
-            Parameter ``format`` (:py:class:`mitsuba.core.Bitmap.FileFormat`):
+            Parameter ``format`` (:py:obj:`mitsuba.core.Bitmap.FileFormat`):
                 Target file format (OpenEXR, PNG, etc.) Detected from the filename
                 by default.
 
@@ -811,7 +811,7 @@
             Parameter ``stream``:
                 Target stream that will receive the encoded output
 
-            Parameter ``format`` (:py:class:`mitsuba.core.Bitmap.FileFormat`):
+            Parameter ``format`` (:py:obj:`mitsuba.core.Bitmap.FileFormat`):
                 Target file format (FileFormat::OpenEXR, FileFormat::PNG, etc.)
                 Detected from the filename by default.
 
@@ -832,8 +832,24 @@
               (-1) causes the implementation to switch to the lossless PIZ
               compressor.
 
-            Parameter ``path`` (:py:class:`mitsuba.core.filesystem.path`):
+            Parameter ``path`` (:py:obj:`mitsuba.core.filesystem.path`):
                 *no description available*
+
+    .. py:method:: mitsuba.core.Bitmap.write_async(self, path, format=FileFormat.Auto, quality=-1)
+
+        Equivalent to \ref write(), but executes asynchronously on a different thread
+
+        Parameter ``path`` (:py:obj:`mitsuba.core.filesystem.path`):
+            *no description available*
+
+        Parameter ``format`` (:py:obj:`mitsuba.core.Bitmap.FileFormat`):
+            *no description available*
+
+        Parameter ``quality`` (int):
+            *no description available*
+
+        Returns → None:
+            *no description available*
 
 .. py:class:: mitsuba.core.BoundingBox2f
 
@@ -885,7 +901,7 @@
 
         Copy constructor
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.BoundingBox2f`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.BoundingBox2f`):
             *no description available*
 
     .. py:method:: mitsuba.core.BoundingBox2f.center(self)
@@ -899,7 +915,7 @@
 
         Clip this bounding box to another bounding box
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.BoundingBox2f`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.BoundingBox2f`):
             *no description available*
 
         Returns → None:
@@ -954,7 +970,7 @@
                 In the Python bindings, the 'Strict' argument is a normal function
                 parameter with default value ``False``.
 
-            Parameter ``bbox`` (:py:class:`mitsuba.core.BoundingBox2f`):
+            Parameter ``bbox`` (:py:obj:`mitsuba.core.BoundingBox2f`):
                 *no description available*
 
             Parameter ``strict`` (bool):
@@ -992,7 +1008,7 @@
             Calculate the shortest distance between the axis-aligned bounding box
             and ``bbox``.
 
-            Parameter ``arg0`` (:py:class:`mitsuba.core.BoundingBox2f`):
+            Parameter ``arg0`` (:py:obj:`mitsuba.core.BoundingBox2f`):
                 *no description available*
 
             Returns → float:
@@ -1012,7 +1028,7 @@
 
             Expand the bounding box to contain another bounding box
 
-            Parameter ``arg0`` (:py:class:`mitsuba.core.BoundingBox2f`):
+            Parameter ``arg0`` (:py:obj:`mitsuba.core.BoundingBox2f`):
                 *no description available*
 
     .. py:method:: mitsuba.core.BoundingBox2f.extents(self)
@@ -1033,13 +1049,13 @@
 
         Merge two bounding boxes
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.BoundingBox2f`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.BoundingBox2f`):
             *no description available*
 
-        Parameter ``arg1`` (:py:class:`mitsuba.core.BoundingBox2f`):
+        Parameter ``arg1`` (:py:obj:`mitsuba.core.BoundingBox2f`):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.BoundingBox2f`:
+        Returns → :py:obj:`mitsuba.core.BoundingBox2f`:
             *no description available*
 
     .. py:method:: mitsuba.core.BoundingBox2f.minor_axis(self)
@@ -1061,7 +1077,7 @@
             In the Python bindings, the 'Strict' argument is a normal function
             parameter with default value ``False``.
 
-        Parameter ``bbox`` (:py:class:`mitsuba.core.BoundingBox2f`):
+        Parameter ``bbox`` (:py:obj:`mitsuba.core.BoundingBox2f`):
             *no description available*
 
         Parameter ``strict`` (bool):
@@ -1099,7 +1115,7 @@
             Calculate the shortest squared distance between the axis-aligned
             bounding box and ``bbox``.
 
-            Parameter ``arg0`` (:py:class:`mitsuba.core.BoundingBox2f`):
+            Parameter ``arg0`` (:py:obj:`mitsuba.core.BoundingBox2f`):
                 *no description available*
 
             Returns → float:
@@ -1185,7 +1201,7 @@
 
         Copy constructor
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.BoundingBox3f`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.BoundingBox3f`):
             *no description available*
 
     .. py:method:: mitsuba.core.BoundingBox3f.center(self)
@@ -1199,7 +1215,7 @@
 
         Clip this bounding box to another bounding box
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.BoundingBox3f`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.BoundingBox3f`):
             *no description available*
 
         Returns → None:
@@ -1254,7 +1270,7 @@
                 In the Python bindings, the 'Strict' argument is a normal function
                 parameter with default value ``False``.
 
-            Parameter ``bbox`` (:py:class:`mitsuba.core.BoundingBox3f`):
+            Parameter ``bbox`` (:py:obj:`mitsuba.core.BoundingBox3f`):
                 *no description available*
 
             Parameter ``strict`` (bool):
@@ -1292,7 +1308,7 @@
             Calculate the shortest distance between the axis-aligned bounding box
             and ``bbox``.
 
-            Parameter ``arg0`` (:py:class:`mitsuba.core.BoundingBox3f`):
+            Parameter ``arg0`` (:py:obj:`mitsuba.core.BoundingBox3f`):
                 *no description available*
 
             Returns → float:
@@ -1312,7 +1328,7 @@
 
             Expand the bounding box to contain another bounding box
 
-            Parameter ``arg0`` (:py:class:`mitsuba.core.BoundingBox3f`):
+            Parameter ``arg0`` (:py:obj:`mitsuba.core.BoundingBox3f`):
                 *no description available*
 
     .. py:method:: mitsuba.core.BoundingBox3f.extents(self)
@@ -1333,13 +1349,13 @@
 
         Merge two bounding boxes
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.BoundingBox3f`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.BoundingBox3f`):
             *no description available*
 
-        Parameter ``arg1`` (:py:class:`mitsuba.core.BoundingBox3f`):
+        Parameter ``arg1`` (:py:obj:`mitsuba.core.BoundingBox3f`):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.BoundingBox3f`:
+        Returns → :py:obj:`mitsuba.core.BoundingBox3f`:
             *no description available*
 
     .. py:method:: mitsuba.core.BoundingBox3f.minor_axis(self)
@@ -1361,7 +1377,7 @@
             In the Python bindings, the 'Strict' argument is a normal function
             parameter with default value ``False``.
 
-        Parameter ``bbox`` (:py:class:`mitsuba.core.BoundingBox3f`):
+        Parameter ``bbox`` (:py:obj:`mitsuba.core.BoundingBox3f`):
             *no description available*
 
         Parameter ``strict`` (bool):
@@ -1377,7 +1393,7 @@
         Note that this function ignores the ``(mint, maxt)`` interval
         associated with the ray.
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.Ray3f`):
             *no description available*
 
         Returns → Tuple[bool, float, float]:
@@ -1412,7 +1428,7 @@
             Calculate the shortest squared distance between the axis-aligned
             bounding box and ``bbox``.
 
-            Parameter ``arg0`` (:py:class:`mitsuba.core.BoundingBox3f`):
+            Parameter ``arg0`` (:py:obj:`mitsuba.core.BoundingBox3f`):
                 *no description available*
 
             Returns → float:
@@ -1470,7 +1486,7 @@
 
     .. py:method:: __init__(self, arg0)
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.BoundingSphere3f`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.BoundingSphere3f`):
             *no description available*
 
     .. py:method:: mitsuba.core.BoundingSphere3f.contains(self, p, strict=False)
@@ -1515,7 +1531,7 @@
 
         Check if a ray intersects a bounding box
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.Ray3f`):
             *no description available*
 
         Returns → Tuple[bool, float, float]:
@@ -1572,7 +1588,7 @@
 
         Copy constructor
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.ContinuousDistribution`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.ContinuousDistribution`):
             *no description available*
 
     .. py:method:: __init__(self, range, pdf)
@@ -1730,11 +1746,11 @@
 
 .. py:data:: mitsuba.core.DEBUG
     :type: bool
-    :value: False
+    :value: True
 
 .. py:class:: mitsuba.core.DefaultFormatter
 
-    Base class: :py:class:`mitsuba.core.Formatter`
+    Base class: :py:obj:`mitsuba.core.Formatter`
 
     The default formatter used to turn log messages into a human-readable
     form
@@ -1841,7 +1857,7 @@
 
         Copy constructor
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.DiscreteDistribution`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.DiscreteDistribution`):
             *no description available*
 
     .. py:method:: __init__(self, pmf)
@@ -2025,7 +2041,7 @@
 
 .. py:class:: mitsuba.core.DummyStream
 
-    Base class: :py:class:`mitsuba.core.Stream`
+    Base class: :py:obj:`mitsuba.core.Stream`
 
     Stream implementation that never writes to disk, but keeps track of
     the size of the content being written. It can be used, for example, to
@@ -2037,7 +2053,7 @@
 
 .. py:class:: mitsuba.core.FileResolver
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Simple class for resolving paths on Linux/Windows/Mac OS
 
@@ -2054,14 +2070,14 @@
 
         Copy constructor
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.FileResolver`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.FileResolver`):
             *no description available*
 
     .. py:method:: mitsuba.core.FileResolver.append(self, arg0)
 
         Append an entry to the end of the list of search paths
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.filesystem.path`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.filesystem.path`):
             *no description available*
 
         Returns → None:
@@ -2078,7 +2094,7 @@
 
         Prepend an entry at the beginning of the list of search paths
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.filesystem.path`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.filesystem.path`):
             *no description available*
 
         Returns → None:
@@ -2089,15 +2105,15 @@
         Walk through the list of search paths and try to resolve the input
         path
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.filesystem.path`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.filesystem.path`):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.filesystem.path`:
+        Returns → :py:obj:`mitsuba.core.filesystem.path`:
             *no description available*
 
 .. py:class:: mitsuba.core.FileStream
 
-    Base class: :py:class:`mitsuba.core.Stream`
+    Base class: :py:obj:`mitsuba.core.Stream`
 
     Simple Stream implementation backed-up by a file.
 
@@ -2114,10 +2130,10 @@
         Throws if trying to open a non-existing file in with write disabled.
         Throws an exception if the file cannot be opened / created.
 
-        Parameter ``p`` (:py:class:`mitsuba.core.filesystem.path`):
+        Parameter ``p`` (:py:obj:`mitsuba.core.filesystem.path`):
             *no description available*
 
-        Parameter ``mode`` (:py:class:`mitsuba.core.FileStream.EMode`):
+        Parameter ``mode`` (:py:obj:`mitsuba.core.FileStream.EMode`):
             *no description available*
 
         
@@ -2147,7 +2163,7 @@
 
         Return the path descriptor associated with this FileStream
 
-        Returns → :py:class:`mitsuba.core.filesystem.path`:
+        Returns → :py:obj:`mitsuba.core.filesystem.path`:
             *no description available*
 
 .. py:class:: mitsuba.core.FilterBoundaryCondition
@@ -2190,7 +2206,7 @@
 
 .. py:class:: mitsuba.core.Formatter
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Abstract interface for converting log information into a human-
     readable format
@@ -2202,7 +2218,7 @@
 
         Turn a log message into a human-readable format
 
-        Parameter ``level`` (:py:class:`mitsuba.core.LogLevel`):
+        Parameter ``level`` (:py:obj:`mitsuba.core.LogLevel`):
             The importance of the debug message
 
         Parameter ``class_``:
@@ -2220,7 +2236,7 @@
         Parameter ``msg`` (str):
             Text content associated with the log message
 
-        Parameter ``theClass`` (:py:class:`mitsuba.core.Class`):
+        Parameter ``theClass`` (:py:obj:`mitsuba.core.Class`):
             *no description available*
 
         Returns → str:
@@ -2244,7 +2260,7 @@
 
         Copy constructor
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Frame3f`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Frame3f`):
             *no description available*
 
     .. py:method:: __init__(self, arg0, arg1, arg2)
@@ -2430,7 +2446,7 @@
         Parameter ``size`` (int):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Frame3f`:
+        Returns → :py:obj:`mitsuba.core.Frame3f`:
             *no description available*
 
 .. py:class:: mitsuba.core.Hierarchical2D0
@@ -2942,7 +2958,7 @@
 
         Copy constructor
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.IrregularContinuousDistribution`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.IrregularContinuousDistribution`):
             *no description available*
 
     .. py:method:: __init__(self, nodes, pdf)
@@ -3101,7 +3117,7 @@
 
 .. py:function:: mitsuba.core.Log(level, msg)
 
-    Parameter ``level`` (:py:class:`mitsuba.core.LogLevel`):
+    Parameter ``level`` (:py:obj:`mitsuba.core.LogLevel`):
         *no description available*
 
     Parameter ``msg`` (str):
@@ -3144,7 +3160,7 @@
 
 .. py:class:: mitsuba.core.Logger
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Responsible for processing log messages
 
@@ -3156,7 +3172,7 @@
 
         Construct a new logger with the given minimum log level
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.LogLevel`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.LogLevel`):
             *no description available*
 
         
@@ -3164,7 +3180,7 @@
 
         Add an appender to this logger
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Appender`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Appender`):
             *no description available*
 
         Returns → None:
@@ -3177,7 +3193,7 @@
         Parameter ``arg0`` (int):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Appender`:
+        Returns → :py:obj:`mitsuba.core.Appender`:
             *no description available*
 
     .. py:method:: mitsuba.core.Logger.appender_count(self)
@@ -3198,21 +3214,21 @@
 
         Return the current error level
 
-        Returns → :py:class:`mitsuba.core.LogLevel`:
+        Returns → :py:obj:`mitsuba.core.LogLevel`:
             *no description available*
 
     .. py:method:: mitsuba.core.Logger.formatter(self)
 
         Return the logger's formatter implementation
 
-        Returns → :py:class:`mitsuba.core.Formatter`:
+        Returns → :py:obj:`mitsuba.core.Formatter`:
             *no description available*
 
     .. py:method:: mitsuba.core.Logger.log_level(self)
 
         Return the current log level
 
-        Returns → :py:class:`mitsuba.core.LogLevel`:
+        Returns → :py:obj:`mitsuba.core.LogLevel`:
             *no description available*
 
     .. py:method:: mitsuba.core.Logger.log_progress(self, progress, name, formatted, eta, ptr=None)
@@ -3252,7 +3268,7 @@
 
         Remove an appender from this logger
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Appender`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Appender`):
             *no description available*
 
         Returns → None:
@@ -3267,7 +3283,7 @@
         errors. But *level* must always be less than Error, i.e. it isn't
         possible to cause errors not to throw an exception.
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.LogLevel`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.LogLevel`):
             *no description available*
 
         Returns → None:
@@ -3277,7 +3293,7 @@
 
         Set the logger's formatter implementation
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Formatter`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Formatter`):
             *no description available*
 
         Returns → None:
@@ -3287,7 +3303,7 @@
 
         Set the log level (everything below will be ignored)
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.LogLevel`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.LogLevel`):
             *no description available*
 
         Returns → None:
@@ -3303,7 +3319,7 @@
 
 .. py:data:: mitsuba.core.MTS_ENABLE_OPTIX
     :type: bool
-    :value: False
+    :value: True
 
 .. py:data:: mitsuba.core.MTS_FILTER_RESOLUTION
     :type: int
@@ -4630,7 +4646,7 @@
 
 .. py:class:: mitsuba.core.MemoryMappedFile
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Basic cross-platform abstraction for memory mapped files
 
@@ -4644,7 +4660,7 @@
 
         Create a new memory-mapped file of the specified size
 
-        Parameter ``filename`` (:py:class:`mitsuba.core.filesystem.path`):
+        Parameter ``filename`` (:py:obj:`mitsuba.core.filesystem.path`):
             *no description available*
 
         Parameter ``size`` (int):
@@ -4654,7 +4670,7 @@
 
         Map the specified file into memory
 
-        Parameter ``filename`` (:py:class:`mitsuba.core.filesystem.path`):
+        Parameter ``filename`` (:py:obj:`mitsuba.core.filesystem.path`):
             *no description available*
 
         Parameter ``write`` (bool):
@@ -4662,7 +4678,7 @@
 
     .. py:method:: __init__(self, filename, array)
 
-        Parameter ``filename`` (:py:class:`mitsuba.core.filesystem.path`):
+        Parameter ``filename`` (:py:obj:`mitsuba.core.filesystem.path`):
             *no description available*
 
         Parameter ``array`` (array):
@@ -4688,7 +4704,7 @@
         Parameter ``arg0`` (int):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.MemoryMappedFile`:
+        Returns → :py:obj:`mitsuba.core.MemoryMappedFile`:
             *no description available*
 
     .. py:method:: mitsuba.core.MemoryMappedFile.data(self)
@@ -4702,7 +4718,7 @@
 
         Return the associated filename
 
-        Returns → :py:class:`mitsuba.core.filesystem.path`:
+        Returns → :py:obj:`mitsuba.core.filesystem.path`:
             *no description available*
 
     .. py:method:: mitsuba.core.MemoryMappedFile.resize(self, arg0)
@@ -4727,7 +4743,7 @@
 
 .. py:class:: mitsuba.core.MemoryStream
 
-    Base class: :py:class:`mitsuba.core.Stream`
+    Base class: :py:obj:`mitsuba.core.Stream`
 
     Simple memory buffer-based stream with automatic memory management. It
     always has read & write capabilities.
@@ -4793,7 +4809,7 @@
 
         Copy constructor
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Object`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Object`):
             *no description available*
 
     .. py:method:: mitsuba.core.Object.class_(self)
@@ -4804,7 +4820,7 @@
         See also:
             Class
 
-        Returns → :py:class:`mitsuba.core.Class`:
+        Returns → :py:obj:`mitsuba.core.Class`:
             *no description available*
 
     .. py:method:: mitsuba.core.Object.dec_ref(self, dealloc=True)
@@ -4886,7 +4902,7 @@
         See also:
             TraversalCallback
 
-        Parameter ``cb`` (:py:class:`mitsuba.core.TraversalCallback`):
+        Parameter ``cb`` (:py:obj:`mitsuba.core.TraversalCallback`):
             *no description available*
 
         Returns → None:
@@ -5079,7 +5095,7 @@
 
         Copy constructor
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Properties`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Properties`):
             *no description available*
 
     .. py:method:: mitsuba.core.Properties.copy_attribute(self, arg0, arg1, arg2)
@@ -5087,7 +5103,7 @@
         Copy a single attribute from another Properties object and potentially
         rename it
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Properties`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Properties`):
             *no description available*
 
         Parameter ``arg1`` (str):
@@ -5134,7 +5150,7 @@
         Existing properties will be overwritten with the values from ``props``
         if they have the same name.
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Properties`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Properties`):
             *no description available*
 
         Returns → None:
@@ -5203,7 +5219,7 @@
 
 .. py:class:: mitsuba.core.RadicalInverse
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Efficient implementation of a radical inverse function with prime
     bases including scrambled versions.
@@ -5334,7 +5350,7 @@
 
         Copy constructor
 
-        Parameter ``other`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``other`` (:py:obj:`mitsuba.core.Ray3f`):
             *no description available*
 
     .. py:method:: __init__(self, o, d, time, wavelengths)
@@ -5373,7 +5389,7 @@
 
     .. py:method:: __init__(self, other, mint, maxt)
 
-        Parameter ``other`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``other`` (:py:obj:`mitsuba.core.Ray3f`):
             *no description available*
 
         Parameter ``mint`` (float):
@@ -5429,12 +5445,12 @@
         Parameter ``size`` (int):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Ray3f`:
+        Returns → :py:obj:`mitsuba.core.Ray3f`:
             *no description available*
 
 .. py:class:: mitsuba.core.RayDifferential3f
 
-    Base class: :py:class:`mitsuba.core.Ray3f`
+    Base class: :py:obj:`mitsuba.core.Ray3f`
 
     Ray differential -- enhances the basic ray class with offset rays for
     two adjacent pixels on the view plane
@@ -5442,7 +5458,7 @@
 
     .. py:method:: __init__(self, ray)
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.Ray3f`):
             *no description available*
 
     .. py:method:: __init__(self, o, d, time, wavelengths)
@@ -5471,7 +5487,7 @@
 
 .. py:class:: mitsuba.core.ReconstructionFilter
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Generic interface to separable image reconstruction filters
 
@@ -5550,7 +5566,7 @@
         Parameter ``target_res`` (int):
             Desired target resolution
 
-        Parameter ``rfilter`` (:py:class:`mitsuba.render.ReconstructionFilter`):
+        Parameter ``rfilter`` (:py:obj:`mitsuba.render.ReconstructionFilter`):
             *no description available*
 
         
@@ -5559,7 +5575,7 @@
         Return the boundary condition that should be used when looking up
         samples outside of the defined input domain
 
-        Returns → :py:class:`mitsuba.core.FilterBoundaryCondition`:
+        Returns → :py:obj:`mitsuba.core.FilterBoundaryCondition`:
             *no description available*
 
     .. py:method:: mitsuba.core.Resampler.clamp(self)
@@ -5603,7 +5619,7 @@
 
         The default is FilterBoundaryCondition::Clamp
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.FilterBoundaryCondition`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.FilterBoundaryCondition`):
             *no description available*
 
         Returns → None:
@@ -5647,13 +5663,13 @@
 
     .. py:method:: __init__(self, arg0)
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.ThreadEnvironment`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.ThreadEnvironment`):
             *no description available*
 
 
 .. py:class:: mitsuba.core.Stream
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Abstract seekable stream class
 
@@ -5696,7 +5712,7 @@
 
         Returns the byte order of this stream.
 
-        Returns → :py:class:`mitsuba.core.Stream.EByteOrder`:
+        Returns → :py:obj:`mitsuba.core.Stream.EByteOrder`:
             *no description available*
 
     .. py:method:: mitsuba.core.Stream.can_read(self)
@@ -5736,7 +5752,7 @@
 
         Returns the byte order of the underlying machine.
 
-        Returns → :py:class:`mitsuba.core.Stream.EByteOrder`:
+        Returns → :py:obj:`mitsuba.core.Stream.EByteOrder`:
             *no description available*
 
     .. py:method:: mitsuba.core.Stream.read(self, arg0)
@@ -5915,7 +5931,7 @@
         some read and write operations on the system using a different
         endianness.
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Stream.EByteOrder`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Stream.EByteOrder`):
             *no description available*
 
         Returns → None:
@@ -6153,7 +6169,7 @@
 
 .. py:class:: mitsuba.core.StreamAppender
 
-    Base class: :py:class:`mitsuba.core.Appender`
+    Base class: :py:obj:`mitsuba.core.Appender`
 
     %Appender implementation, which writes to an arbitrary C++ output
     stream
@@ -6185,7 +6201,7 @@
 
 .. py:class:: mitsuba.core.Struct
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Descriptor for specifying the contents and in-memory layout of a POD-
     style data record
@@ -6203,7 +6219,7 @@
         Parameter ``pack`` (bool):
             *no description available*
 
-        Parameter ``byte_order`` (:py:class:`mitsuba.core.Struct.ByteOrder`):
+        Parameter ``byte_order`` (:py:obj:`mitsuba.core.Struct.ByteOrder`):
             *no description available*
 
         
@@ -6380,7 +6396,7 @@
         Parameter ``name`` (str):
             *no description available*
 
-        Parameter ``type`` (:py:class:`mitsuba.core.Struct.Type`):
+        Parameter ``type`` (:py:obj:`mitsuba.core.Struct.Type`):
             *no description available*
 
         Parameter ``flags`` (int):
@@ -6389,14 +6405,14 @@
         Parameter ``default`` (float):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Struct`:
+        Returns → :py:obj:`mitsuba.core.Struct`:
             *no description available*
 
     .. py:method:: mitsuba.core.Struct.byte_order(self)
 
         Return the byte order of the ``Struct``
 
-        Returns → :py:class:`mitsuba.core.Struct.ByteOrder`:
+        Returns → :py:obj:`mitsuba.core.Struct.ByteOrder`:
             *no description available*
 
     .. py:method:: mitsuba.core.Struct.dtype(self)
@@ -6413,7 +6429,7 @@
         Parameter ``arg0`` (str):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Struct.Field`:
+        Returns → :py:obj:`mitsuba.core.Struct.Field`:
             *no description available*
 
     .. py:method:: mitsuba.core.Struct.field_count(self)
@@ -6437,7 +6453,7 @@
 
         Check whether the given type is a floating point type
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Struct.Type`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Struct.Type`):
             *no description available*
 
         Returns → bool:
@@ -6447,7 +6463,7 @@
 
         Check whether the given type is an integer type
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Struct.Type`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Struct.Type`):
             *no description available*
 
         Returns → bool:
@@ -6457,7 +6473,7 @@
 
         Check whether the given type is a signed type
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Struct.Type`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Struct.Type`):
             *no description available*
 
         Returns → bool:
@@ -6467,7 +6483,7 @@
 
         Check whether the given type is an unsigned type
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Struct.Type`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Struct.Type`):
             *no description available*
 
         Returns → bool:
@@ -6477,7 +6493,7 @@
 
         Return the representable range of the given type
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Struct.Type`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Struct.Type`):
             *no description available*
 
         Returns → Tuple[float, float]:
@@ -6492,7 +6508,7 @@
 
 .. py:class:: mitsuba.core.StructConverter
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     This class solves the any-to-any problem: effiently converting from
     one kind of structured data representation to another
@@ -6555,10 +6571,10 @@
 
     .. py:method:: __init__(self, source, target, dither=False)
 
-        Parameter ``source`` (:py:class:`mitsuba.core.Struct`):
+        Parameter ``source`` (:py:obj:`mitsuba.core.Struct`):
             *no description available*
 
-        Parameter ``target`` (:py:class:`mitsuba.core.Struct`):
+        Parameter ``target`` (:py:obj:`mitsuba.core.Struct`):
             *no description available*
 
         Parameter ``dither`` (bool):
@@ -6577,19 +6593,19 @@
 
         Return the source ``Struct`` descriptor
 
-        Returns → :py:class:`mitsuba.core.Struct`:
+        Returns → :py:obj:`mitsuba.core.Struct`:
             *no description available*
 
     .. py:method:: mitsuba.core.StructConverter.target(self)
 
         Return the target ``Struct`` descriptor
 
-        Returns → :py:class:`mitsuba.core.Struct`:
+        Returns → :py:obj:`mitsuba.core.Struct`:
             *no description available*
 
 .. py:class:: mitsuba.core.Thread
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Cross-platform thread implementation
 
@@ -6666,7 +6682,7 @@
 
         Return the file resolver associated with the current thread
 
-        Returns → :py:class:`mitsuba.core.FileResolver`:
+        Returns → :py:obj:`mitsuba.core.FileResolver`:
             *no description available*
 
     .. py:method:: mitsuba.core.Thread.is_critical(self)
@@ -6694,7 +6710,7 @@
 
         Return the thread's logger instance
 
-        Returns → :py:class:`mitsuba.core.Logger`:
+        Returns → :py:obj:`mitsuba.core.Logger`:
             *no description available*
 
     .. py:method:: mitsuba.core.Thread.name(self)
@@ -6708,14 +6724,14 @@
 
         Return the parent thread
 
-        Returns → :py:class:`mitsuba.core.Thread`:
+        Returns → :py:obj:`mitsuba.core.Thread`:
             *no description available*
 
     .. py:method:: mitsuba.core.Thread.priority(self)
 
         Return the thread priority
 
-        Returns → :py:class:`mitsuba.core.Thread.EPriority`:
+        Returns → :py:obj:`mitsuba.core.Thread.EPriority`:
             *no description available*
 
     .. py:method:: mitsuba.core.Thread.set_core_affinity(self, arg0)
@@ -6750,7 +6766,7 @@
 
         Set the file resolver associated with the current thread
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.FileResolver`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.FileResolver`):
             *no description available*
 
         Returns → None:
@@ -6760,7 +6776,7 @@
 
         Set the logger instance used to process log messages from this thread
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Logger`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Logger`):
             *no description available*
 
         Returns → None:
@@ -6783,7 +6799,7 @@
         This does not always work -- for instance, Linux requires root
         privileges for this operation.
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Thread.EPriority`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Thread.EPriority`):
             *no description available*
 
         Returns → bool:
@@ -6810,7 +6826,7 @@
 
         Return the current thread
 
-        Returns → :py:class:`mitsuba.core.Thread`:
+        Returns → :py:obj:`mitsuba.core.Thread`:
             *no description available*
 
     .. py:method:: mitsuba.core.Thread.thread_id()
@@ -6847,7 +6863,7 @@
 
         Copy constructor
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Transform3f`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Transform3f`):
             *no description available*
 
     .. py:method:: __init__(self, arg0)
@@ -6904,7 +6920,7 @@
         Compute the inverse of this transformation (involves just shuffles, no
         arithmetic)
 
-        Returns → :py:class:`mitsuba.core.Transform3f`:
+        Returns → :py:obj:`mitsuba.core.Transform3f`:
             *no description available*
 
     .. py:method:: mitsuba.core.Transform3f.rotate(angle)
@@ -6915,7 +6931,7 @@
         Parameter ``angle`` (float):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Transform3f`:
+        Returns → :py:obj:`mitsuba.core.Transform3f`:
             *no description available*
 
     .. py:method:: mitsuba.core.Transform3f.scale(v)
@@ -6925,7 +6941,7 @@
         Parameter ``v`` (enoki.scalar.Vector2f):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Transform3f`:
+        Returns → :py:obj:`mitsuba.core.Transform3f`:
             *no description available*
 
     .. py:method:: mitsuba.core.Transform3f.transform_point(self, arg0)
@@ -6951,7 +6967,7 @@
         Parameter ``v`` (enoki.scalar.Vector2f):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Transform3f`:
+        Returns → :py:obj:`mitsuba.core.Transform3f`:
             *no description available*
 
     .. py:method:: mitsuba.core.Transform3f.zero(size=1)
@@ -6959,7 +6975,7 @@
         Parameter ``size`` (int):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Transform3f`:
+        Returns → :py:obj:`mitsuba.core.Transform3f`:
             *no description available*
 
 .. py:class:: mitsuba.core.Transform4f
@@ -6981,7 +6997,7 @@
 
         Copy constructor
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Transform4f`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Transform4f`):
             *no description available*
 
     .. py:method:: __init__(self, arg0)
@@ -7016,7 +7032,7 @@
 
         Extract a lower-dimensional submatrix
 
-        Returns → :py:class:`mitsuba.core.Transform3f`:
+        Returns → :py:obj:`mitsuba.core.Transform3f`:
             *no description available*
 
     .. py:method:: mitsuba.core.Transform4f.from_frame(frame)
@@ -7024,10 +7040,10 @@
         Creates a transformation that converts from 'frame' to the standard
         basis
 
-        Parameter ``frame`` (:py:class:`mitsuba.core.Frame3f`):
+        Parameter ``frame`` (:py:obj:`mitsuba.core.Frame3f`):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Transform4f`:
+        Returns → :py:obj:`mitsuba.core.Transform4f`:
             *no description available*
 
     .. py:method:: mitsuba.core.Transform4f.has_scale(overloaded)
@@ -7056,7 +7072,7 @@
         Compute the inverse of this transformation (involves just shuffles, no
         arithmetic)
 
-        Returns → :py:class:`mitsuba.core.Transform4f`:
+        Returns → :py:obj:`mitsuba.core.Transform4f`:
             *no description available*
 
     .. py:method:: mitsuba.core.Transform4f.look_at(origin, target, up)
@@ -7072,7 +7088,7 @@
         Parameter ``up`` (enoki.scalar.Vector3f):
             Up vector
 
-        Returns → :py:class:`mitsuba.core.Transform4f`:
+        Returns → :py:obj:`mitsuba.core.Transform4f`:
             *no description available*
 
     .. py:method:: mitsuba.core.Transform4f.orthographic(near, far)
@@ -7086,7 +7102,7 @@
         Parameter ``far`` (float):
             Far clipping plane
 
-        Returns → :py:class:`mitsuba.core.Transform4f`:
+        Returns → :py:obj:`mitsuba.core.Transform4f`:
             *no description available*
 
     .. py:method:: mitsuba.core.Transform4f.perspective(fov, near, far)
@@ -7109,7 +7125,7 @@
         Parameter ``far`` (float):
             Far clipping plane
 
-        Returns → :py:class:`mitsuba.core.Transform4f`:
+        Returns → :py:obj:`mitsuba.core.Transform4f`:
             *no description available*
 
     .. py:method:: mitsuba.core.Transform4f.rotate(axis, angle)
@@ -7123,7 +7139,7 @@
         Parameter ``angle`` (float):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Transform4f`:
+        Returns → :py:obj:`mitsuba.core.Transform4f`:
             *no description available*
 
     .. py:method:: mitsuba.core.Transform4f.scale(v)
@@ -7133,7 +7149,7 @@
         Parameter ``v`` (enoki.scalar.Vector3f):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Transform4f`:
+        Returns → :py:obj:`mitsuba.core.Transform4f`:
             *no description available*
 
     .. py:method:: mitsuba.core.Transform4f.to_frame(frame)
@@ -7141,10 +7157,10 @@
         Creates a transformation that converts from the standard basis to
         'frame'
 
-        Parameter ``frame`` (:py:class:`mitsuba.core.Frame3f`):
+        Parameter ``frame`` (:py:obj:`mitsuba.core.Frame3f`):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Transform4f`:
+        Returns → :py:obj:`mitsuba.core.Transform4f`:
             *no description available*
 
     .. py:method:: mitsuba.core.Transform4f.transform_normal(self, arg0)
@@ -7178,7 +7194,7 @@
         Parameter ``v`` (enoki.scalar.Vector3f):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Transform4f`:
+        Returns → :py:obj:`mitsuba.core.Transform4f`:
             *no description available*
 
     .. py:method:: mitsuba.core.Transform4f.zero(size=1)
@@ -7186,7 +7202,7 @@
         Parameter ``size`` (int):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Transform4f`:
+        Returns → :py:obj:`mitsuba.core.Transform4f`:
             *no description available*
 
 .. py:class:: mitsuba.core.TraversalCallback
@@ -8440,7 +8456,7 @@
 
 .. py:class:: mitsuba.core.ZStream
 
-    Base class: :py:class:`mitsuba.core.Stream`
+    Base class: :py:obj:`mitsuba.core.Stream`
 
     Transparent compression/decompression stream based on ``zlib``.
 
@@ -8453,10 +8469,10 @@
         This new instance takes ownership of the child stream. The child
         stream must outlive the ZStream.
 
-        Parameter ``child_stream`` (:py:class:`mitsuba.core.Stream`):
+        Parameter ``child_stream`` (:py:obj:`mitsuba.core.Stream`):
             *no description available*
 
-        Parameter ``stream_type`` (:py:class:`mitsuba.core.ZStream.EStreamType`):
+        Parameter ``stream_type`` (:py:obj:`mitsuba.core.ZStream.EStreamType`):
             *no description available*
 
         Parameter ``level`` (int):
@@ -8558,10 +8574,10 @@
     See also:
         http ://en.cppreference.com/w/cpp/experimental/fs/absolute)
 
-    Parameter ``arg0`` (:py:class:`mitsuba.core.filesystem.path`):
+    Parameter ``arg0`` (:py:obj:`mitsuba.core.filesystem.path`):
         *no description available*
 
-    Returns → :py:class:`mitsuba.core.filesystem.path`:
+    Returns → :py:obj:`mitsuba.core.filesystem.path`:
         *no description available*
 
 .. py:function:: mitsuba.core.filesystem.create_directory(arg0)
@@ -8571,7 +8587,7 @@
     exists and is already a directory, the function does nothing (this
     condition is not treated as an error).
 
-    Parameter ``arg0`` (:py:class:`mitsuba.core.filesystem.path`):
+    Parameter ``arg0`` (:py:obj:`mitsuba.core.filesystem.path`):
         *no description available*
 
     Returns → bool:
@@ -8581,7 +8597,7 @@
 
     Returns the current working directory (equivalent to getcwd)
 
-    Returns → :py:class:`mitsuba.core.filesystem.path`:
+    Returns → :py:obj:`mitsuba.core.filesystem.path`:
         *no description available*
 
 .. py:function:: mitsuba.core.filesystem.equivalent(arg0, arg1)
@@ -8590,10 +8606,10 @@
     must refer to an existing file or directory. Symlinks are followed to
     determine equivalence.
 
-    Parameter ``arg0`` (:py:class:`mitsuba.core.filesystem.path`):
+    Parameter ``arg0`` (:py:obj:`mitsuba.core.filesystem.path`):
         *no description available*
 
-    Parameter ``arg1`` (:py:class:`mitsuba.core.filesystem.path`):
+    Parameter ``arg1`` (:py:obj:`mitsuba.core.filesystem.path`):
         *no description available*
 
     Returns → bool:
@@ -8603,7 +8619,7 @@
 
     Checks if ``p`` points to an existing filesystem object.
 
-    Parameter ``arg0`` (:py:class:`mitsuba.core.filesystem.path`):
+    Parameter ``arg0`` (:py:obj:`mitsuba.core.filesystem.path`):
         *no description available*
 
     Returns → bool:
@@ -8615,7 +8631,7 @@
     determine the size of a directory (as well as any other file that is
     not a regular file or a symlink) is treated as an error.
 
-    Parameter ``arg0`` (:py:class:`mitsuba.core.filesystem.path`):
+    Parameter ``arg0`` (:py:obj:`mitsuba.core.filesystem.path`):
         *no description available*
 
     Returns → int:
@@ -8625,7 +8641,7 @@
 
     Checks if ``p`` points to a directory.
 
-    Parameter ``arg0`` (:py:class:`mitsuba.core.filesystem.path`):
+    Parameter ``arg0`` (:py:obj:`mitsuba.core.filesystem.path`):
         *no description available*
 
     Returns → bool:
@@ -8636,7 +8652,7 @@
     Checks if ``p`` points to a regular file, as opposed to a directory or
     symlink.
 
-    Parameter ``arg0`` (:py:class:`mitsuba.core.filesystem.path`):
+    Parameter ``arg0`` (:py:obj:`mitsuba.core.filesystem.path`):
         *no description available*
 
     Returns → bool:
@@ -8659,7 +8675,7 @@
 
         Copy constructor.
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.filesystem.path`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.filesystem.path`):
             *no description available*
 
     .. py:method:: __init__(self, arg0)
@@ -8690,14 +8706,14 @@
         substring starting at the rightmost period, including the period).
         Special paths '.' and '..' have an empty extension.
 
-        Returns → :py:class:`mitsuba.core.filesystem.path`:
+        Returns → :py:obj:`mitsuba.core.filesystem.path`:
             *no description available*
 
     .. py:method:: mitsuba.core.filesystem.path.filename(self)
 
         Returns the filename component of the path, including the extension.
 
-        Returns → :py:class:`mitsuba.core.filesystem.path`:
+        Returns → :py:obj:`mitsuba.core.filesystem.path`:
             *no description available*
 
     .. py:method:: mitsuba.core.filesystem.path.is_absolute(self)
@@ -8728,7 +8744,7 @@
         Returns the path to the parent directory. Returns an empty path if it
         is already empty or if it has only one element.
 
-        Returns → :py:class:`mitsuba.core.filesystem.path`:
+        Returns → :py:obj:`mitsuba.core.filesystem.path`:
             *no description available*
 
     .. py:method:: mitsuba.core.filesystem.path.replace_extension(self, arg0)
@@ -8744,10 +8760,10 @@
 
         Returns *this.
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.filesystem.path`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.filesystem.path`):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.filesystem.path`:
+        Returns → :py:obj:`mitsuba.core.filesystem.path`:
             *no description available*
 
 .. py:data:: mitsuba.core.filesystem.preferred_separator
@@ -8759,7 +8775,7 @@
     Removes a file or empty directory. Returns true if removal was
     successful, false if there was an error (e.g. the file did not exist).
 
-    Parameter ``arg0`` (:py:class:`mitsuba.core.filesystem.path`):
+    Parameter ``arg0`` (:py:obj:`mitsuba.core.filesystem.path`):
         *no description available*
 
     Returns → bool:
@@ -8771,7 +8787,7 @@
     was called. If the file was larger than ``target_length``, the
     remainder is discarded. The file must exist.
 
-    Parameter ``arg0`` (:py:class:`mitsuba.core.filesystem.path`):
+    Parameter ``arg0`` (:py:obj:`mitsuba.core.filesystem.path`):
         *no description available*
 
     Parameter ``arg1`` (int):
@@ -10560,7 +10576,7 @@
 
 .. py:class:: mitsuba.render.BSDF
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Bidirectional Scattering Distribution Function (BSDF) interface
 
@@ -10584,14 +10600,14 @@
     outgoing direction in local coordinates.
 
     See also:
-        :py:class:`mitsuba.render.BSDFContext`
+        :py:obj:`mitsuba.render.BSDFContext`
 
     See also:
-        :py:class:`mitsuba.render.BSDFSample3`
+        :py:obj:`mitsuba.render.BSDFSample3`
 
     .. py:method:: __init__(self, props)
 
-        Parameter ``props`` (:py:class:`mitsuba.core.Properties`):
+        Parameter ``props`` (:py:obj:`mitsuba.core.Properties`):
             *no description available*
 
 
@@ -10619,11 +10635,11 @@
         Note that the incident direction does not need to be explicitly
         specified. It is obtained from the field ``si.wi``.
 
-        Parameter ``ctx`` (:py:class:`mitsuba.render.BSDFContext`):
+        Parameter ``ctx`` (:py:obj:`mitsuba.render.BSDFContext`):
             A context data structure describing which lobes to evalute, and
             whether radiance or importance are being transported.
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             A surface interaction data structure describing the underlying
             surface position. The incident direction is obtained from the
             field ``si.wi``.
@@ -10645,7 +10661,7 @@
         (BSDFFlags::Null) of the BSDF for light arriving from direction ``w``.
         The default implementation returns zero.
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             A surface interaction data structure describing the underlying
             surface position. The incident direction is obtained from the
             field ``si.wi``.
@@ -10714,11 +10730,11 @@
         Note that the incident direction does not need to be explicitly
         specified. It is obtained from the field ``si.wi``.
 
-        Parameter ``ctx`` (:py:class:`mitsuba.render.BSDFContext`):
+        Parameter ``ctx`` (:py:obj:`mitsuba.render.BSDFContext`):
             A context data structure describing which lobes to evalute, and
             whether radiance or importance are being transported.
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             A surface interaction data structure describing the underlying
             surface position. The incident direction is obtained from the
             field ``si.wi``.
@@ -10751,11 +10767,11 @@
         multiplies by the cosine foreshorening factor with respect to the
         sampled direction.
 
-        Parameter ``ctx`` (:py:class:`mitsuba.render.BSDFContext`):
+        Parameter ``ctx`` (:py:obj:`mitsuba.render.BSDFContext`):
             A context data structure describing which lobes to sample, and
             whether radiance or importance are being transported.
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             A surface interaction data structure describing the underlying
             surface position. The incident direction is obtained from the
             field ``si.wi``.
@@ -10771,7 +10787,7 @@
         Parameter ``active`` (bool):
             Mask to specify active lanes.
 
-        Returns → Tuple[:py:class:`mitsuba.render.BSDFSample3f`, enoki.scalar.Vector3f]:
+        Returns → Tuple[:py:obj:`mitsuba.render.BSDFSample3f`, enoki.scalar.Vector3f]:
             A pair (bs, value) consisting of
 
         bs: Sampling record, indicating the sampled direction, PDF values and
@@ -10799,12 +10815,12 @@
 
         //! @}
 
-        Parameter ``mode`` (:py:class:`mitsuba.render.TransportMode`):
+        Parameter ``mode`` (:py:obj:`mitsuba.render.TransportMode`):
             *no description available*
 
     .. py:method:: __init__(self, mode, type_mak, component)
 
-        Parameter ``mode`` (:py:class:`mitsuba.render.TransportMode`):
+        Parameter ``mode`` (:py:obj:`mitsuba.render.TransportMode`):
             *no description available*
 
         Parameter ``type_mak`` (int):
@@ -10824,7 +10840,7 @@
         Checks whether a given BSDF component type and BSDF component index
         are enabled in this context.
 
-        Parameter ``type`` (:py:class:`mitsuba.render.BSDFFlags`):
+        Parameter ``type`` (:py:obj:`mitsuba.render.BSDFFlags`):
             *no description available*
 
         Parameter ``component`` (int):
@@ -10975,7 +10991,7 @@
 
         Copy constructor
 
-        Parameter ``bs`` (:py:class:`mitsuba.render.BSDFSample3f`):
+        Parameter ``bs`` (:py:obj:`mitsuba.render.BSDFSample3f`):
             *no description available*
 
     .. py:method:: mitsuba.render.BSDFSample3f.eta
@@ -11005,7 +11021,7 @@
 
 .. py:class:: mitsuba.render.DirectionSample3f
 
-    Base class: :py:class:`mitsuba.render.PositionSample3f`
+    Base class: :py:obj:`mitsuba.render.PositionSample3f`
 
     Record for solid-angle based area sampling techniques
 
@@ -11031,14 +11047,14 @@
 
         Construct from a position sample
 
-        Parameter ``other`` (:py:class:`mitsuba.render.PositionSample3f`):
+        Parameter ``other`` (:py:obj:`mitsuba.render.PositionSample3f`):
             *no description available*
 
     .. py:method:: __init__(self, other)
 
         Copy constructor
 
-        Parameter ``other`` (:py:class:`mitsuba.render.DirectionSample3f`):
+        Parameter ``other`` (:py:obj:`mitsuba.render.DirectionSample3f`):
             *no description available*
 
     .. py:method:: __init__(self, p, n, uv, time, pdf, delta, object, d, dist)
@@ -11063,7 +11079,7 @@
         Parameter ``delta`` (bool):
             *no description available*
 
-        Parameter ``object`` (:py:class:`mitsuba.core.Object`):
+        Parameter ``object`` (:py:obj:`mitsuba.core.Object`):
             *no description available*
 
         Parameter ``d`` (enoki.scalar.Vector3f):
@@ -11080,10 +11096,10 @@
         surface after hitting it using standard ray tracing. This happens for
         instance in path tracing with multiple importance sampling.
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             *no description available*
 
-        Parameter ``ref`` (:py:class:`mitsuba.render.Interaction3f`):
+        Parameter ``ref`` (:py:obj:`mitsuba.render.Interaction3f`):
             *no description available*
 
     .. py:method:: mitsuba.render.DirectionSample3f.d
@@ -11101,12 +11117,12 @@
         Setup this record so that it can be used to *query* the density of a
         surface position (where the reference point lies on a *surface*).
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.Ray3f`):
             Reference to the ray that generated the intersection ``si``. The
             ray origin must be located at the reference surface and point
             towards ``si``.p.
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             A surface intersection record (usually on an emitter).
 
         \note Defined in scene.h
@@ -11119,12 +11135,12 @@
         Parameter ``size`` (int):
             *no description available*
 
-        Returns → :py:class:`mitsuba.render.DirectionSample3f`:
+        Returns → :py:obj:`mitsuba.render.DirectionSample3f`:
             *no description available*
 
 .. py:class:: mitsuba.render.Emitter
 
-    Base class: :py:class:`mitsuba.render.Endpoint`
+    Base class: :py:obj:`mitsuba.render.Endpoint`
 
     .. py:method:: mitsuba.render.Emitter.flags(self, arg0)
 
@@ -11186,7 +11202,7 @@
 
 .. py:class:: mitsuba.render.Endpoint
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Endpoint: an abstract interface to light sources and sensors
 
@@ -11219,7 +11235,7 @@
 
         Return an axis-aligned box bounding the spatial extents of the emitter
 
-        Returns → :py:class:`mitsuba.core.BoundingBox3f`:
+        Returns → :py:obj:`mitsuba.core.BoundingBox3f`:
             *no description available*
 
     .. py:method:: mitsuba.render.Endpoint.eval(self, si, active=True)
@@ -11233,7 +11249,7 @@
         The default implementation throws an exception, which states that the
         method is not implemented.
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             An intersect record that specfies both the query position and
             direction (using the ``si.wi`` field)
 
@@ -11247,7 +11263,7 @@
 
         Return a pointer to the medium that surrounds the emitter
 
-        Returns → :py:class:`mitsuba.render.Medium`:
+        Returns → :py:obj:`mitsuba.render.Medium`:
             *no description available*
 
     .. py:method:: mitsuba.render.Endpoint.needs_sample_2(self)
@@ -11271,10 +11287,10 @@
         Evaluate the probability density of the *direct* sampling method
         implemented by the sample_direction() method.
 
-        Parameter ``ds`` (:py:class:`mitsuba.render.DirectionSample3f`):
+        Parameter ``ds`` (:py:obj:`mitsuba.render.DirectionSample3f`):
             A direct sampling record, which specifies the query location.
 
-        Parameter ``it`` (:py:class:`mitsuba.render.Interaction3f`):
+        Parameter ``it`` (:py:obj:`mitsuba.render.Interaction3f`):
             *no description available*
 
         Parameter ``active`` (bool):
@@ -11309,13 +11325,13 @@
         Parameter ``sample`` (enoki.scalar.Vector2f):
             A uniformly distributed 2D point on the domain ``[0,1]^2``
 
-        Parameter ``it`` (:py:class:`mitsuba.render.Interaction3f`):
+        Parameter ``it`` (:py:obj:`mitsuba.render.Interaction3f`):
             *no description available*
 
         Parameter ``active`` (bool):
             Mask to specify active lanes.
 
-        Returns → Tuple[:py:class:`mitsuba.render.DirectionSample3f`, enoki.scalar.Vector3f]:
+        Returns → Tuple[:py:obj:`mitsuba.render.DirectionSample3f`, enoki.scalar.Vector3f]:
             A DirectionSample instance describing the generated sample along
             with a spectral importance weight.
 
@@ -11355,7 +11371,7 @@
         Parameter ``active`` (bool):
             Mask to specify active lanes.
 
-        Returns → Tuple[:py:class:`mitsuba.core.Ray3f`, enoki.scalar.Vector3f]:
+        Returns → Tuple[:py:obj:`mitsuba.core.Ray3f`, enoki.scalar.Vector3f]:
             The sampled ray and (potentially spectrally varying) importance
             weights. The latter account for the difference between the profile
             and the actual used sampling density function.
@@ -11364,7 +11380,7 @@
 
         Set the medium that surrounds the emitter.
 
-        Parameter ``medium`` (:py:class:`mitsuba.render.Medium`):
+        Parameter ``medium`` (:py:obj:`mitsuba.render.Medium`):
             *no description available*
 
         Returns → None:
@@ -11374,7 +11390,7 @@
 
         Set the shape associated with this endpoint.
 
-        Parameter ``shape`` (:py:class:`mitsuba.render.Shape`):
+        Parameter ``shape`` (:py:obj:`mitsuba.render.Shape`):
             *no description available*
 
         Returns → None:
@@ -11384,19 +11400,19 @@
 
         Return the shape, to which the emitter is currently attached
 
-        Returns → :py:class:`mitsuba.render.Shape`:
+        Returns → :py:obj:`mitsuba.render.Shape`:
             *no description available*
 
     .. py:method:: mitsuba.render.Endpoint.world_transform(self)
 
         Return the local space to world space transformation
 
-        Returns → :py:class:`mitsuba.core.AnimatedTransform`:
+        Returns → :py:obj:`mitsuba.core.AnimatedTransform`:
             *no description available*
 
 .. py:class:: mitsuba.render.Film
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Abstract film base class - used to store samples generated by
     Integrator implementations.
@@ -11412,7 +11428,7 @@
         Parameter ``raw`` (bool):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Bitmap`:
+        Returns → :py:obj:`mitsuba.core.Bitmap`:
             *no description available*
 
     .. py:method:: mitsuba.render.Film.crop_offset(self)
@@ -11433,7 +11449,7 @@
 
         Does the destination file already exist?
 
-        Parameter ``basename`` (:py:class:`mitsuba.core.filesystem.path`):
+        Parameter ``basename`` (:py:obj:`mitsuba.core.filesystem.path`):
             *no description available*
 
         Returns → bool:
@@ -11455,7 +11471,7 @@
             Parameter ``target_offset`` (enoki.scalar.Vector2i):
                 *no description available*
 
-            Parameter ``target`` (:py:class:`mitsuba.core.Bitmap`):
+            Parameter ``target`` (:py:obj:`mitsuba.core.Bitmap`):
                 *no description available*
 
             Returns → bool:
@@ -11484,7 +11500,7 @@
 
         Merge an image block into the film
 
-        Parameter ``block`` (:py:class:`mitsuba.render.ImageBlock`):
+        Parameter ``block`` (:py:obj:`mitsuba.render.ImageBlock`):
             *no description available*
 
         Returns → None:
@@ -11494,7 +11510,7 @@
 
         Return the image reconstruction filter (const version)
 
-        Returns → :py:class:`mitsuba.core.ReconstructionFilter`:
+        Returns → :py:obj:`mitsuba.core.ReconstructionFilter`:
             *no description available*
 
     .. py:method:: mitsuba.render.Film.set_crop_window(self, arg0, arg1)
@@ -11514,7 +11530,7 @@
 
         Set the target filename (with or without extension)
 
-        Parameter ``filename`` (:py:class:`mitsuba.core.filesystem.path`):
+        Parameter ``filename`` (:py:obj:`mitsuba.core.filesystem.path`):
             *no description available*
 
         Returns → None:
@@ -11530,7 +11546,7 @@
 
 .. py:class:: mitsuba.render.ImageBlock
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Storage for an image sub-block (a.k.a render bucket)
 
@@ -11549,7 +11565,7 @@
         Parameter ``channel_count`` (int):
             *no description available*
 
-        Parameter ``filter`` (:py:class:`mitsuba.core.ReconstructionFilter`):
+        Parameter ``filter`` (:py:obj:`mitsuba.core.ReconstructionFilter`):
             *no description available*
 
         Parameter ``warn_negative`` (bool):
@@ -11614,7 +11630,7 @@
 
             Accumulate another image block into this one
 
-            Parameter ``block`` (:py:class:`mitsuba.render.ImageBlock`):
+            Parameter ``block`` (:py:obj:`mitsuba.render.ImageBlock`):
                 *no description available*
 
         .. py:method:: put(self, pos, wavelengths, value, alpha=1.0, active=True)
@@ -11721,7 +11737,7 @@
 
 .. py:class:: mitsuba.render.Integrator
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Abstract integrator base class, which does not make any assumptions
     with regards to how radiance is computed.
@@ -11754,10 +11770,10 @@
 
         Perform the main rendering job. Returns ``True`` upon success
 
-        Parameter ``scene`` (:py:class:`mitsuba.render.Scene`):
+        Parameter ``scene`` (:py:obj:`mitsuba.render.Scene`):
             *no description available*
 
-        Parameter ``sensor`` (:py:class:`mitsuba.render.Sensor`):
+        Parameter ``sensor`` (:py:obj:`mitsuba.render.Sensor`):
             *no description available*
 
         Returns → bool:
@@ -11789,7 +11805,7 @@
         Parameter ``d`` (enoki.scalar.Vector3f):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Ray3f`:
+        Returns → :py:obj:`mitsuba.core.Ray3f`:
             *no description available*
 
     .. py:method:: mitsuba.render.Interaction3f.spawn_ray_to(self, t)
@@ -11799,7 +11815,7 @@
         Parameter ``t`` (enoki.scalar.Vector3f):
             *no description available*
 
-        Returns → :py:class:`mitsuba.core.Ray3f`:
+        Returns → :py:obj:`mitsuba.core.Ray3f`:
             *no description available*
 
     .. py:method:: mitsuba.render.Interaction3f.t
@@ -11822,19 +11838,19 @@
         Parameter ``size`` (int):
             *no description available*
 
-        Returns → :py:class:`mitsuba.render.Interaction3f`:
+        Returns → :py:obj:`mitsuba.render.Interaction3f`:
             *no description available*
 
 .. py:class:: mitsuba.render.Medium
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     .. py:method:: mitsuba.render.Medium.eval_tr_and_pdf(self, mi, si, active=True)
 
-        Parameter ``mi`` (:py:class:`mitsuba.render.MediumInteraction3f`):
+        Parameter ``mi`` (:py:obj:`mitsuba.render.MediumInteraction3f`):
             *no description available*
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             *no description available*
 
         Parameter ``active`` (bool):
@@ -11845,7 +11861,7 @@
 
     .. py:method:: mitsuba.render.Medium.get_combined_extinction(self, mi, active=True)
 
-        Parameter ``mi`` (:py:class:`mitsuba.render.MediumInteraction3f`):
+        Parameter ``mi`` (:py:obj:`mitsuba.render.MediumInteraction3f`):
             *no description available*
 
         Parameter ``active`` (bool):
@@ -11856,7 +11872,7 @@
 
     .. py:method:: mitsuba.render.Medium.get_scattering_coefficients(self, mi, active=True)
 
-        Parameter ``mi`` (:py:class:`mitsuba.render.MediumInteraction3f`):
+        Parameter ``mi`` (:py:obj:`mitsuba.render.MediumInteraction3f`):
             *no description available*
 
         Parameter ``active`` (bool):
@@ -11874,7 +11890,7 @@
 
     .. py:method:: mitsuba.render.Medium.intersect_aabb(self, ray)
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.Ray3f`):
             *no description available*
 
         Returns → Tuple[bool, float, float]:
@@ -11884,12 +11900,12 @@
 
         Return the phase function of this medium
 
-        Returns → :py:class:`mitsuba.render.PhaseFunction`:
+        Returns → :py:obj:`mitsuba.render.PhaseFunction`:
             *no description available*
 
     .. py:method:: mitsuba.render.Medium.sample_interaction(self, ray, sample, channel, active=True)
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.Ray3f`):
             *no description available*
 
         Parameter ``sample`` (float):
@@ -11901,7 +11917,7 @@
         Parameter ``active`` (bool):
             Mask to specify active lanes.
 
-        Returns → :py:class:`mitsuba.render.MediumInteraction3f`:
+        Returns → :py:obj:`mitsuba.render.MediumInteraction3f`:
             *no description available*
 
     .. py:method:: mitsuba.render.Medium.use_emitter_sampling(self)
@@ -11913,7 +11929,7 @@
 
 .. py:class:: mitsuba.render.MediumInteraction3f
 
-    Base class: :py:class:`mitsuba.render.Interaction3f`
+    Base class: :py:obj:`mitsuba.render.Interaction3f`
 
     Stores information related to a medium scattering interaction
 
@@ -11960,12 +11976,12 @@
         Parameter ``size`` (int):
             *no description available*
 
-        Returns → :py:class:`mitsuba.render.MediumInteraction3f`:
+        Returns → :py:obj:`mitsuba.render.MediumInteraction3f`:
             *no description available*
 
 .. py:class:: mitsuba.render.Mesh
 
-    Base class: :py:class:`mitsuba.render.Shape`
+    Base class: :py:obj:`mitsuba.render.Shape`
 
     Create a new mesh with the given vertex and face data structures
 
@@ -11974,7 +11990,7 @@
         Return a ``Struct`` instance describing the contents of the face
         buffer
 
-        Returns → :py:class:`mitsuba.core.Struct`:
+        Returns → :py:obj:`mitsuba.core.Struct`:
             *no description available*
 
     .. py:method:: mitsuba.render.Mesh.faces(self)
@@ -12015,7 +12031,7 @@
         Parameter ``index`` (int):
             Index of the triangle to be intersected.
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.Ray3f`):
             The ray segment to be used for the intersection query.
 
         Parameter ``active`` (bool):
@@ -12047,7 +12063,7 @@
         Return a ``Struct`` instance describing the contents of the vertex
         buffer
 
-        Returns → :py:class:`mitsuba.core.Struct`:
+        Returns → :py:obj:`mitsuba.core.Struct`:
             *no description available*
 
     .. py:method:: mitsuba.render.Mesh.vertices(self)
@@ -12061,7 +12077,7 @@
 
         Export mesh using the file format implemented by the subclass
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Stream`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Stream`):
             *no description available*
 
         Returns → None:
@@ -12096,7 +12112,7 @@
 
     .. py:method:: __init__(self, type, alpha, sample_visible=True)
 
-        Parameter ``type`` (:py:class:`mitsuba.render.MicrofacetType`):
+        Parameter ``type`` (:py:obj:`mitsuba.render.MicrofacetType`):
             *no description available*
 
         Parameter ``alpha`` (float):
@@ -12107,7 +12123,7 @@
 
     .. py:method:: __init__(self, type, alpha_u, alpha_v, sample_visible=True)
 
-        Parameter ``type`` (:py:class:`mitsuba.render.MicrofacetType`):
+        Parameter ``type`` (:py:obj:`mitsuba.render.MicrofacetType`):
             *no description available*
 
         Parameter ``alpha_u`` (float):
@@ -12121,7 +12137,7 @@
 
     .. py:method:: __init__(self, type, alpha, sample_visible=True)
 
-        Parameter ``type`` (:py:class:`mitsuba.render.MicrofacetType`):
+        Parameter ``type`` (:py:obj:`mitsuba.render.MicrofacetType`):
             *no description available*
 
         Parameter ``alpha`` (float):
@@ -12132,7 +12148,7 @@
 
     .. py:method:: __init__(self, type, alpha_u, alpha_v, sample_visible=True)
 
-        Parameter ``type`` (:py:class:`mitsuba.render.MicrofacetType`):
+        Parameter ``type`` (:py:obj:`mitsuba.render.MicrofacetType`):
             *no description available*
 
         Parameter ``alpha_u`` (float):
@@ -12146,7 +12162,7 @@
 
     .. py:method:: __init__(self, arg0)
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Properties`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Properties`):
             *no description available*
 
     .. py:method:: mitsuba.render.MicrofacetDistribution.G(self, wi, wo, m)
@@ -12288,7 +12304,7 @@
 
         Return the distribution type
 
-        Returns → :py:class:`mitsuba.render.MicrofacetType`:
+        Returns → :py:obj:`mitsuba.render.MicrofacetType`:
             *no description available*
 
 .. py:class:: mitsuba.render.MicrofacetType
@@ -12314,11 +12330,11 @@
 
 .. py:class:: mitsuba.render.MonteCarloIntegrator
 
-    Base class: :py:class:`mitsuba.render.SamplingIntegrator`
+    Base class: :py:obj:`mitsuba.render.SamplingIntegrator`
 
 .. py:class:: mitsuba.render.PhaseFunction
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     .. py:method:: mitsuba.render.PhaseFunction.eval(self, ctx, mi, wo, active=True)
 
@@ -12327,11 +12343,11 @@
         The function returns the value (which equals the PDF) of the phase
         function in the query direction.
 
-        Parameter ``ctx`` (:py:class:`mitsuba.render.PhaseFunctionContext`):
+        Parameter ``ctx`` (:py:obj:`mitsuba.render.PhaseFunctionContext`):
             A phase function sampling context, contains information about the
             transport mode
 
-        Parameter ``mi`` (:py:class:`mitsuba.render.MediumInteraction3f`):
+        Parameter ``mi`` (:py:obj:`mitsuba.render.MediumInteraction3f`):
             A medium interaction data structure describing the underlying
             medium position. The incident direction is obtained from the field
             ``mi.wi``.
@@ -12358,11 +12374,11 @@
 
         The function returns a sampled direction.
 
-        Parameter ``ctx`` (:py:class:`mitsuba.render.PhaseFunctionContext`):
+        Parameter ``ctx`` (:py:obj:`mitsuba.render.PhaseFunctionContext`):
             A phase function sampling context, contains information about the
             transport mode
 
-        Parameter ``mi`` (:py:class:`mitsuba.render.MediumInteraction3f`):
+        Parameter ``mi`` (:py:obj:`mitsuba.render.MediumInteraction3f`):
             A medium interaction data structure describing the underlying
             medium position. The incident direction is obtained from the field
             ``mi.wi``.
@@ -12453,7 +12469,7 @@
 
         Copy constructor
 
-        Parameter ``other`` (:py:class:`mitsuba.render.PositionSample3f`):
+        Parameter ``other`` (:py:obj:`mitsuba.render.PositionSample3f`):
             *no description available*
 
     .. py:method:: __init__(self, si)
@@ -12464,7 +12480,7 @@
         surface after hitting it using standard ray tracing. This happens for
         instance in path tracing with multiple importance sampling.
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             *no description available*
 
     .. py:method:: mitsuba.render.PositionSample3f.delta
@@ -12522,12 +12538,12 @@
         Parameter ``size`` (int):
             *no description available*
 
-        Returns → :py:class:`mitsuba.render.PositionSample3f`:
+        Returns → :py:obj:`mitsuba.render.PositionSample3f`:
             *no description available*
 
 .. py:class:: mitsuba.render.ProjectiveCamera
 
-    Base class: :py:class:`mitsuba.render.Sensor`
+    Base class: :py:obj:`mitsuba.render.Sensor`
 
     Projective camera interface
 
@@ -12565,7 +12581,7 @@
 
 .. py:class:: mitsuba.render.Sampler
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     .. py:method:: mitsuba.render.Sampler.clone(self)
 
@@ -12579,7 +12595,7 @@
         state of the original sampler (e.g. by using the next 1D sample as a
         seed for the clone).
 
-        Returns → :py:class:`mitsuba.render.Sampler`:
+        Returns → :py:obj:`mitsuba.render.Sampler`:
             *no description available*
 
     .. py:method:: mitsuba.render.Sampler.next_1d(self, active=True)
@@ -12600,13 +12616,6 @@
             Mask to specify active lanes.
 
         Returns → enoki.scalar.Vector2f:
-            *no description available*
-
-    .. py:method:: mitsuba.render.Sampler.ready(self)
-
-        Check whether the sampler is ready (i.e. properly seeded)
-
-        Returns → bool:
             *no description available*
 
     .. py:method:: mitsuba.render.Sampler.sample_count(self)
@@ -12630,9 +12639,16 @@
         Returns → None:
             *no description available*
 
+    .. py:method:: mitsuba.render.Sampler.wavefront_size(self)
+
+        Return the size of the wavefront, or 0 if not seeded.
+
+        Returns → int:
+            *no description available*
+
 .. py:class:: mitsuba.render.SamplingIntegrator
 
-    Base class: :py:class:`mitsuba.render.Integrator`
+    Base class: :py:obj:`mitsuba.render.Integrator`
 
     Integrator based on Monte Carlo sampling
 
@@ -12643,7 +12659,7 @@
 
     .. py:method:: __init__(self, arg0)
 
-        Parameter ``arg0`` (:py:class:`mitsuba.core.Properties`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.core.Properties`):
             *no description available*
 
 
@@ -12660,14 +12676,14 @@
 
         Sample the incident radiance along a ray.
 
-        Parameter ``scene`` (:py:class:`mitsuba.render.Scene`):
+        Parameter ``scene`` (:py:obj:`mitsuba.render.Scene`):
             The underlying scene in which the radiance function should be
             sampled
 
-        Parameter ``sampler`` (:py:class:`mitsuba.render.Sampler`):
+        Parameter ``sampler`` (:py:obj:`mitsuba.render.Sampler`):
             A source of (pseudo-/quasi-) random numbers
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.RayDifferential3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.RayDifferential3f`):
             A ray, optionally with differentials
 
         Parameter ``active`` (bool):
@@ -12707,27 +12723,27 @@
 
 .. py:class:: mitsuba.render.Scene
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     .. py:method:: mitsuba.render.Scene.bbox(self)
 
         Return a bounding box surrounding the scene
 
-        Returns → :py:class:`mitsuba.core.BoundingBox3f`:
+        Returns → :py:obj:`mitsuba.core.BoundingBox3f`:
             *no description available*
 
     .. py:method:: mitsuba.render.Scene.emitters(self)
 
         Return the list of emitters
 
-        Returns → List[:py:class:`mitsuba.render.Emitter`]:
+        Returns → List[:py:obj:`mitsuba.render.Emitter`]:
             *no description available*
 
     .. py:method:: mitsuba.render.Scene.environment(self)
 
         Return the environment emitter (if any)
 
-        Returns → :py:class:`mitsuba.render.Emitter`:
+        Returns → :py:obj:`mitsuba.render.Emitter`:
             *no description available*
 
     .. py:method:: mitsuba.render.Scene.integrator(self)
@@ -12739,7 +12755,7 @@
 
     .. py:method:: mitsuba.render.Scene.pdf_emitter_direction(self, ref, active=True)
 
-        Parameter ``ref`` (:py:class:`mitsuba.render.Interaction`):
+        Parameter ``ref`` (:py:obj:`mitsuba.render.Interaction`):
             *no description available*
 
         Parameter ``active`` (bool):
@@ -12753,7 +12769,7 @@
         Intersect a ray against all primitives stored in the scene and return
         information about the resulting surface interaction
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.Ray3f`):
             A 3-dimensional ray data structure with minimum/maximum extent
             information, as well as a time value (which matters when the
             shapes are in motion)
@@ -12761,24 +12777,24 @@
         Parameter ``active`` (bool):
             Mask to specify active lanes.
 
-        Returns → :py:class:`mitsuba.render.SurfaceInteraction`:
+        Returns → :py:obj:`mitsuba.render.SurfaceInteraction`:
             A detailed surface interaction record. Query its ``is_valid()``
             method to determine whether an intersection was actually found.
 
     .. py:method:: mitsuba.render.Scene.ray_intersect_naive(self, ray, active=True)
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.Ray3f`):
             *no description available*
 
         Parameter ``active`` (bool):
             Mask to specify active lanes.
 
-        Returns → :py:class:`mitsuba.render.SurfaceInteraction`:
+        Returns → :py:obj:`mitsuba.render.SurfaceInteraction`:
             *no description available*
 
     .. py:method:: mitsuba.render.Scene.ray_test(self, ray, active=True)
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.Ray3f`):
             *no description available*
 
         Parameter ``active`` (bool):
@@ -12789,7 +12805,7 @@
 
     .. py:method:: mitsuba.render.Scene.sample_emitter_direction(self, ref, sample, test_visibility=True, mask=True)
 
-        Parameter ``ref`` (:py:class:`mitsuba.render.Interaction`):
+        Parameter ``ref`` (:py:obj:`mitsuba.render.Interaction`):
             *no description available*
 
         Parameter ``sample`` (enoki.scalar.Vector2f):
@@ -12801,32 +12817,32 @@
         Parameter ``mask`` (bool):
             *no description available*
 
-        Returns → Tuple[:py:class:`mitsuba.render.DirectionSample`, enoki.scalar.Vector3f]:
+        Returns → Tuple[:py:obj:`mitsuba.render.DirectionSample`, enoki.scalar.Vector3f]:
             *no description available*
 
     .. py:method:: mitsuba.render.Scene.sensors(self)
 
         Return the list of sensors
 
-        Returns → List[:py:class:`mitsuba.render.Sensor`]:
+        Returns → List[:py:obj:`mitsuba.render.Sensor`]:
             *no description available*
 
     .. py:method:: mitsuba.render.Scene.shapes(self)
 
         Return the list of shapes
 
-        Returns → List[:py:class:`mitsuba.render.Shape`]:
+        Returns → List[:py:obj:`mitsuba.render.Shape`]:
             *no description available*
 
 .. py:class:: mitsuba.render.Sensor
 
-    Base class: :py:class:`mitsuba.render.Endpoint`
+    Base class: :py:obj:`mitsuba.render.Endpoint`
 
     .. py:method:: mitsuba.render.Sensor.film(self)
 
         Return the Film instance associated with this sensor
 
-        Returns → :py:class:`mitsuba.render.Film`:
+        Returns → :py:obj:`mitsuba.render.Film`:
             *no description available*
 
     .. py:method:: mitsuba.render.Sensor.needs_aperture_sample(self)
@@ -12854,7 +12870,7 @@
         Parameter ``active`` (bool):
             Mask to specify active lanes.
 
-        Returns → Tuple[:py:class:`mitsuba.core.RayDifferential3f`, enoki.scalar.Vector3f]:
+        Returns → Tuple[:py:obj:`mitsuba.core.RayDifferential3f`, enoki.scalar.Vector3f]:
             *no description available*
 
     .. py:method:: mitsuba.render.Sensor.sampler(self)
@@ -12866,7 +12882,7 @@
         instance (see Scene::sampler()). Therefore, this sampler should never
         be used for anything except creating clones.
 
-        Returns → :py:class:`mitsuba.render.Sampler`:
+        Returns → :py:obj:`mitsuba.render.Sampler`:
             *no description available*
 
     .. py:method:: mitsuba.render.Sensor.set_crop_window(self, crop_size, crop_offset)
@@ -12898,7 +12914,7 @@
 
 .. py:class:: mitsuba.render.Shape
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Base class of all geometric shapes in Mitsuba
 
@@ -12914,7 +12930,7 @@
             Return an axis aligned box that bounds all shape primitives (including
             any transformations that may have been applied to them)
 
-            Returns → :py:class:`mitsuba.core.BoundingBox3f`:
+            Returns → :py:obj:`mitsuba.core.BoundingBox3f`:
                 *no description available*
 
         .. py:method:: bbox(self, index)
@@ -12928,7 +12944,7 @@
             Parameter ``index`` (int):
                 *no description available*
 
-            Returns → :py:class:`mitsuba.core.BoundingBox3f`:
+            Returns → :py:obj:`mitsuba.core.BoundingBox3f`:
                 *no description available*
 
         .. py:method:: bbox(self, index, clip)
@@ -12943,10 +12959,10 @@
             Parameter ``index`` (int):
                 *no description available*
 
-            Parameter ``clip`` (:py:class:`mitsuba.core.BoundingBox3f`):
+            Parameter ``clip`` (:py:obj:`mitsuba.core.BoundingBox3f`):
                 *no description available*
 
-            Returns → :py:class:`mitsuba.core.BoundingBox3f`:
+            Returns → :py:obj:`mitsuba.core.BoundingBox3f`:
                 *no description available*
 
     .. py:method:: mitsuba.render.Shape.effective_primitive_count(self)
@@ -12965,25 +12981,25 @@
         Parameter ``active`` (bool):
             Mask to specify active lanes.
 
-        Returns → :py:class:`mitsuba.render.Emitter`:
+        Returns → :py:obj:`mitsuba.render.Emitter`:
             *no description available*
 
     .. py:method:: mitsuba.render.Shape.exterior_medium(self)
 
         Return the medium that lies on the exterior of this shape
 
-        Returns → :py:class:`mitsuba.render.Medium`:
+        Returns → :py:obj:`mitsuba.render.Medium`:
             *no description available*
 
     .. py:method:: mitsuba.render.Shape.fill_surface_interaction(self, ray, cache, si, active=True)
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.Ray3f`):
             *no description available*
 
         Parameter ``cache`` (float):
             *no description available*
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             *no description available*
 
         Parameter ``active`` (bool):
@@ -13003,7 +13019,7 @@
 
         Return the medium that lies on the interior of this shape
 
-        Returns → :py:class:`mitsuba.render.Medium`:
+        Returns → :py:obj:`mitsuba.render.Medium`:
             *no description available*
 
     .. py:method:: mitsuba.render.Shape.is_emitter(self)
@@ -13042,7 +13058,7 @@
         This can be used to compute Gaussian and principal curvatures, amongst
         other things.
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             Surface interaction associated with the query
 
         Parameter ``shading_frame`` (bool):
@@ -13060,10 +13076,10 @@
 
         Query the probability density of sample_direction()
 
-        Parameter ``it`` (:py:class:`mitsuba.render.Interaction3f`):
+        Parameter ``it`` (:py:obj:`mitsuba.render.Interaction3f`):
             A reference position somewhere within the scene.
 
-        Parameter ``ps`` (:py:class:`mitsuba.render.DirectionSample3f`):
+        Parameter ``ps`` (:py:obj:`mitsuba.render.DirectionSample3f`):
             A position record describing the sample in question
 
         Parameter ``active`` (bool):
@@ -13077,7 +13093,7 @@
         Query the probability density of sample_position() for a particular
         point on the surface.
 
-        Parameter ``ps`` (:py:class:`mitsuba.render.PositionSample3f`):
+        Parameter ``ps`` (:py:obj:`mitsuba.render.PositionSample3f`):
             A position record describing the sample in question
 
         Parameter ``active`` (bool):
@@ -13108,7 +13124,7 @@
         origin), detailed intersection information can later be obtained via
         the create_surface_interaction() method.
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.Ray3f`):
             The ray to be tested for an intersection
 
         Parameter ``cache``:
@@ -13119,12 +13135,12 @@
         Parameter ``active`` (bool):
             Mask to specify active lanes.
 
-        Returns → :py:class:`mitsuba.render.SurfaceInteraction3f`:
+        Returns → :py:obj:`mitsuba.render.SurfaceInteraction3f`:
             *no description available*
 
     .. py:method:: mitsuba.render.Shape.ray_test(self, ray, active=True)
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.Ray3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.Ray3f`):
             *no description available*
 
         Parameter ``active`` (bool):
@@ -13152,7 +13168,7 @@
         suboptimal sample placement and higher variance in Monte Carlo
         estimators using the samples.
 
-        Parameter ``it`` (:py:class:`mitsuba.render.Interaction3f`):
+        Parameter ``it`` (:py:obj:`mitsuba.render.Interaction3f`):
             A reference position somewhere within the scene.
 
         Parameter ``sample`` (enoki.scalar.Vector2f):
@@ -13161,7 +13177,7 @@
         Parameter ``active`` (bool):
             Mask to specify active lanes.
 
-        Returns → :py:class:`mitsuba.render.DirectionSample3f`:
+        Returns → :py:obj:`mitsuba.render.DirectionSample3f`:
             A DirectionSample instance describing the generated sample
 
     .. py:method:: mitsuba.render.Shape.sample_position(self, time, sample, active=True)
@@ -13182,12 +13198,12 @@
         Parameter ``active`` (bool):
             Mask to specify active lanes.
 
-        Returns → :py:class:`mitsuba.render.PositionSample3f`:
+        Returns → :py:obj:`mitsuba.render.PositionSample3f`:
             A PositionSample instance describing the generated sample
 
     .. py:method:: mitsuba.render.Shape.sensor(self)
 
-        Returns → :py:class:`mitsuba.render.Sensor`:
+        Returns → :py:obj:`mitsuba.render.Sensor`:
             *no description available*
 
     .. py:method:: mitsuba.render.Shape.surface_area(self)
@@ -13204,7 +13220,7 @@
 
 .. py:class:: mitsuba.render.ShapeKDTree
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Create an empty kd-tree and take build-related parameters from
     ``props``.
@@ -13213,7 +13229,7 @@
 
         Register a new shape with the kd-tree (to be called before build())
 
-        Parameter ``arg0`` (:py:class:`mitsuba.render.Shape`):
+        Parameter ``arg0`` (:py:obj:`mitsuba.render.Shape`):
             *no description available*
 
         Returns → None:
@@ -13221,7 +13237,7 @@
 
     .. py:method:: mitsuba.render.ShapeKDTree.bbox(self)
 
-        Returns → :py:class:`mitsuba.core.BoundingBox3f`:
+        Returns → :py:obj:`mitsuba.core.BoundingBox3f`:
             *no description available*
 
     .. py:method:: mitsuba.render.ShapeKDTree.build(overloaded)
@@ -13249,7 +13265,7 @@
         Parameter ``arg0`` (int):
             *no description available*
 
-        Returns → :py:class:`mitsuba.render.Shape`:
+        Returns → :py:obj:`mitsuba.render.Shape`:
             *no description available*
 
     .. py:method:: mitsuba.render.ShapeKDTree.shape_count(self)
@@ -13261,7 +13277,7 @@
 
 .. py:class:: mitsuba.render.Spiral
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Generates a spiral of blocks to be rendered.
 
@@ -13331,7 +13347,7 @@
 
 .. py:class:: mitsuba.render.SurfaceInteraction3f
 
-    Base class: :py:class:`mitsuba.render.Interaction3f`
+    Base class: :py:obj:`mitsuba.render.Interaction3f`
 
     Stores information related to a surface scattering interaction
 
@@ -13350,7 +13366,7 @@
         left uninitialized because we can't guarantee that the given
         PositionSample::object points to a Shape instance.
 
-        Parameter ``ps`` (:py:class:`mitsuba.render.PositionSample`):
+        Parameter ``ps`` (:py:obj:`mitsuba.render.PositionSample`):
             *no description available*
 
         Parameter ``wavelengths`` (enoki.scalar.Vector0f):
@@ -13369,22 +13385,22 @@
 
             Implementation in 'bsdf.h'
 
-            Parameter ``ray`` (:py:class:`mitsuba.core.RayDifferential3f`):
+            Parameter ``ray`` (:py:obj:`mitsuba.core.RayDifferential3f`):
                 *no description available*
 
-            Returns → :py:class:`mitsuba.render.BSDF`:
+            Returns → :py:obj:`mitsuba.render.BSDF`:
                 *no description available*
 
         .. py:method:: bsdf(self)
 
-            Returns → :py:class:`mitsuba.render.BSDF`:
+            Returns → :py:obj:`mitsuba.render.BSDF`:
                 *no description available*
 
     .. py:method:: mitsuba.render.SurfaceInteraction3f.compute_partials(self, ray)
 
         Computes texture coordinate partials
 
-        Parameter ``ray`` (:py:class:`mitsuba.core.RayDifferential3f`):
+        Parameter ``ray`` (:py:obj:`mitsuba.core.RayDifferential3f`):
             *no description available*
 
         Returns → None:
@@ -13415,13 +13431,13 @@
         Return the emitter associated with the intersection (if any) \note
         Defined in scene.h
 
-        Parameter ``scene`` (:py:class:`mitsuba.render.Scene`):
+        Parameter ``scene`` (:py:obj:`mitsuba.render.Scene`):
             *no description available*
 
         Parameter ``active`` (bool):
             Mask to specify active lanes.
 
-        Returns → :py:class:`mitsuba.render.Emitter`:
+        Returns → :py:obj:`mitsuba.render.Emitter`:
             *no description available*
 
     .. py:method:: mitsuba.render.SurfaceInteraction3f.has_uv_partials(self)
@@ -13481,7 +13497,7 @@
             Parameter ``d`` (enoki.scalar.Vector3f):
                 *no description available*
 
-            Returns → :py:class:`mitsuba.render.Medium`:
+            Returns → :py:obj:`mitsuba.render.Medium`:
                 *no description available*
 
         .. py:method:: target_medium(self, cos_theta)
@@ -13495,7 +13511,7 @@
             Parameter ``cos_theta`` (float):
                 *no description available*
 
-            Returns → :py:class:`mitsuba.render.Medium`:
+            Returns → :py:obj:`mitsuba.render.Medium`:
                 *no description available*
 
     .. py:method:: mitsuba.render.SurfaceInteraction3f.to_local(self, v)
@@ -13594,12 +13610,12 @@
         Parameter ``size`` (int):
             *no description available*
 
-        Returns → :py:class:`mitsuba.render.SurfaceInteraction3f`:
+        Returns → :py:obj:`mitsuba.render.SurfaceInteraction3f`:
             *no description available*
 
 .. py:class:: mitsuba.render.Texture
 
-    Base class: :py:class:`mitsuba.core.Object`
+    Base class: :py:obj:`mitsuba.core.Object`
 
     Base class of all surface texture implementations
 
@@ -13618,14 +13634,14 @@
         Parameter ``scale`` (float):
             *no description available*
 
-        Returns → :py:class:`mitsuba.render.Texture`:
+        Returns → :py:obj:`mitsuba.render.Texture`:
             *no description available*
 
     .. py:method:: mitsuba.render.Texture.eval(self, si, active=True)
 
         Evaluate the texture at the given surface interaction
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             An interaction record describing the associated surface position
 
         Parameter ``active`` (bool):
@@ -13644,7 +13660,7 @@
         spectral upsampling). This is useful in parts of the renderer that
         encode scalar quantities using textures, e.g. a height field.
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             An interaction record describing the associated surface position
 
         Parameter ``active`` (bool):
@@ -13664,7 +13680,7 @@
         of the renderer that encode 3D quantities using textures, e.g. a
         normal map.
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             An interaction record describing the associated surface position
 
         Parameter ``active`` (bool):
@@ -13695,7 +13711,7 @@
         Not every implementation necessarily provides this function. The
         default implementation throws an exception.
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             An interaction record describing the associated surface position
 
         Parameter ``active`` (bool):
@@ -13714,7 +13730,7 @@
         a no-op when compiling non-spectral variants of Mitsuba. The default
         implementation throws an exception.
 
-        Parameter ``si`` (:py:class:`mitsuba.render.SurfaceInteraction3f`):
+        Parameter ``si`` (:py:obj:`mitsuba.render.SurfaceInteraction3f`):
             An interaction record describing the associated surface position
 
         Parameter ``sample`` (enoki.scalar.Vector0f):
@@ -13752,7 +13768,7 @@
 
 .. py:function:: mitsuba.render.eval_reflectance(type, alpha_u, alpha_v, wi, eta)
 
-    Parameter ``type`` (:py:class:`mitsuba.render.MicrofacetType`):
+    Parameter ``type`` (:py:obj:`mitsuba.render.MicrofacetType`):
         *no description available*
 
     Parameter ``alpha_u`` (float):
@@ -13761,7 +13777,7 @@
     Parameter ``alpha_v`` (float):
         *no description available*
 
-    Parameter ``wi`` (:py:class:`mitsuba.render.Vector`):
+    Parameter ``wi`` (:py:obj:`mitsuba.render.Vector`):
         *no description available*
 
     Parameter ``eta`` (float):
@@ -13864,7 +13880,7 @@
         Parameter ``arg0`` (int):
             *no description available*
 
-        Parameter ``arg1`` (:py:class:`mitsuba.render.BSDFFlags`):
+        Parameter ``arg1`` (:py:obj:`mitsuba.render.BSDFFlags`):
             *no description available*
 
         Returns → bool:
@@ -13875,7 +13891,7 @@
         Parameter ``arg0`` (int):
             *no description available*
 
-        Parameter ``arg1`` (:py:class:`mitsuba.render.PhaseFunctionFlags`):
+        Parameter ``arg1`` (:py:obj:`mitsuba.render.PhaseFunctionFlags`):
             *no description available*
 
         Returns → bool:
@@ -13901,7 +13917,7 @@
         Parameter ``value`` (enoki.scalar.Vector3f):
             The amount of absorption.
 
-        Returns → enoki::Matrix<:py:class:`mitsuba.render.Color`:
+        Returns → enoki::Matrix<:py:obj:`mitsuba.render.Color`:
             *no description available*
 
 .. py:function:: mitsuba.render.mueller.depolarizer(overloaded)
@@ -13924,7 +13940,7 @@
         Parameter ``value`` (enoki.scalar.Vector3f):
             The value of the (0, 0) element
 
-        Returns → enoki::Matrix<:py:class:`mitsuba.render.Color`:
+        Returns → enoki::Matrix<:py:obj:`mitsuba.render.Color`:
             *no description available*
 
 .. py:function:: mitsuba.render.mueller.diattenuator(overloaded)
@@ -13957,7 +13973,7 @@
         Parameter ``y`` (enoki.scalar.Vector3f):
             *no description available*
 
-        Returns → enoki::Matrix<:py:class:`mitsuba.render.Color`:
+        Returns → enoki::Matrix<:py:obj:`mitsuba.render.Color`:
             *no description available*
 
 .. py:function:: mitsuba.render.mueller.linear_polarizer(overloaded)
@@ -13988,7 +14004,7 @@
             The amount of attenuation of the transmitted component (1
             corresponds to an ideal polarizer).
 
-        Returns → enoki::Matrix<:py:class:`mitsuba.render.Color`:
+        Returns → enoki::Matrix<:py:obj:`mitsuba.render.Color`:
             *no description available*
 
 .. py:function:: mitsuba.render.mueller.linear_retarder(overloaded)
@@ -14025,7 +14041,7 @@
         Parameter ``phase`` (enoki.scalar.Vector3f):
             The phase difference between the fast and slow axis
 
-        Returns → enoki::Matrix<:py:class:`mitsuba.render.Color`:
+        Returns → enoki::Matrix<:py:obj:`mitsuba.render.Color`:
             *no description available*
 
 .. py:function:: mitsuba.render.mueller.reverse(overloaded)
@@ -14047,10 +14063,10 @@
         Reverse direction of propagation of the electric field. Also used for
         reflecting reference frames.
 
-        Parameter ``M`` (enoki::Matrix<:py:class:`mitsuba.render.Color`):
+        Parameter ``M`` (enoki::Matrix<:py:obj:`mitsuba.render.Color`):
             *no description available*
 
-        Returns → enoki::Matrix<:py:class:`mitsuba.render.Color`:
+        Returns → enoki::Matrix<:py:obj:`mitsuba.render.Color`:
             *no description available*
 
 .. py:function:: mitsuba.render.mueller.rotate_mueller_basis(overloaded)
@@ -14106,7 +14122,7 @@
         'out_basis_current' but instead want to re-express it as a Mueller
         matrix that operates from 'in_basis_target' to 'out_basis_target'.
 
-        Parameter ``M`` (enoki::Matrix<:py:class:`mitsuba.render.Color`):
+        Parameter ``M`` (enoki::Matrix<:py:obj:`mitsuba.render.Color`):
             The current Mueller matrix that operates from ``in_basis_current``
             to ``out_basis_current``.
 
@@ -14132,7 +14148,7 @@
             Target (normalized) input Stokes basis. Must be orthogonal to
             ``out_forward``.
 
-        Returns → enoki::Matrix<:py:class:`mitsuba.render.Color`:
+        Returns → enoki::Matrix<:py:obj:`mitsuba.render.Color`:
             New Mueller matrix that operates from ``in_basis_target`` to
             ``out_basis_target``.
 
@@ -14178,7 +14194,7 @@
         'basis_current' but instead want to re-express it as a Mueller matrix
         that operates from 'basis_target' to 'basis_target'.
 
-        Parameter ``M`` (enoki::Matrix<:py:class:`mitsuba.render.Color`):
+        Parameter ``M`` (enoki::Matrix<:py:obj:`mitsuba.render.Color`):
             The current Mueller matrix that operates from ``basis_current`` to
             ``basis_current``.
 
@@ -14193,7 +14209,7 @@
             Target (normalized) input Stokes basis. Must be orthogonal to
             ``forward``.
 
-        Returns → enoki::Matrix<:py:class:`mitsuba.render.Color`:
+        Returns → enoki::Matrix<:py:obj:`mitsuba.render.Color`:
             New Mueller matrix that operates from ``basis_target`` to
             ``basis_target``.
 
@@ -14253,7 +14269,7 @@
     Parameter ``wi`` (enoki.scalar.Vector3f):
         *no description available*
 
-    Returns → enoki::Matrix<:py:class:`mitsuba.render.Color`:
+    Returns → enoki::Matrix<:py:obj:`mitsuba.render.Color`:
         Mueller matrix that performs the desired change of reference
         frames.
 
@@ -14282,10 +14298,10 @@
         Parameter ``theta`` (enoki.scalar.Vector3f):
             *no description available*
 
-        Parameter ``M`` (enoki::Matrix<:py:class:`mitsuba.render.Color`):
+        Parameter ``M`` (enoki::Matrix<:py:obj:`mitsuba.render.Color`):
             *no description available*
 
-        Returns → enoki::Matrix<:py:class:`mitsuba.render.Color`:
+        Returns → enoki::Matrix<:py:obj:`mitsuba.render.Color`:
             *no description available*
 
 .. py:function:: mitsuba.render.mueller.rotator(overloaded)
@@ -14326,7 +14342,7 @@
         Parameter ``theta`` (enoki.scalar.Vector3f):
             *no description available*
 
-        Returns → enoki::Matrix<:py:class:`mitsuba.render.Color`:
+        Returns → enoki::Matrix<:py:obj:`mitsuba.render.Color`:
             *no description available*
 
 .. py:function:: mitsuba.render.mueller.specular_reflection(overloaded)
@@ -14358,12 +14374,12 @@
             Cosine of the angle between the surface normal and the incident
             ray
 
-        Parameter ``eta`` (enoki::Complex<:py:class:`mitsuba.render.Color`):
+        Parameter ``eta`` (enoki::Complex<:py:obj:`mitsuba.render.Color`):
             Complex-valued relative refractive index of the interface. In the
             real case, a value greater than 1.0 case means that the surface
             normal points into the region of lower density.
 
-        Returns → enoki::Matrix<:py:class:`mitsuba.render.Color`:
+        Returns → enoki::Matrix<:py:obj:`mitsuba.render.Color`:
             *no description available*
 
 .. py:function:: mitsuba.render.mueller.specular_transmission(overloaded)
@@ -14400,7 +14416,7 @@
             greater than 1.0 in the real case means that the surface normal is
             pointing into the region of lower density.
 
-        Returns → enoki::Matrix<:py:class:`mitsuba.render.Color`:
+        Returns → enoki::Matrix<:py:obj:`mitsuba.render.Color`:
             *no description available*
 
 .. py:function:: mitsuba.render.mueller.stokes_basis(w)
@@ -14504,7 +14520,7 @@
     Parameter ``arg0`` (str):
         *no description available*
 
-    Parameter ``arg1`` (Callable[[:py:class:`mitsuba.core.Properties`], object]):
+    Parameter ``arg1`` (Callable[[:py:obj:`mitsuba.core.Properties`], object]):
         *no description available*
 
     Returns → None:
@@ -14515,7 +14531,7 @@
     Parameter ``arg0`` (str):
         *no description available*
 
-    Parameter ``arg1`` (Callable[[:py:class:`mitsuba.core.Properties`], object]):
+    Parameter ``arg1`` (Callable[[:py:obj:`mitsuba.core.Properties`], object]):
         *no description available*
 
     Returns → None:
@@ -14526,7 +14542,7 @@
     Parameter ``arg0`` (str):
         *no description available*
 
-    Parameter ``arg1`` (Callable[[:py:class:`mitsuba.core.Properties`], object]):
+    Parameter ``arg1`` (Callable[[:py:obj:`mitsuba.core.Properties`], object]):
         *no description available*
 
     Returns → None:
@@ -14537,7 +14553,7 @@
     Parameter ``arg0`` (str):
         *no description available*
 
-    Parameter ``arg1`` (Callable[[:py:class:`mitsuba.core.Properties`], object]):
+    Parameter ``arg1`` (Callable[[:py:obj:`mitsuba.core.Properties`], object]):
         *no description available*
 
     Returns → None:
@@ -14548,7 +14564,7 @@
     Parameter ``arg0`` (str):
         *no description available*
 
-    Parameter ``arg1`` (Callable[[:py:class:`mitsuba.core.Properties`], object]):
+    Parameter ``arg1`` (Callable[[:py:obj:`mitsuba.core.Properties`], object]):
         *no description available*
 
     Returns → None:
@@ -14559,7 +14575,7 @@
     Parameter ``arg0`` (str):
         *no description available*
 
-    Parameter ``arg1`` (Callable[[:py:class:`mitsuba.core.Properties`], object]):
+    Parameter ``arg1`` (Callable[[:py:obj:`mitsuba.core.Properties`], object]):
         *no description available*
 
     Returns → None:
@@ -14749,13 +14765,35 @@
     Traverse a node of Mitsuba's scene graph and return a dictionary-like
     object that can be used to read and write associated scene parameters.
 
+    This dictionary exposes multiple non-standard methods:
+
+    1. ``keep(self, keys: list) -> None``:
+
+       Reduce the size of the dictionary by only keeping elements,
+       whose keys are part of the provided list 'keys'.
+
+    2. ``update(self) -> None``:
+
+       This function should be called at the end of a sequence of writes
+       to the dictionary. It automatically notifies all modified Mitsuba
+       objects and their parent objects that they should refresh their
+       internal state. For instance, the scene may rebuild the kd-tree
+       when a shape was modified, etc.
+
+    3. ``torch(self) -> dict``:
+
+       Converts all Enoki arrays into PyTorch arrays and return them as a
+       dictionary. This is mainly useful when using PyTorch to optimize a
+       Mitsuba scene.
+
+
 .. py:function:: mitsuba.python.math.rlgamma(a, x)
 
     Regularized lower incomplete gamma function based on CEPHES
 
 .. py:class:: mitsuba.python.autodiff.Adam(params, lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
 
-    Base class: :py:class:`mitsuba.python.autodiff.Optimizer`
+    Base class: :py:obj:`mitsuba.python.autodiff.Optimizer`
 
     Implements the optimization technique presented in
 
@@ -14779,12 +14817,13 @@
         
 .. py:class:: mitsuba.python.autodiff.Optimizer(params, lr)
 
-    Base class of optimizers (SGD, Adam)
+    Base class of all gradient-based optimizers (currently SGD and Adam)
 
     .. py:method:: __init__(params, lr)
 
         Parameter ``params``:
-            dictionary ``(name: variable)`` of differentiable parameters to be optimized.
+            dictionary ``(name: variable)`` of differentiable parameters to be
+            optimized.
         
         Parameter ``lr``:
             learning rate
@@ -14800,7 +14839,7 @@
 
 .. py:class:: mitsuba.python.autodiff.SGD(params, lr, momentum=0)
 
-    Base class: :py:class:`mitsuba.python.autodiff.Optimizer`
+    Base class: :py:obj:`mitsuba.python.autodiff.Optimizer`
 
     Implements basic stochastic gradient descent with a fixed learning rate
     and, optionally, momentum (0.9 is a typical parameter value).
@@ -14823,13 +14862,22 @@
     Render the specified Mitsuba scene and return a floating point
     array containing RGB values and AOVs, if applicable
 
-.. py:function:: mitsuba.python.autodiff.render_diff(scene, optimizer, unbiased=True, spp_primal=None, spp_diff=None, sensor_index=0)
+.. py:function:: mitsuba.python.autodiff.render_diff(scene, optimizer, unbiased=True, spp=None, spp_primal=None, spp_diff=None, sensor_index=0)
 
-    Perform a differentiable of the scene `scene`. This function differs from
-    ``render()`` in that it splits the rendering step into two separate passes
-    that generate the primal image and gradients, respectively (assuming that
-    ``unbiased=True`` is specified). This is necessary to avoid correlations that
-    would otherwise introduce bias into the resulting parameter gradients.
+    Perform a differentiable of the scene `scene`.
+
+    This function differs from ``render()`` in that it splits the rendering
+    step into two separate passes that generate the primal image and gradients,
+    respectively (assuming that ``unbiased=True`` is specified). This is
+    necessary to avoid correlations that would otherwise introduce bias into
+    the resulting parameter gradients.
+
+    The number of samples per pixel can be specified separately for both primal
+    and derivative passes.
+
+    The number of samples per pixel per pass can be specified separately for
+    both primal (``spp_primal``) and derivative (``spp_diff``) passes or
+    jointly for both (``spp``).
 
 .. py:function:: mitsuba.python.autodiff.render_torch(scene, params=None, **kwargs)
 

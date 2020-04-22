@@ -236,6 +236,9 @@ endif()
 
 # Compile with compiler warnings turned on
 if (MSVC)
+  if (${MSVC_VERSION} LESS 1924)
+    message(FATAL_ERROR "MSVC 1924 or higher is required. You are running version ${MSVC_VERSION}.")
+  endif()
   if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
     string(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
   else()
@@ -338,6 +341,9 @@ if (MSVC)
 
   # Use defines from math.h (M_PI, etc)
   add_compile_options(/D "_USE_MATH_DEFINES")
+
+  # Don't complain about incompatible modifier on explicit instantiations
+  add_compile_options("/wd4910")
 endif()
 
 if (U_CMAKE_BUILD_TYPE MATCHES DEBUG AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -421,6 +427,12 @@ elseif(MSVC)
       set("CMAKE_${LinkType}_LINKER_FLAGS_${Configuration}" "${FLAGS}" CACHE STRING "" FORCE)
     endforeach()
   endforeach()
+
+  foreach(LinkType EXE SHARED)
+    string(REGEX REPLACE "\/INCREMENTAL(\:NO)?" "" CMAKE_${LinkType}_LINKER_FLAGS_DEBUG "${CMAKE_${LinkType}_LINKER_FLAGS_DEBUG}")
+    set("CMAKE_${LinkType}_LINKER_FLAGS_DEBUG" "${CMAKE_${LinkType}_LINKER_FLAGS_DEBUG} /INCREMENTAL:NO")
+  endforeach()
+
   message(STATUS "Mitsuba: LTO support enabled.")
 endif()
 
@@ -550,6 +562,8 @@ endmacro()
 
 add_file(data/srgb.coeff ${CMAKE_BINARY_DIR}/ext_build/rgb2spec/srgb.coeff rgb2spec_opt_run)
 
+file(COPY resources/data/ior DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/dist/data)
+
 add_custom_target(dist-copy ALL DEPENDS ${MITSUBA_DIST_OUT})
 set_property(TARGET dist-copy PROPERTY FOLDER misc)
 
@@ -566,10 +580,16 @@ if (Sphinx_FOUND)
 
     set(SPHINX_INPUT_DIR_API  "${CMAKE_CURRENT_SOURCE_DIR}/docs/docs_api")
     set(SPHINX_OUTPUT_DIR_API "${CMAKE_CURRENT_BINARY_DIR}/html_api")
+
   add_custom_target(mkdoc-api
       ${SPHINX_EXECUTABLE} -b html "${SPHINX_INPUT_DIR_API}" "${SPHINX_OUTPUT_DIR_API}"
       COMMENT "Building HTML documentation with Sphinx"
+      DEPENDS mitsuba-python dist-copy
       USES_TERMINAL)
+endif()
+
+if (MSVC)
+  set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT mitsuba)
 endif()
 
 if(NOT WIN32)

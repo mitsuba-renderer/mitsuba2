@@ -11,6 +11,10 @@
 #include <mitsuba/render/sensor.h>
 #include <mitsuba/render/shape.h>
 
+#if defined(MTS_ENABLE_EMBREE)
+    #include <embree3/rtcore.h>
+#endif
+
 NAMESPACE_BEGIN(mitsuba)
 
 /**!
@@ -28,15 +32,15 @@ Sphere (:monosp:`sphere`)
  * - radius
    - |float|
    - Radius of the sphere in object-space units (Default: 1)
- * - to_world
-   - |transform|
-   -  Specifies an optional linear object-to-world transformation.
-      Note that non-uniform scales are not permitted!
-      (Default: none (i.e. object space = world space))
  * - flip_normals
    - |bool|
    - Is the sphere inverted, i.e. should the normal vectors be flipped? (Default:|false|, i.e.
      the normals point outside)
+ * - to_world
+   - |transform|
+   -  Specifies an optional linear object-to-world transformation.
+      Note that non-uniform scales are not permitted!
+      (Default: none, i.e. object space = world space)
 
 .. subfigstart::
 .. subfigure:: ../../resources/data/docs/images/render/shape_sphere_basic.jpg
@@ -61,11 +65,27 @@ The two declarations below are equivalent.
         </transform>
         <bsdf type="diffuse"/>
     </shape>
+
     <shape type="sphere">
         <point name="center" x="1" y="0" z="0"/>
         <float name="radius" value="2"/>
         <bsdf type="diffuse"/>
     </shape>
+
+When a :ref:`sphere <shape-sphere>` shape is turned into an :ref:`area <emitter-area>`
+light source, Mitsuba 2 switches to an efficient
+`sampling strategy <https://www.akalin.com/sampling-visible-sphere>`_ by Fred Akalin that
+has particularly low variance.
+This makes it a good default choice for lighting new scenes.
+
+.. subfigstart::
+.. subfigure:: ../../resources/data/docs/images/render/shape_sphere_light_mesh.jpg
+   :caption: Spherical area light modeled using triangles
+.. subfigure:: ../../resources/data/docs/images/render/shape_sphere_light_analytic.jpg
+   :caption: Spherical area light modeled using the :ref:`sphere <shape-sphere>` plugin
+.. subfigend::
+   :label: fig-sphere-light
+
 
 .. warning:: This plugin is currently not supported by the Embree and OptiX raytracing backend.
 
@@ -402,6 +422,18 @@ public:
         m_world_to_object = m_object_to_world.inverse();
         m_inv_surface_area = 1.f / surface_area();
     }
+
+#if defined(MTS_ENABLE_EMBREE)
+    RTCGeometry embree_geometry(RTCDevice device) const override {
+        RTCGeometry geom = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_SPHERE_POINT);
+        float *buffer = (float*) rtcSetNewGeometryBuffer(geom, RTC_BUFFER_TYPE_VERTEX, 0,
+                                                         RTC_FORMAT_FLOAT4, 4 * sizeof(float), 1);
+        buffer[0] = m_center.x(); buffer[1] = m_center.y(); buffer[2] = m_center.z();
+        buffer[3] = m_radius;
+        rtcCommitGeometry(geom);
+        return geom;
+    }
+#endif
 
     std::string to_string() const override {
         std::ostringstream oss;

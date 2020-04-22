@@ -5,6 +5,20 @@
 
 NAMESPACE_BEGIN(mitsuba)
 
+/**!
+
+.. _spectrum-srgb:
+
+sRGB spectrum (:monosp:`srgb`)
+------------------------------
+
+In spectral render modes, this smooth spectrum is the result of the
+*spectral upsampling* process :cite:`Jakob2019Spectral` used by the system.
+In RGB render modes, this spectrum represents a constant RGB value.
+In monochrome modes, this spectrum represents a constant luminance value.
+
+ */
+
 template <typename Float, typename Spectrum>
 class SRGBReflectanceSpectrum final : public Texture<Float, Spectrum> {
 public:
@@ -44,6 +58,11 @@ public:
 
     void traverse(TraversalCallback *callback) override {
         callback->put_parameter("value", m_value);
+    }
+
+    void parameters_changed() override {
+        if constexpr (!is_spectral_v<Spectrum>)
+            m_value = clamp(m_value, 0.f, 1.f);
     }
 
     MTS_DECLARE_CLASS()

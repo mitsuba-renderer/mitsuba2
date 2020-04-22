@@ -30,23 +30,6 @@ Thin dielectric material (:monosp:`thindielectric`)
    - |spectrum| or |texture|
    - Optional factor that can be used to modulate the specular transmission component. Note that for physical realism, this parameter should never be touched. (Default: 1.0)
 
-This plugin models a **thin** dielectric material that is embedded inside another
-dielectric---for instance, glass surrounded by air. The interior of the material
-is assumed to be so thin that its effect on transmitted rays is negligible,
-Hence, light exits such a material without any form of angular deflection
-(though there is still specular reflection).
-This model should be used for things like glass windows that were modeled using only a
-single sheet of triangles or quads. On the other hand, when the window consists of
-proper closed geometry, :ref:`bsdf-dielectric` is the right choice. This is illustrated below:
-
-.. subfigstart::
-.. subfigure:: ../../resources/data/docs/images/bsdf/dielectric_figure.svg
-   :caption: The :ref:`bsdf-dielectric` plugin models a single transition from one index of refraction to another
-.. subfigure:: ../../resources/data/docs/images/bsdf/thindielectric_figure.svg
-   :caption: The :ref:`bsdf-thindielectric` plugin models a pair of interfaces causing a transient index of refraction change
-.. subfigend::
-    :label: fig-bsdf-thindielectric
-
 .. subfigstart::
 .. subfigure:: ../../resources/data/docs/images/render/bsdf_dielectric_glass.jpg
    :caption: Dielectric
@@ -55,11 +38,35 @@ proper closed geometry, :ref:`bsdf-dielectric` is the right choice. This is illu
 .. subfigend::
     :label: fig-bsdf-comparison-thindielectric
 
+This plugin models a **thin** dielectric material that is embedded inside another
+dielectric---for instance, glass surrounded by air. The interior of the material
+is assumed to be so thin that its effect on transmitted rays is negligible,
+Hence, light exits such a material without any form of angular deflection
+(though there is still specular reflection).
+This model should be used for things like glass windows that were modeled using only a
+single sheet of triangles or quads. On the other hand, when the window consists of
+proper closed geometry, :ref:`dielectric <bsdf-dielectric>` is the right choice.
+This is illustrated below:
+
+.. subfigstart::
+.. subfigure:: ../../resources/data/docs/images/bsdf/dielectric_figure.svg
+   :caption: The :ref:`dielectric <bsdf-dielectric>` plugin models a single transition from one index of refraction to another
+.. subfigure:: ../../resources/data/docs/images/bsdf/thindielectric_figure.svg
+   :caption: The :ref:`thindielectric <bsdf-thindielectric>` plugin models a pair of interfaces causing a transient index of refraction change
+.. subfigend::
+    :label: fig-bsdf-thindielectric
+
 The implementation correctly accounts for multiple internal reflections
 inside the thin dielectric at **no significant extra cost**, i.e. paths
 of the type :math:`R, TRT, TR^3T, ..` for reflection and :math:`TT, TR^2, TR^4T, ..` for
 refraction, where :math:`T` and :math:`R` denote individual reflection and refraction
 events, respectively.
+
+Similar to the :ref:`dielectric <bsdf-dielectric>` plugin, IOR values can either
+be specified numerically, or based on a list of known materials (see the
+corresponding table in the :ref:`dielectric <bsdf-dielectric>` reference).
+When no parameters are given, the plugin activates the default settings,
+which describe a borosilicate glass (BK7) ↔ air interface.
  */
 
 template <typename Float, typename Spectrum>
@@ -80,8 +87,11 @@ public:
 
         m_eta = int_ior / ext_ior;
 
-        m_specular_reflectance   = props.texture<Texture>("specular_reflectance", 1.f);
-        m_specular_transmittance = props.texture<Texture>("specular_transmittance", 1.f);
+        if (m_specular_reflectance)
+            m_specular_reflectance   = props.texture<Texture>("specular_reflectance", 1.f);
+
+        if (m_specular_transmittance)
+            m_specular_transmittance = props.texture<Texture>("specular_transmittance", 1.f);
 
         m_components.push_back(BSDFFlags::DeltaReflection | BSDFFlags::FrontSide |
                                BSDFFlags::BackSide);
@@ -108,7 +118,7 @@ public:
 
         // Select the lobe to be sampled
         BSDFSample3f bs = zero<BSDFSample3f>();
-        Spectrum weight;
+        UnpolarizedSpectrum weight;
         Mask selected_r;
         if (likely(has_reflection && has_transmission)) {
             selected_r = sample1 <= r && active;
@@ -130,23 +140,23 @@ public:
         bs.sampled_type =
             select(selected_r, UInt32(+BSDFFlags::DeltaReflection), UInt32(+BSDFFlags::Null));
 
-        if (any_or<true>(selected_r))
+        if (m_specular_reflectance && any_or<true>(selected_r))
             weight[selected_r] *= m_specular_reflectance->eval(si, selected_r);
 
         Mask selected_t = !selected_r && active;
-        if (any_or<true>(selected_t))
+        if (m_specular_transmittance && any_or<true>(selected_t))
             weight[selected_t] *= m_specular_transmittance->eval(si, selected_t);
 
         return { bs, select(active, unpolarized<Spectrum>(weight), 0.f) };
     }
 
-    Spectrum eval(const BSDFContext & /*ctx*/, const SurfaceInteraction3f & /*si*/,
-                  const Vector3f & /*wo*/, Mask /*active*/) const override {
+    Spectrum eval(const BSDFContext & /* ctx */, const SurfaceInteraction3f & /* si */,
+                  const Vector3f & /* wo */, Mask /* active */) const override {
         return 0.f;
     }
 
-    Float pdf(const BSDFContext & /*ctx*/, const SurfaceInteraction3f & /*si*/,
-              const Vector3f & /*wo*/, Mask /*active*/) const override {
+    Float pdf(const BSDFContext & /* ctx */, const SurfaceInteraction3f & /* si */,
+              const Vector3f & /* wo */, Mask /* active */) const override {
         return 0.f;
     }
 
@@ -154,23 +164,34 @@ public:
                                 Mask active) const override {
 
         Float r = std::get<0>(fresnel(abs(Frame3f::cos_theta(si.wi)), Float(m_eta)));
+
         // Account for internal reflections: r' = r + trt + tr^3t + ..
         r *= 2.f / (1.f + r);
-        return m_specular_transmittance->eval(si, active) * (1 - r);
+
+        UnpolarizedSpectrum value = 1 - r;
+
+        if (m_specular_transmittance)
+            value *= m_specular_transmittance->eval(si, active);
+
+        return unpolarized<Spectrum>(value);
     }
 
     void traverse(TraversalCallback *callback) override {
         callback->put_parameter("eta", m_eta);
-        callback->put_object("specular_transmittance", m_specular_transmittance.get());
-        callback->put_object("specular_reflectance", m_specular_reflectance.get());
+        if (m_specular_reflectance)
+            callback->put_object("specular_transmittance", m_specular_transmittance.get());
+        if (m_specular_transmittance)
+            callback->put_object("specular_reflectance", m_specular_reflectance.get());
     }
 
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << "ThinDielectric[" << std::endl
-            << "  eta = "                    << string::indent(m_eta)                    << "," << std::endl
-            << "  specular_reflectance = "   << string::indent(m_specular_reflectance)   << "," << std::endl
-            << "  specular_transmittance = " << string::indent(m_specular_transmittance) << std::endl
+        oss << "ThinDielectric[" << std::endl;
+        if (m_specular_reflectance)
+            oss << "  specular_reflectance = "   << string::indent(m_specular_reflectance)   << "," << std::endl;
+        if (m_specular_transmittance)
+            oss << "  specular_transmittance = " << string::indent(m_specular_transmittance) << "," << std::endl;
+        oss << "  eta = "                    << string::indent(m_eta)                    << std::endl
             << "]";
         return oss.str();
     }

@@ -13,10 +13,12 @@ Mitsuba 2: A Retargetable Forward and Inverse Renderer
     :caption: Getting started
 
     src/getting_started/intro
-    src/getting_started/first_steps
-    src/getting_started/differences_to_mitsuba1
+    src/getting_started/cloning
     src/getting_started/variants
-    src/getting_started/scene_file_format
+    src/getting_started/compiling
+    src/getting_started/file_format
+    src/getting_started/differences
+    src/getting_started/faq
 
 .. toctree::
     :maxdepth: 1
@@ -25,28 +27,26 @@ Mitsuba 2: A Retargetable Forward and Inverse Renderer
     src/python_interface/intro
     src/python_interface/parsing_xml
     src/python_interface/rendering_scene
-    src/python_interface/depth_integrator
-    src/python_interface/direct_integrator
-    src/python_interface/diffuse_bsdf
+    src/python_interface/bsdf_eval
 
 
 .. toctree::
     :maxdepth: 1
-    :caption: Optimization and inverse rendering
+    :caption: Inverse rendering
 
     src/inverse_rendering/intro
-    src/inverse_rendering/optimize_diffuse
-    src/inverse_rendering/optimize_texture
-    src/inverse_rendering/optimize_volume
-    src/inverse_rendering/integration_pytorch
+    src/inverse_rendering/diff_render
+    src/inverse_rendering/advanced
+    src/inverse_rendering/pytorch
 
 
 .. toctree::
     :maxdepth: 1
     :caption: Developer guide
+    :titlesonly:
 
     src/developer_guide/intro
-    src/developer_guide/variants_c++
+    src/developer_guide/variants_cpp
     src/developer_guide/writing_plugin
     src/developer_guide/testing
     src/developer_guide/debugging
@@ -56,14 +56,30 @@ Mitsuba 2: A Retargetable Forward and Inverse Renderer
 
 .. toctree::
     :maxdepth: 1
-    :caption: References
-    :numbered:
+    :caption: Advanced topics
+
+    src/advanced_topics/custom_plugins
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Plugin reference
+    :titlesonly:
 
     src/plugin_reference/intro
     generated/plugins
 
+.. toctree::
+    :maxdepth: 1
+    :caption: API reference
+
+    src/api_reference/intro
     generated/core_api
     generated/render_api
     generated/python_api
 
-    bibliography
+.. toctree::
+    :maxdepth: 1
+    :caption: Miscellaneous
+
+    release_notes.rst
+    zz_bibliography

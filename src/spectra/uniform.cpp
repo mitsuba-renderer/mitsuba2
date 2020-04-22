@@ -4,10 +4,17 @@
 
 NAMESPACE_BEGIN(mitsuba)
 
-/**
- * \brief Spectrum that takes on a constant value between
- * \c MTS_WAVELENGTH_MIN * and \c MTS_WAVELENGTH_MAX
+/**!
+
+.. _spectrum-uniform:
+
+Uniform spectrum (:monosp:`uniform`)
+------------------------------------
+
+This spectrum returns a constant reflectance or emission value between 360 and 830nm.
+
  */
+
 template <typename Float, typename Spectrum>
 class UniformSpectrum final : public Texture<Float, Spectrum> {
 public:
@@ -22,11 +29,11 @@ public:
         MTS_MASKED_FUNCTION(ProfilerPhase::TextureEvaluate, active);
 
         if constexpr (is_spectral_v<Spectrum>) {
-            auto active = (si.wavelengths >= MTS_WAVELENGTH_MIN) &&
-                          (si.wavelengths <= MTS_WAVELENGTH_MAX);
+            auto active_w = (si.wavelengths >= MTS_WAVELENGTH_MIN) &&
+                            (si.wavelengths <= MTS_WAVELENGTH_MAX);
 
-            return select(active, UnpolarizedSpectrum(m_value),
-                                  UnpolarizedSpectrum(0.f));
+            return select(active_w, UnpolarizedSpectrum(m_value),
+                                    UnpolarizedSpectrum(0.f));
         } else {
             return m_value;
         }
@@ -41,10 +48,10 @@ public:
         MTS_MASKED_FUNCTION(ProfilerPhase::TextureEvaluate, active);
 
         if constexpr (is_spectral_v<Spectrum>) {
-            auto active = (si.wavelengths >= MTS_WAVELENGTH_MIN) &&
-                          (si.wavelengths <= MTS_WAVELENGTH_MAX);
+            auto active_w = (si.wavelengths >= MTS_WAVELENGTH_MIN) &&
+                            (si.wavelengths <= MTS_WAVELENGTH_MAX);
 
-            return select(active,
+            return select(active_w,
                 Wavelength(1.f / (MTS_WAVELENGTH_MAX - MTS_WAVELENGTH_MIN)), Wavelength(0.f));
         } else {
             NotImplementedError("pdf");
@@ -60,11 +67,12 @@ public:
             return { MTS_WAVELENGTH_MIN + (MTS_WAVELENGTH_MAX - MTS_WAVELENGTH_MIN) * sample,
                      m_value * (MTS_WAVELENGTH_MAX - MTS_WAVELENGTH_MIN) };
         } else {
+            ENOKI_MARK_USED(sample);
             NotImplementedError("sample");
         }
     }
 
-    ScalarFloat mean() const override { return m_value; }
+    ScalarFloat mean() const override { return scalar_cast(hmean(m_value)); }
 
     void traverse(TraversalCallback *callback) override {
         callback->put_parameter("value", m_value);
@@ -76,7 +84,7 @@ public:
 
     MTS_DECLARE_CLASS()
 private:
-    ScalarFloat m_value;
+    Float m_value;
 };
 
 MTS_IMPLEMENT_CLASS_VARIANT(UniformSpectrum, Texture)

@@ -20,8 +20,6 @@
 NAMESPACE_BEGIN(mitsuba)
 
 MTS_VARIANT Scene<Float, Spectrum>::Scene(const Properties &props) {
-    std::vector<Emitter *> surface_emitters_to_check;
-
     for (auto &kv : props.objects()) {
         m_children.push_back(kv.second.get());
 
@@ -40,9 +38,7 @@ MTS_VARIANT Scene<Float, Spectrum>::Scene(const Properties &props) {
             m_shapes.push_back(shape);
         } else if (emitter) {
             // Surface emitters will be added to the list when attached to a shape
-            if (has_flag(emitter->flags(), EmitterFlags::Surface))
-                surface_emitters_to_check.push_back(emitter);
-            else
+            if (!has_flag(emitter->flags(), EmitterFlags::Surface))
                 m_emitters.push_back(emitter);
 
             if (emitter->is_environment()) {
@@ -100,12 +96,6 @@ MTS_VARIANT Scene<Float, Spectrum>::Scene(const Properties &props) {
     // Create emitters' shapes (environment luminaires)
     for (Emitter *emitter: m_emitters)
         emitter->set_scene(this);
-
-    // Check that all surface emitters are associated with a shape
-    for (const Emitter *emitter : surface_emitters_to_check) {
-        if (!emitter->shape())
-            Throw("Surface emitter was not attached to any shape: %s", emitter);
-    }
 }
 
 MTS_VARIANT Scene<Float, Spectrum>::~Scene() {
@@ -160,16 +150,28 @@ Scene<Float, Spectrum>::sample_emitter_direction(const Interaction3f &ref, const
     Spectrum spec;
 
     if (likely(!m_emitters.empty())) {
-        // Randomly pick an emitter
-        UInt32 index = min(UInt32(sample.x() * (ScalarFloat) m_emitters.size()), (uint32_t) m_emitters.size()-1);
-        ScalarFloat emitter_pdf = 1.f / m_emitters.size();
-        EmitterPtr emitter = gather<EmitterPtr>(m_emitters.data(), index, active);
+        if (m_emitters.size() == 1) {
+            // Fast path if there is only one emitter
+            std::tie(ds, spec) = m_emitters[0]->sample_direction(ref, sample, active);
+        } else {
+            ScalarFloat emitter_pdf = 1.f / m_emitters.size();
 
-        // Rescale sample.x() to lie in [0,1) again
-        sample.x() = (sample.x() - index*emitter_pdf) * m_emitters.size();
+            // Randomly pick an emitter
+            UInt32 index = min(UInt32(sample.x() * (ScalarFloat) m_emitters.size()), (uint32_t) m_emitters.size()-1);
 
-        // Sample a direction towards the emitter
-        std::tie(ds, spec) = emitter->sample_direction(ref, sample, active);
+            // Rescale sample.x() to lie in [0,1) again
+            sample.x() = (sample.x() - index*emitter_pdf) * m_emitters.size();
+
+            EmitterPtr emitter = gather<EmitterPtr>(m_emitters.data(), index, active);
+
+            // Sample a direction towards the emitter
+            std::tie(ds, spec) = emitter->sample_direction(ref, sample, active);
+
+            // Account for the discrete probability of sampling this emitter
+            ds.pdf *= emitter_pdf;
+            spec *= rcp(emitter_pdf);
+        }
+
         active &= neq(ds.pdf, 0.f);
 
         // Perform a visibility test if requested
@@ -178,10 +180,6 @@ Scene<Float, Spectrum>::sample_emitter_direction(const Interaction3f &ref, const
                       ds.dist * (1.f - math::ShadowEpsilon<Float>), ref.time, ref.wavelengths);
             spec[ray_test(ray, active)] = 0.f;
         }
-
-        // Account for the discrete probability of sampling this emitter
-        ds.pdf *= emitter_pdf;
-        spec *= rcp(emitter_pdf);
     } else {
         ds = zero<DirectionSample3f>();
         spec = 0.f;
@@ -197,8 +195,14 @@ Scene<Float, Spectrum>::pdf_emitter_direction(const Interaction3f &ref,
     MTS_MASK_ARGUMENT(active);
     using EmitterPtr = replace_scalar_t<Float, const Emitter *>;
 
-    return reinterpret_array<EmitterPtr>(ds.object)->pdf_direction(ref, ds, active) *
-        (1.f / m_emitters.size());
+
+    if (m_emitters.size() == 1) {
+        // Fast path if there is only one emitter
+        return m_emitters[0]->pdf_direction(ref, ds, active);
+    } else {
+        return reinterpret_array<EmitterPtr>(ds.object)->pdf_direction(ref, ds, active) *
+            (1.f / m_emitters.size());
+    }
 }
 
 MTS_VARIANT void Scene<Float, Spectrum>::traverse(TraversalCallback *callback) {

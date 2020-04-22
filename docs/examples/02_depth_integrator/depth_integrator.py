@@ -1,25 +1,23 @@
 import os
 import enoki as ek
+import numpy as np
 import mitsuba
 
 # Set the desired mitsuba variant
 mitsuba.set_variant('packet_rgb')
 
-from mitsuba.core import Float, UInt32, UInt64, Vector2f, Vector3f, Bitmap, Struct, Thread
+from mitsuba.core import Float, UInt32, UInt64, Vector2f, Vector3f
+from mitsuba.core import Bitmap, Struct, Thread
 from mitsuba.core.xml import load_file
 from mitsuba.render import ImageBlock
 
+# Absolute or relative path to the XML file
+filename = 'path/to/my/scene.xml'
 
-SCENE_DIR = '../../../resources/data/scenes/'
-filename = os.path.join(SCENE_DIR, 'cbox/cbox.xml')
+# Add the scene directory to the FileResolver's search path
+Thread.thread().file_resolver().append(os.path.dirname(filename))
 
-# Append the directory containing the scene to the "file resolver".
-# This is needed since the scene specifies meshes and textures
-# using relative paths.
-directory_name = os.path.dirname(filename)
-Thread.thread().file_resolver().append(directory_name)
-
-# Load the actual scene
+# Load the scene
 scene = load_file(filename)
 
 # Instead of calling the scene's integrator, we build our own small integrator
@@ -30,11 +28,15 @@ sampler = sensor.sampler()
 film_size = film.crop_size()
 spp = 32
 
-# Sample pixel positions in the image plane
-# Inside of each pixels, we randomly choose starting locations for our rays
-pos = ek.arange(UInt64, ek.hprod(film_size) * spp)
-if not sampler.ready():
-    sampler.seed(pos)
+# Seed the sampler
+total_sample_count = ek.hprod(film_size) * spp
+
+if sampler.wavefront_size() != total_sample_count:
+    sampler.seed(ek.arange(UInt64, total_sample_count))
+
+# Enumerate discrete sample & pixel indices, and uniformly sample
+# positions within each pixel.
+pos = ek.arange(UInt32, total_sample_count)
 
 pos //= spp
 scale = Vector2f(1.0 / film_size[0], 1.0 / film_size[1])
@@ -58,7 +60,7 @@ surface_interaction = scene.ray_intersect(rays)
 # of the sampled surface interaction
 result = surface_interaction.t
 
- # set values to zero if no intersection occured
+# Set to zero if no intersection was found
 result[~surface_interaction.is_valid()] = 0
 
 block = ImageBlock(
@@ -68,13 +70,13 @@ block = ImageBlock(
     border=False
 )
 block.clear()
-# Imageblock expects RGB values (Array of size (n, 3))
-block.put(position_sample, rays.wavelengths, Vector3f(result, result, result), 1)
+# ImageBlock expects RGB values (Array of size (n, 3))
+block.put(pos, rays.wavelengths, Vector3f(result, result, result), 1)
 
 # Write out the result from the ImageBlock
 # Internally, ImageBlock stores values in XYZAW format
 # (color XYZ, alpha value A and weight W)
-xyzaw_np = block.data().reshape([film_size[1], film_size[0], 5])
+xyzaw_np = np.array(block.data()).reshape([film_size[1], film_size[0], 5])
 
 # We then create a Bitmap from these values and save it out as EXR file
 bmp = Bitmap(xyzaw_np, Bitmap.PixelFormat.XYZAW)

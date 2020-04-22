@@ -52,7 +52,6 @@ MTS_VARIANT bool SamplingIntegrator<Float, Spectrum>::render(Scene *scene, Senso
     ref<Film> film = sensor->film();
     ScalarVector2i film_size = film->crop_size();
 
-    size_t n_threads        = __global_thread_count;
     size_t total_spp        = sensor->sampler()->sample_count();
     size_t samples_per_pass = (m_samples_per_pass == (size_t) -1)
                                ? total_spp : std::min((size_t) m_samples_per_pass, total_spp);
@@ -72,6 +71,7 @@ MTS_VARIANT bool SamplingIntegrator<Float, Spectrum>::render(Scene *scene, Senso
 
     if constexpr (!is_cuda_array_v<Float>) {
         /// Render on the CPU using a spiral pattern
+        size_t n_threads = __global_thread_count;
         Log(Info, "Starting render job (%ix%i, %i sample%s,%s %i thread%s)",
             film_size.x(), film_size.y(),
             total_spp, total_spp == 1 ? "" : "s",
@@ -105,13 +105,13 @@ MTS_VARIANT bool SamplingIntegrator<Float, Spectrum>::render(Scene *scene, Senso
 
                 // For each block
                 for (auto i = range.begin(); i != range.end() && !should_stop(); ++i) {
-                    auto [offset, size] = spiral.next_block();
+                    auto [offset, size, block_id] = spiral.next_block();
                     Assert(hprod(size) != 0);
                     block->set_size(size);
                     block->set_offset(offset);
 
                     // Ensure that the sample generation is fully deterministic
-                    sampler->seed(i);
+                    sampler->seed(block_id);
 
                     render_block(scene, sensor, sampler, block,
                                  aovs.get(), samples_per_pass);
@@ -127,31 +127,30 @@ MTS_VARIANT bool SamplingIntegrator<Float, Spectrum>::render(Scene *scene, Senso
             }
         );
     } else {
-        for (size_t i = 0; i < n_passes; i++) {
-            ScalarUInt32 total_sample_count = hprod(film_size) * (uint32_t) samples_per_pass;
+        ref<Sampler> sampler = sensor->sampler();
 
-            ref<Sampler> sampler = sensor->sampler();
+        ScalarFloat diff_scale_factor = rsqrt((ScalarFloat) sampler->sample_count());
+        ScalarUInt32 total_sample_count = hprod(film_size) * (uint32_t) samples_per_pass;
+        if (sampler->wavefront_size() != total_sample_count)
             sampler->seed(arange<UInt64>(total_sample_count));
 
-            ScalarFloat diff_scale_factor = rsqrt((ScalarFloat) sampler->sample_count());
+        UInt32 idx = arange<UInt32>(total_sample_count);
+        if (samples_per_pass != 1)
+            idx /= (uint32_t) samples_per_pass;
 
-            ref<ImageBlock> block = new ImageBlock(film_size, channels.size(),
-                                                   film->reconstruction_filter(),
-                                                   !has_aovs);
-            block->clear();
+        ref<ImageBlock> block = new ImageBlock(film_size, channels.size(),
+                                               film->reconstruction_filter(),
+                                               !has_aovs);
+        block->clear();
+        Vector2f pos = Vector2f(Float(idx % uint32_t(film_size[0])),
+                                Float(idx / uint32_t(film_size[0])));
+        std::vector<Float> aovs(channels.size());
 
-            UInt32 idx = arange<UInt32>(total_sample_count);
-            if (samples_per_pass != 1)
-                idx /= samples_per_pass;
-
-            Vector2f pos = Vector2f(Float(idx % uint32_t(film_size[0])),
-                                    Float(idx / uint32_t(film_size[0])));
-
-            std::vector<Float> aovs(channels.size());
+        for (size_t i = 0; i < n_passes; i++)
             render_sample(scene, sensor, sampler, block, aovs.data(),
                           pos, diff_scale_factor);
-            film->put(block);
-        }
+
+        film->put(block);
     }
 
     if (!m_stop)
@@ -201,6 +200,8 @@ MTS_VARIANT void SamplingIntegrator<Float, Spectrum>::render_block(const Scene *
         ENOKI_MARK_USED(sensor);
         ENOKI_MARK_USED(aovs);
         ENOKI_MARK_USED(diff_scale_factor);
+        ENOKI_MARK_USED(pixel_count);
+        ENOKI_MARK_USED(sample_count);
         Throw("Not implemented for CUDA arrays.");
     }
 }
@@ -215,13 +216,14 @@ MTS_VARIANT void SamplingIntegrator<Float, Spectrum>::render_sample(
         aperture_sample = sampler->next_2d(active);
 
     Float time = sensor->shutter_open();
-    if (sensor->shutter_open_time() > 0)
+    if (sensor->shutter_open_time() > 0.f)
         time += sampler->next_1d(active) * sensor->shutter_open_time();
 
     Float wavelength_sample = sampler->next_1d(active);
 
     Vector2f adjusted_position =
-        (position_sample - sensor->film()->crop_offset()) / sensor->film()->crop_size();
+        (position_sample - sensor->film()->crop_offset()) /
+        sensor->film()->crop_size();
 
     auto [ray, ray_weight] = sensor->sample_ray_differential(
         time, wavelength_sample, adjusted_position, aperture_sample);

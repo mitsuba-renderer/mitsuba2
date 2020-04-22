@@ -39,8 +39,14 @@ The following XML snippet describes a quarter-wave plate material:
         <spectrum name="delta" value="90"/>
     </bsdf>
 
+Apart from a change of polarization, light does not interact with this material
+in any way and does not change its direction.
+Internally, this is implemented as a forward-facing Dirac delta distribution.
+Note that the standard :ref:`path tracer <integrator-path>` does not have a good sampling strategy to deal with this,
+but the (:ref:`volumetric path tracer <integrator-volpath>`) does.
+
 In *unpolarized* rendering modes, the behaviour defaults to non-polarizing
-transparent material similar to :ref:`bsdf-null`.
+transparent material similar to the :ref:`null <bsdf-null>` BSDF plugin.
 
 */
 template <typename Float, typename Spectrum>
@@ -89,7 +95,7 @@ public:
             // Forward direction is always away from light source.
             Vector3f forward = ctx.mode == TransportMode::Radiance ? si.wi : -si.wi;
 
-            // Rotate in/out basis of M s.t. it alignes with BSDF coordinate frame
+            // Rotate in/out basis of M s.t. it aligns with BSDF coordinate frame
             M = mueller::rotate_mueller_basis_collinear(M, forward,
                                                         Vector3f(1.f, 0.f, 0.f),
                                                         mueller::stokes_basis(forward));
@@ -131,7 +137,7 @@ public:
             // Forward direction is always away from light source.
             Vector3f forward = si.wi;   // Note: when tracing Importance, this should be reversed.
 
-            // Rotate in/out basis of M s.t. it alignes with BSDF coordinate frame
+            // Rotate in/out basis of M s.t. it aligns with BSDF coordinate frame
             M = mueller::rotate_mueller_basis_collinear(M, forward,
                                                         Vector3f(1.f, 0.f, 0.f),
                                                         mueller::stokes_basis(forward));

@@ -5,7 +5,18 @@
 
 NAMESPACE_BEGIN(mitsuba)
 
-/// Linear interpolant of a regularly sampled spectrum
+/**!
+
+.. _spectrum-irregular:
+
+Irregular spectrum (:monosp:`irregular`)
+----------------------------------------
+
+This spectrum returns linearly interpolated reflectance or emission values from *irregularly*
+placed samples.
+
+ */
+
 template <typename Float, typename Spectrum>
 class IrregularSpectrum final : public Texture<Float, Spectrum> {
 public:
@@ -67,8 +78,10 @@ public:
 
         if constexpr (is_spectral_v<Spectrum>)
             return m_distr.eval_pdf(si.wavelengths, active);
-        else
+        else {
+            ENOKI_MARK_USED(si);
             NotImplementedError("eval");
+        }
     }
 
     Wavelength pdf(const SurfaceInteraction3f &si, Mask active) const override {
@@ -76,8 +89,10 @@ public:
 
         if constexpr (is_spectral_v<Spectrum>)
             return m_distr.eval_pdf_normalized(si.wavelengths, active);
-        else
+        else {
+            ENOKI_MARK_USED(si);
             NotImplementedError("pdf");
+        }
     }
 
     std::pair<Wavelength, UnpolarizedSpectrum> sample(const SurfaceInteraction3f & /*si*/,
@@ -87,8 +102,10 @@ public:
 
         if constexpr (is_spectral_v<Spectrum>)
             return { m_distr.sample(sample, active), m_distr.integral() };
-        else
+        else {
+            ENOKI_MARK_USED(sample);
             NotImplementedError("sample");
+        }
     }
 
     ScalarFloat mean() const override {

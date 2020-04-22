@@ -160,6 +160,9 @@ public:
      * field \c wi is initialized by the caller following the call to \ref
      * fill_surface_interaction(), and \c duv_dx, and \c duv_dy are left
      * uninitialized.
+     *
+     * \param cache
+     *     Cached information about the previously computed intersection.
      */
     virtual void fill_surface_interaction(const Ray3f &ray, const Float *cache,
                                           SurfaceInteraction3f &si, Mask active = true) const;

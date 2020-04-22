@@ -25,23 +25,34 @@ Environment emitter (:monosp:`envmap`)
  * - scale
    - |Float|
    - A scale factor that is applied to the radiance values stored in the input image. (Default: 1.0)
+ * - to_world
+   - |transform|
+   - Specifies an optional emitter-to-world transformation.  (Default: none, i.e. emitter space = world space)
 
 This plugin provides a HDRI (high dynamic range imaging) environment map,
-which is a type of light source that is well-suited for representing *natural*
+which is a type of light source that is well-suited for representing "natural"
 illumination.
 
 The implementation loads a captured illumination environment from a image in
-latitude-longitude format and turns it into an infinitely distant emitter.
-The image could either be a processed photograph or a rendering made using the
-spherical sensor.
+latitude-longitude format and turns it into an infinitely distant emitter. The
+conventions of this mapping are shown in this image:
+
+.. subfigstart::
+.. subfigure:: ../../resources/data/docs/images/emitter/emitter_envmap_example.jpg
+   :caption: The museum environment map by Bernhard Vogl that is used in
+             many example renderings in this documentation.
+.. subfigure:: ../../resources/data/docs/images/emitter/emitter_envmap_axes.jpg
+   :caption: Coordinate conventions used when mapping the input image onto the sphere.
+.. subfigend::
+   :label: fig-envmap-mapping
 
 The plugin can work with all types of images that are natively supported by Mitsuba
 (i.e. JPEG, PNG, OpenEXR, RGBE, TGA, and BMP). In practice, a good environment
 map will contain high-dynamic range data that can only be represented using the
 OpenEXR or RGBE file formats.
-High quality free light probes are available on Paul Debevec's website
-(http://gl.ict.usc.edu/Data/HighResProbes) and Bernhard Vogl's website
-(http://dativ.at/lightprobes/).
+High quality free light probes are available on
+`Paul Debevec's <http://gl.ict.usc.edu/Data/HighResProbes>`_ and
+`Bernhard Vogl's <http://dativ.at/lightprobes/>`_ websites.
 
  */
 
@@ -106,7 +117,7 @@ public:
                 }
 
                 *lum_ptr++ = lum * sin_theta;
-                store_unaligned(ptr, coeff);
+                store(ptr, coeff);
                 ptr += 4;
             }
         }
@@ -121,7 +132,37 @@ public:
     }
 
     void parameters_changed() override {
-        // TODO update warp for better importance sampling when data has changed
+        m_data.managed();
+
+        std::unique_ptr<ScalarFloat[]> luminance(new ScalarFloat[hprod(m_resolution)]);
+
+        ScalarFloat *ptr     = (ScalarFloat *) m_data.data(),
+                    *lum_ptr = (ScalarFloat *) luminance.get();
+
+
+        for (size_t y = 0; y < m_resolution.y(); ++y) {
+            ScalarFloat sin_theta =
+                std::sin(y / ScalarFloat(m_resolution.y() - 1) * math::Pi<ScalarFloat>);
+
+            for (size_t x = 0; x < m_resolution.x(); ++x) {
+                ScalarVector4f coeff = load<ScalarVector4f>(ptr);
+                ScalarFloat lum;
+
+                if constexpr (is_monochromatic_v<Spectrum>) {
+                    lum = coeff.x();
+                } else if constexpr (is_rgb_v<Spectrum>) {
+                    lum = mitsuba::luminance(ScalarColor3f(head<3>(coeff)));
+                } else {
+                    static_assert(is_spectral_v<Spectrum>);
+                    lum = srgb_model_mean(head<3>(coeff)) * coeff.w();
+                }
+
+                *lum_ptr++ = lum * sin_theta;
+                ptr += 4;
+            }
+        }
+
+        m_warp = Warp(luminance.get(), m_resolution);
     }
 
     void set_scene(const Scene *scene) override {
@@ -269,6 +310,7 @@ protected:
 
             return s * wp * f * m_scale;
         } else {
+            ENOKI_MARK_USED(wavelengths);
             Vector4f v0 = fmadd(w0.x(), v00, w1.x() * v10),
                      v1 = fmadd(w0.x(), v01, w1.x() * v11),
                      v  = fmadd(w0.y(), v0, w1.y() * v1);

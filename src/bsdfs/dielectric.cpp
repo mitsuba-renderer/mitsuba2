@@ -36,15 +36,17 @@ Smooth dielectric material (:monosp:`dielectric`)
     :label: fig-bsdf-dielectric
 
 This plugin models an interface between two dielectric materials having mismatched
-indices of refraction (for instance, water and air). Exterior and interior IOR values
+indices of refraction (for instance, water ↔ air). Exterior and interior IOR values
 can be specified independently, where "exterior" refers to the side that contains
 the surface normal. When no parameters are given, the plugin activates the defaults, which
-describe a borosilicate glass BK7/air interface.
+describe a borosilicate glass (BK7) ↔ air interface.
 
 In this model, the microscopic structure of the surface is assumed to be perfectly
 smooth, resulting in a degenerate BSDF described by a Dirac delta distribution.
-This means that for any given incoming ray of light, the model always scatters into a discrete set of directions, as opposed to a continuum.
-For a similar model that instead describes a rough surface microstructure, take a look at the :ref:`roughdielectric <bsdf-roughdielectric>` plugin.
+This means that for any given incoming ray of light, the model always scatters into
+a discrete set of directions, as opposed to a continuum. For a similar model that
+instead describes a rough surface microstructure, take a look at the
+:ref:`roughdielectric <bsdf-roughdielectric>` plugin.
 
 This snippet describes a simple air-to-water interface
 
@@ -59,13 +61,14 @@ This snippet describes a simple air-to-water interface
     <shape>
 
 When using this model, it is crucial that the scene contains
-meaningful and mutually compatible indices of refraction changes---see
-Figure :num:`fig-glass-explanation` for a description of what this entails.
+meaningful and mutually compatible indices of refraction changes---see the
+section about :ref:`correctness considerations <bsdf-correctness>` for a
+description of what this entails.
 
 In many cases, we will want to additionally describe the *medium* within a
 dielectric material. This requires the use of a rendering technique that is
-aware of media (e.g. the volumetric path tracer). An example of how one might
-describe a slightly absorbing piece of glass is shown below:
+aware of media (e.g. the :ref:`volumetric path tracer <integrator-volpath>`).
+An example of how one might describe a slightly absorbing piece of glass is shown below:
 
 .. code-block:: xml
     :name: dielectric-glass
@@ -83,74 +86,79 @@ describe a slightly absorbing piece of glass is shown below:
     <shape>
 
 In *polarized* rendering modes, the material automatically switches to a polarized
-implementation of the Fresnel equations.
+implementation of the underlying Fresnel equations that quantify the reflectance and
+transmission.
 
 .. note::
 
     Dispersion is currently unsupported but will be enabled in a future release.
 
+Instead of specifying numerical values for the indices of refraction, Mitsuba 2
+comes with a list of presets that can be specified with the :paramtype:`material`
+parameter:
+
 .. figtable::
     :label: ior-table-list
     :caption: This table lists all supported material names
-       along with along with their associated index of re-fraction at standard conditions.
+       along with along with their associated index of refraction at standard conditions.
        These material names can be used with the plugins :ref:`dielectric <bsdf-dielectric>`,
        :ref:`roughdielectric <bsdf-roughdielectric>`, :ref:`plastic <bsdf-plastic>`
        , as well as :ref:`roughplastic <bsdf-roughplastic>`.
     :alt: List table
 
     .. list-table::
-        :widths: 30 25 30 15
+        :widths: 35 25 35 25
         :header-rows: 1
 
         * - Name
           - Value
           - Name
           - Value
-        * - vacuum
+        * - :paramtype:`vacuum`
           - 1.0
-          - acetone
+          - :paramtype:`acetone`
           - 1.36
-        * - bromine
+        * - :paramtype:`bromine`
           - 1.661
-          - bk7
+          - :paramtype:`bk7`
           - 1.5046
-        * - helium
+        * - :paramtype:`helium`
           - 1.00004
-          - ethanol
+          - :paramtype:`ethanol`
           - 1.361
-        * - water ice
+        * - :paramtype:`water ice`
           - 1.31
-          - sodium chloride
+          - :paramtype:`sodium chloride`
           - 1.544
-        * - hydrogen
+        * - :paramtype:`hydrogen`
           - 1.00013
-          - carbon tetrachloride
+          - :paramtype:`carbon tetrachloride`
           - 1.461
-        * - fused quartz
+        * - :paramtype:`fused quartz`
           - 1.458
-          - amber
+          - :paramtype:`amber`
           - 1.55
-        * - air
+        * - :paramtype:`air`
           - 1.00028
-          - glycerol
+          - :paramtype:`glycerol`
           - 1.4729
-        * - pyrex
+        * - :paramtype:`pyrex`
           - 1.470
-          - pet
+          - :paramtype:`pet`
           - 1.575
-        * - carbon dioxide
+        * - :paramtype:`carbon dioxide`
           - 1.00045
-          - benzene
+          - :paramtype:`benzene`
           - 1.501
-        * - acrylic glass
+        * - :paramtype:`acrylic glass`
           - 1.49
-          - diamond
+          - :paramtype:`diamond`
           - 2.419
-        * - water
+        * - :paramtype:`water`
           - 1.3330
-          - silicone oil
+          - :paramtype:`silicone oil`
           - 1.52045
-        * - polypropylene
+        * - :paramtype:`polypropylene`
           - 1.49
           -
           -
@@ -176,8 +184,10 @@ public:
 
         m_eta = int_ior / ext_ior;
 
-        m_specular_reflectance   = props.texture<Texture>("specular_reflectance", 1.f);
-        m_specular_transmittance = props.texture<Texture>("specular_transmittance", 1.f);
+        if (props.has_property("specular_reflectance"))
+            m_specular_reflectance   = props.texture<Texture>("specular_reflectance", 1.f);
+        if (props.has_property("specular_transmittance"))
+            m_specular_transmittance = props.texture<Texture>("specular_transmittance", 1.f);
 
         m_components.push_back(BSDFFlags::DeltaReflection | BSDFFlags::FrontSide |
                                BSDFFlags::BackSide);
@@ -229,8 +239,11 @@ public:
 
         bs.eta = select(selected_r, Float(1.f), eta_it);
 
-        UnpolarizedSpectrum reflectance = m_specular_reflectance->eval(si, selected_r);
-        UnpolarizedSpectrum transmittance = m_specular_transmittance->eval(si, selected_t);
+        UnpolarizedSpectrum reflectance = 1.f, transmittance = 1.f;
+        if (m_specular_reflectance)
+            reflectance = m_specular_reflectance->eval(si, selected_r);
+        if (m_specular_transmittance)
+            transmittance = m_specular_transmittance->eval(si, selected_t);
 
         Spectrum weight;
         if constexpr (is_polarized_v<Spectrum>) {
@@ -301,28 +314,32 @@ public:
         return { bs, select(active, weight, 0.f) };
     }
 
-    Spectrum eval(const BSDFContext & /*ctx*/, const SurfaceInteraction3f & /*si*/,
-                  const Vector3f & /*wo*/, Mask /*active*/) const override {
+    Spectrum eval(const BSDFContext & /* ctx */, const SurfaceInteraction3f & /* si */,
+                  const Vector3f & /* wo */, Mask /* active */) const override {
         return 0.f;
     }
 
-    Float pdf(const BSDFContext & /*ctx*/, const SurfaceInteraction3f & /*si*/,
-              const Vector3f & /*wo*/, Mask /*active*/) const override {
+    Float pdf(const BSDFContext & /* ctx */, const SurfaceInteraction3f & /* si */,
+              const Vector3f & /* wo */, Mask /* active */) const override {
         return 0.f;
     }
 
     void traverse(TraversalCallback *callback) override {
         callback->put_parameter("eta", m_eta);
-        callback->put_object("specular_reflectance", m_specular_reflectance.get());
-        callback->put_object("specular_transmittance", m_specular_transmittance.get());
+        if (m_specular_reflectance)
+            callback->put_object("specular_reflectance", m_specular_reflectance.get());
+        if (m_specular_transmittance)
+            callback->put_object("specular_transmittance", m_specular_transmittance.get());
     }
 
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << "SmoothDielectric[" << std::endl
-            << "  eta = " << m_eta << "," << std::endl
-            << "  specular_reflectance = " << string::indent(m_specular_reflectance) << "," << std::endl
-            << "  specular_transmittance = " << string::indent(m_specular_transmittance) << std::endl
+        oss << "SmoothDielectric[" << std::endl;
+        if (m_specular_reflectance)
+            oss << "  specular_reflectance = " << string::indent(m_specular_reflectance) << "," << std::endl;
+        if (m_specular_transmittance)
+            oss << "  specular_transmittance = " << string::indent(m_specular_transmittance) << ", " << std::endl;
+        oss << "  eta = " << m_eta << "," << std::endl
             << "]";
         return oss.str();
     }

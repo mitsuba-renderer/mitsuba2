@@ -259,7 +259,7 @@ See also:
     mitsuba.render.BSDFContext
 
 See also:
-    mitsuba.render.BSDFSample3)doc";
+    mitsuba.render.BSDFSample3f)doc";
 
 static const char *__doc_mitsuba_BSDF_2 = R"doc()doc";
 
@@ -1010,6 +1010,10 @@ with higher values corresponding to a lower quality. A value of 45 is
 recommended as the default for lossy compression. The default argument
 (-1) causes the implementation to switch to the lossless PIZ
 compressor.)doc";
+
+static const char *__doc_mitsuba_Bitmap_write_async =
+R"doc(Equivalent to write(), but executes asynchronously on a different
+thread)doc";
 
 static const char *__doc_mitsuba_Bitmap_write_jpeg = R"doc(Save a file using the JPEG file format)doc";
 
@@ -1823,6 +1827,10 @@ Parameter ``si``:
 
 Returns:
     The emitted radiance or importance)doc";
+
+static const char *__doc_mitsuba_Endpoint_id = R"doc(Return a string identifier)doc";
+
+static const char *__doc_mitsuba_Endpoint_m_id = R"doc()doc";
 
 static const char *__doc_mitsuba_Endpoint_m_medium = R"doc()doc";
 
@@ -3801,37 +3809,8 @@ instantiating object instances.
 Ordinarily, this class will be used by making repeated calls to the
 create_object() methods. The generated instances are then assembled
 into a final object graph, such as a scene. One such examples is the
-SceneHandler class, which parses an XML scene file by esentially
-translating the XML elements into calls to create_object().
-
-Since this kind of construction method can be tiresome when
-dynamically building scenes from Python, this class has an additional
-Python-only method ``create()``, which works as follows:
-
-```
-from mitsuba.scalar_rgb.core import *
-
-pmgr = PluginManager.instance()
-camera = pmgr.create({
-    "type" : "perspective",
-    "to_world" : Transform.look_at(
-        Point3f(0, 0, -10),
-        Point3f(0, 0, 0),
-        Vector3f(0, 1, 0)
-    ),
-    "film" : {
-        "type" : "ldrfilm",
-        "width" : 1920,
-        "height" : 1080
-    }
-})
-```
-
-The above snippet constructs a Camera instance from a plugin named
-``perspective``.so/dll/dylib and adds a child object named ``film``,
-which is a Film instance loaded from the plugin
-``ldrfilm``.so/dll/dylib. By the time the function returns, the object
-hierarchy has already been assembled.)doc";
+SceneHandler class, which parses an XML scene file by essentially
+translating the XML elements into calls to create_object().)doc";
 
 static const char *__doc_mitsuba_PluginManager_PluginManager = R"doc()doc";
 
@@ -4654,8 +4633,6 @@ static const char *__doc_mitsuba_Sampler_next_1d = R"doc(Retrieve the next compo
 
 static const char *__doc_mitsuba_Sampler_next_2d = R"doc(Retrieve the next two component values from the current sample)doc";
 
-static const char *__doc_mitsuba_Sampler_ready = R"doc(Check whether the sampler is ready (i.e. properly seeded))doc";
-
 static const char *__doc_mitsuba_Sampler_sample_count = R"doc(Return the number of samples per pixel)doc";
 
 static const char *__doc_mitsuba_Sampler_seed =
@@ -4664,6 +4641,8 @@ R"doc(Deterministically seed the underlying RNG, if applicable.
 In the context of wavefront ray tracing & dynamic arrays, this
 function must be called with a ``seed_value`` matching the size of the
 wavefront.)doc";
+
+static const char *__doc_mitsuba_Sampler_wavefront_size = R"doc(Return the size of the wavefront (or 0, if not seeded))doc";
 
 static const char *__doc_mitsuba_SamplingIntegrator =
 R"doc(Integrator based on Monte Carlo sampling
@@ -7209,6 +7188,8 @@ static const char *__doc_mitsuba_comparator = R"doc()doc";
 
 static const char *__doc_mitsuba_comparator_operator_call = R"doc()doc";
 
+static const char *__doc_mitsuba_complex_ior_from_file = R"doc()doc";
+
 static const char *__doc_mitsuba_compute_shading_frame =
 R"doc(Given a smoothly varying shading normal and a tangent of a shape
 parameterization, compute a smoothly varying orthonormal frame.
@@ -7645,6 +7626,8 @@ static const char *__doc_mitsuba_hash_combine = R"doc()doc";
 static const char *__doc_mitsuba_hasher = R"doc()doc";
 
 static const char *__doc_mitsuba_hasher_operator_call = R"doc()doc";
+
+static const char *__doc_mitsuba_ior_from_file = R"doc()doc";
 
 static const char *__doc_mitsuba_librender_nop =
 R"doc(Dummy function which can be called to ensure that the librender shared
@@ -8587,6 +8570,14 @@ Parameter ``si``:
     A surface intersection record (usually on an emitter).
 
 \note Defined in scene.h)doc";
+
+static const char *__doc_mitsuba_spectrum_from_file = R"doc()doc";
+
+static const char *__doc_mitsuba_spectrum_from_file_2 = R"doc()doc";
+
+static const char *__doc_mitsuba_spectrum_to_rgb = R"doc()doc";
+
+static const char *__doc_mitsuba_spectrum_to_rgb_2 = R"doc()doc";
 
 static const char *__doc_mitsuba_spectrum_to_xyz = R"doc(Spectral responses to XYZ.)doc";
 
