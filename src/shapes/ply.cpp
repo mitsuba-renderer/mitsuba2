@@ -1,5 +1,6 @@
 #include <mitsuba/render/mesh.h>
 #include <mitsuba/render/emitter.h>
+#include <mitsuba/render/sensor.h>
 #include <mitsuba/core/fstream.h>
 #include <mitsuba/core/mstream.h>
 #include <mitsuba/core/fresolver.h>
@@ -54,7 +55,7 @@ public:
     MTS_IMPORT_BASE(Mesh, m_vertices, m_faces, m_normal_offset, m_vertex_size, m_face_size,
                     m_texcoord_offset, m_color_offset, m_name, m_bbox, m_to_world, m_vertex_count,
                     m_face_count, m_vertex_struct, m_face_struct, m_disable_vertex_normals,
-                    recompute_vertex_normals, is_emitter, emitter)
+                    recompute_vertex_normals, is_emitter, emitter, is_sensor, sensor)
     MTS_IMPORT_TYPES()
 
     using typename Base::ScalarSize;
@@ -283,89 +284,8 @@ public:
 
         if (is_emitter())
             emitter()->set_shape(this);
-    }
-
-    std::string type_name(const Struct::Type type) const {
-        switch (type) {
-            case Struct::Type::Int8:    return "char";
-            case Struct::Type::UInt8:   return "uchar";
-            case Struct::Type::Int16:   return "short";
-            case Struct::Type::UInt16:  return "ushort";
-            case Struct::Type::Int32:   return "int";
-            case Struct::Type::UInt32:  return "uint";
-            case Struct::Type::Int64:   return "long";
-            case Struct::Type::UInt64:  return "ulong";
-            case Struct::Type::Float16: return "half";
-            case Struct::Type::Float32: return "float";
-            case Struct::Type::Float64: return "double";
-            default: Throw("internal error");
-        }
-    }
-
-    void write(Stream *stream) const override {
-        std::string stream_name = "<stream>";
-        auto fs = dynamic_cast<FileStream *>(stream);
-        if (fs)
-            stream_name = fs->path().filename().string();
-
-        Log(Info, "Writing mesh to \"%s\" ..", stream_name);
-
-        Timer timer;
-        stream->write_line("ply");
-        if (Struct::host_byte_order() == Struct::ByteOrder::BigEndian)
-            stream->write_line("format binary_big_endian 1.0");
-        else
-            stream->write_line("format binary_little_endian 1.0");
-
-        if (m_vertex_struct->field_count() > 0) {
-            stream->write_line(tfm::format("element vertex %i", m_vertex_count));
-            for (auto const &f : *m_vertex_struct)
-                stream->write_line(
-                    tfm::format("property %s %s", type_name(f.type), f.name));
-        }
-
-        if (m_face_struct->field_count() > 0) {
-            stream->write_line(tfm::format("element face %i", m_face_count));
-            stream->write_line(tfm::format("property list uchar %s vertex_indices",
-                type_name((*m_face_struct)[0].type)));
-        }
-
-        stream->write_line("end_header");
-
-        if (m_vertex_struct->field_count() > 0) {
-            stream->write(
-                m_vertices.get(),
-                m_vertex_struct->size() * m_vertex_count
-            );
-        }
-
-        if (m_face_struct->field_count() > 0) {
-            ref<Struct> face_struct_out = new Struct(true);
-
-            face_struct_out->append("__size", Struct::Type::UInt8, +Struct::Flags::Default, 3.0);
-            for (auto f: *m_face_struct)
-                face_struct_out->append(f.name, f.type);
-
-            ref<StructConverter> conv =
-                new StructConverter(m_face_struct, face_struct_out);
-
-            FaceHolder temp(new uint8_t[face_struct_out->size() * m_face_count]);
-
-            if (!conv->convert(m_face_count, m_faces.get(), temp.get()))
-                Throw("PLYMesh::write(): internal error during conversion");
-
-            stream->write(
-                temp.get(),
-                face_struct_out->size() * m_face_count
-            );
-        }
-
-        Log(Info, "\"%s\": wrote %i faces, %i vertices (%s in %s)",
-            m_name, m_face_count, m_vertex_count,
-            util::mem_string(m_face_count * m_face_struct->size() +
-                             m_vertex_count * m_vertex_struct->size()),
-            util::time_string(timer.value())
-        );
+        if (is_sensor())
+            sensor()->set_shape(this);
     }
 
 private:

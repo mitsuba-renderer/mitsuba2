@@ -23,6 +23,12 @@ extern const float dither_matrix256[65536];
 
 NAMESPACE_BEGIN(detail)
 
+#if defined(DOUBLE_PRECISION)
+#  define Float double
+#else
+#  define Float float
+#endif
+
 #if MTS_STRUCTCONVERTER_USE_JIT == 1
 
 using namespace asmjit;
@@ -84,8 +90,7 @@ public:
     }
 
     /// Floating point move operation
-    template <typename X, typename Y>
-    void movs(const X &x, const Y &y) {
+    template <typename X, typename Y> void movs(const X &x, const Y &y) {
         #if defined(ENOKI_X86_AVX)
             #if !defined(DOUBLE_PRECISION)
                 cc.vmovss(x, y);
@@ -113,6 +118,42 @@ public:
                 cc.movss(x, y);
             #else
                 cc.movsd(x, y);
+            #endif
+        #endif
+    }
+
+    /// Floating point blend operation
+    template <typename X, typename Y, typename Z>
+    void blend(const X &x, const Y &y, const Z &mask) {
+        #if defined(ENOKI_X86_AVX)
+            #if !defined(DOUBLE_PRECISION)
+                cc.vblendvps(x, x, y, mask);
+            #else
+                cc.vblendvpd(x, x, y, mask);
+            #endif
+        #else
+            #if !defined(DOUBLE_PRECISION)
+                cc.blendvps(x, y, mask);
+            #else
+                cc.blendvpd(x, y, mask);
+            #endif
+        #endif
+    }
+
+    /// Floating point comparison
+    template <typename X, typename Y>
+    void cmps(const X &x, const Y &y, int mode) {
+        #if defined(ENOKI_X86_AVX)
+            #if !defined(DOUBLE_PRECISION)
+                cc.vcmpss(x, x, y, Imm(mode));
+            #else
+                cc.vcmpsd(x, x, y, Imm(mode));
+            #endif
+        #else
+            #if !defined(DOUBLE_PRECISION)
+                cc.cmpss(x, y, Imm(mode));
+            #else
+                cc.cmpsd(x, y, Imm(mode));
             #endif
         #endif
     }
@@ -615,7 +656,7 @@ public:
     }
 
     std::pair<Key, Value> load_default(const Struct::Field &field) {
-        Key key { field.name, struct_type_v<float>, +Struct::Flags::None };
+        Key key { field.name, struct_type_v<Float>, +Struct::Flags::None };
         Value value;
         value.xmm = cc.newXmm();
         movs(value.xmm, const_(field.default_));
@@ -632,13 +673,13 @@ public:
         bool inv_gamma = false;
 
         if (Struct::is_integer(kr.type)) {
-            kr.type = struct_type_v<float>;
+            kr.type = struct_type_v<Float>;
             kr.flags &= ~Struct::Flags::Normalized;
             int_to_float = true;
         }
 
-        if (Struct::is_float(kr.type) && kr.type != struct_type_v<float>) {
-            kr.type = struct_type_v<float>;
+        if (Struct::is_float(kr.type) && kr.type != struct_type_v<Float>) {
+            kr.type = struct_type_v<Float>;
             float_to_float = true;
         }
 
@@ -694,7 +735,7 @@ public:
                 kr.type = Struct::Type::Float32;
             }
 
-            if (kr.type == Struct::Type::Float32 && kr.type != struct_type_v<float>) {
+            if (kr.type == Struct::Type::Float32 && kr.type != struct_type_v<Float>) {
                 X86Xmm source = vr.xmm;
                 vr.xmm = cc.newXmm();
                 #if defined(ENOKI_X86_AVX)
@@ -705,7 +746,7 @@ public:
                 kr.type = Struct::Type::Float64;
             }
 
-            if (kr.type == Struct::Type::Float64 && kr.type != struct_type_v<float>) {
+            if (kr.type == Struct::Type::Float64 && kr.type != struct_type_v<Float>) {
                 X86Xmm source = vr.xmm;
                 vr.xmm = cc.newXmm();
                 #if defined(ENOKI_X86_AVX)
@@ -741,8 +782,8 @@ public:
 
         if (field.is_integer() && !Struct::is_integer(key.type)) {
             auto range_dbl = field.range();
-            std::pair<float, float> range = range_dbl;
-            if (key.type != struct_type_v<float>)
+            std::pair<Float, Float> range = range_dbl;
+            if (key.type != struct_type_v<Float>)
                 Throw("Internal error!");
 
             auto temp = cc.newXmm();
@@ -765,7 +806,18 @@ public:
                         X86Gp base = cc.newUInt64();
                         cc.mov(base.r64(), Imm((uintptr_t) dither_matrix256));
                         dither_value = cc.newXmm();
-                        movs(dither_value, X86Mem(base, index, 2, 0, (uint32_t) sizeof(float)));
+                        #if defined(ENOKI_X86_AVX)
+                            cc.movss(dither_value, X86Mem(base, index, 2, 0, (uint32_t) sizeof(float)));
+                        #else
+                            cc.vmovss(dither_value, X86Mem(base, index, 2, 0, (uint32_t) sizeof(float)));
+                        #endif
+                        #if defined(DOUBLE_PRECISION)
+                            #if defined(ENOKI_X86_AVX)
+                                cc.vcvtss2sd(dither_value, dither_value, dither_value);
+                            #else
+                                cc.cvtss2sd(dither_value, dither_value);
+                            #endif
+                        #endif
                         dither_ready = true;
                     }
                     adds(value.xmm, dither_value);
@@ -1064,6 +1116,10 @@ std::string Struct::to_string() const {
             os << ", gamma";
         if (has_flag(f.flags, Flags::Weight))
             os << ", weight";
+        if (has_flag(f.flags, Flags::Alpha))
+            os << ", alpha";
+        if (has_flag(f.flags, Flags::PremultipliedAlpha))
+            os << ", premultiplied alpha";
         if (has_flag(f.flags, Flags::Default))
             os << ", default=" << f.default_;
         if (has_flag(f.flags, Flags::Assert))
@@ -1264,6 +1320,50 @@ StructConverter::StructConverter(const Struct *source, const Struct *target, boo
         sc.divs(scale_factor, value);
     }
 
+    const Struct::Field *source_alpha = nullptr;
+    const Struct::Field *target_alpha = nullptr;
+    bool has_multiple_alpha_channels = false;
+    for (const Struct::Field &f : *source) {
+        if (!has_flag(f.flags, Struct::Flags::Alpha))
+            continue;
+        if (source_alpha != nullptr) {
+            has_multiple_alpha_channels = true;
+            break;
+        }
+        source_alpha = &f;
+    }
+
+    for (const Struct::Field &f : *target) {
+        if (!has_flag(f.flags, Struct::Flags::Alpha))
+            continue;
+        target_alpha = &f;
+        break;
+    }
+
+    if (source_alpha != nullptr && target_alpha != nullptr) {
+        if (source_alpha->name != target_alpha->name)
+            Throw("Internal error: source and target alpha have mismatched names!");
+    }
+
+    X86Xmm alpha, inv_alpha;
+    if (source_alpha != nullptr && target_alpha != nullptr) {
+        alpha = cc.newXmm();
+        inv_alpha = cc.newXmm();
+        X86Xmm value = sc.linearize(sc.load(source, input, source_alpha->name)).second.xmm;
+        sc.movs(alpha, value);
+        sc.movs(inv_alpha, sc.const_(1.0));
+        sc.divs(inv_alpha, value);
+
+        // Check if alpha is zero and set inv_alpha to zero if that is the case
+        X86Xmm zero = cc.newXmm();
+        sc.movs(zero, sc.const_(0.0));
+
+        X86Xmm mask = cc.newXmm();
+        sc.movs(mask, value);
+        sc.cmps(mask, zero, 2);
+        sc.blend(inv_alpha, zero, mask);
+    }
+
 
     for (const Struct::Field &f : *target) {
         std::pair<detail::StructCompiler::Key, detail::StructCompiler::Value> kv;
@@ -1297,12 +1397,31 @@ StructConverter::StructConverter(const Struct *source, const Struct *target, boo
 
         if (source_weight != nullptr && target_weight == nullptr) {
             X86Xmm result = cc.newXmm();
-            if (kv.first.type != struct_type_v<float>)
+            if (kv.first.type != struct_type_v<Float>)
                 kv = sc.linearize(kv);
             sc.muls(result, kv.second.xmm, scale_factor);
             kv.second.xmm = result;
         }
 
+        uint32_t special_channels_mask = Struct::Flags::Weight | Struct::Flags::Alpha;
+        bool source_premult = has_flag(kv.first.flags, Struct::Flags::PremultipliedAlpha);
+        bool target_premult = has_flag(f.flags, Struct::Flags::PremultipliedAlpha);
+
+        if (source_alpha != nullptr && target_alpha != nullptr && ((f.flags & special_channels_mask) == 0) &&
+            source_premult != target_premult) {
+            if (has_multiple_alpha_channels)
+                Throw("Found multiple alpha channels: Alpha (un)premultiplication expects a single alpha channel");
+            X86Xmm result = cc.newXmm();
+            if (kv.first.type != struct_type_v<Float>)
+                kv = sc.linearize(kv);
+            if (target_premult && !source_premult) {
+                sc.muls(result, kv.second.xmm, alpha);
+                kv.second.xmm = result;
+            } else if (!target_premult && source_premult) {
+                sc.muls(result, kv.second.xmm, inv_alpha);
+                kv.second.xmm = result;
+            }
+        }
         sc.save(target, output, f, kv);
     }
 
@@ -1456,7 +1575,6 @@ bool StructConverter::load(const uint8_t *src, const Struct::Field &f, Value &va
 }
 
 void StructConverter::linearize(Value &value) const {
-    using Float = float;
 
     if (Struct::is_integer(value.type)) {
         if (Struct::is_unsigned(value.type))
@@ -1466,7 +1584,7 @@ void StructConverter::linearize(Value &value) const {
 
         if (has_flag(value.flags, Struct::Flags::Normalized))
             value.f *= Float(1 / Struct::range(value.type).second);
-    } else if (Struct::is_float(value.type) && value.type != struct_type_v<float>) {
+    } else if (Struct::is_float(value.type) && value.type != struct_type_v<Float>) {
         if (value.type == Struct::Type::Float32)
             value.f = (Float) value.s;
         else
@@ -1477,11 +1595,10 @@ void StructConverter::linearize(Value &value) const {
         value.flags = value.flags & ~Struct::Flags::Gamma;
     }
 
-    value.type = struct_type_v<float>;
+    value.type = struct_type_v<Float>;
 }
 
 void StructConverter::save(uint8_t *dst, const Struct::Field &f, Value value, size_t x, size_t y) const {
-    using Float = float;
 
     /* Is swapping needed */
     bool target_swap = m_target->byte_order() != Struct::host_byte_order();
@@ -1491,7 +1608,7 @@ void StructConverter::save(uint8_t *dst, const Struct::Field &f, Value value, si
     if (has_flag(f.flags, Struct::Flags::Gamma) && !has_flag(value.flags, Struct::Flags::Gamma))
         value.f = enoki::linear_to_srgb(value.f);
 
-    if (f.is_integer() && value.type == struct_type_v<float>) {
+    if (f.is_integer() && value.type == struct_type_v<Float>) {
         auto range = f.range();
 
         if (has_flag(f.flags, Struct::Flags::Normalized))
@@ -1512,9 +1629,9 @@ void StructConverter::save(uint8_t *dst, const Struct::Field &f, Value value, si
             value.u = (uint64_t) d;
     }
 
-    if ((f.type == Struct::Type::Float16 || f.type == Struct::Type::Float32) && value.type == struct_type_v<float>)
+    if ((f.type == Struct::Type::Float16 || f.type == Struct::Type::Float32) && value.type == struct_type_v<Float>)
         value.s = (float) value.f;
-    else if (f.type == Struct::Type::Float64 && value.type == struct_type_v<float>)
+    else if (f.type == Struct::Type::Float64 && value.type == struct_type_v<Float>)
         value.d = (double) value.f;
 
     switch (f.type) {
@@ -1604,13 +1721,12 @@ void StructConverter::save(uint8_t *dst, const Struct::Field &f, Value value, si
 
 bool StructConverter::convert_2d(size_t width, size_t height, const void *src_, void *dest_) const {
     using namespace mitsuba::detail;
-    using Float = float;
 
     size_t source_size = m_source->size();
     size_t target_size = m_target->size();
-    Struct::Field weight_field;
+    Struct::Field weight_field, alpha_field;
 
-    bool has_weight = false;
+    bool has_weight = false, has_alpha = false, has_multiple_alpha_channels = false;
     std::vector<Struct::Field> assert_fields;
     for (Struct::Field f : *m_source) {
         if (has_flag(f.flags, Struct::Flags::Assert) && !m_target->has_field(f.name))
@@ -1618,6 +1734,11 @@ bool StructConverter::convert_2d(size_t width, size_t height, const void *src_, 
         if (has_flag(f.flags, Struct::Flags::Weight)) {
             weight_field = f;
             has_weight = true;
+        }
+        if (has_flag(f.flags, Struct::Flags::Alpha)) {
+            has_multiple_alpha_channels |= has_alpha;
+            alpha_field = f;
+            has_alpha = true;
         }
     }
     for (const Struct::Field &f : *m_target) {
@@ -1644,6 +1765,15 @@ bool StructConverter::convert_2d(size_t width, size_t height, const void *src_, 
                 linearize(value);
                 inv_weight = 1.f / value.f;
             }
+            Float alpha = 1.f, inv_alpha = 1.f;
+            if (has_alpha) {
+                Value value;
+                if (!load(src, alpha_field, value))
+                    return false;
+                linearize(value);
+                alpha = value.f;
+                inv_alpha = alpha > 0 ? 1.f / alpha : 0.f;
+            }
 
             for (const Struct::Field &f : *m_target) {
                 Value value;
@@ -1658,7 +1788,7 @@ bool StructConverter::convert_2d(size_t width, size_t height, const void *src_, 
                             return false;
                     }
                 } else {
-                    value.type = struct_type_v<float>;
+                    value.type = struct_type_v<Float>;
                     value.f = 0;
                     value.flags = +Struct::Flags::None;
                     for (auto kv : f.blend) {
@@ -1680,6 +1810,22 @@ bool StructConverter::convert_2d(size_t width, size_t height, const void *src_, 
                 if (has_weight)
                     value.f *= inv_weight;
 
+
+                uint32_t special_channels_mask = Struct::Flags::Weight | Struct::Flags::Alpha;
+                bool source_premult = has_flag(value.flags, Struct::Flags::PremultipliedAlpha);
+                bool target_premult = has_flag(f.flags, Struct::Flags::PremultipliedAlpha);
+                if (has_alpha && ((f.flags & special_channels_mask) == 0) &&
+                    source_premult != target_premult && f.blend.empty()) {
+                    linearize(value);
+                    if (has_multiple_alpha_channels)
+                        Throw("Found multiple alpha channels: Alpha (un)premultiplication expects a single alpha channel");
+
+                    if (target_premult && !source_premult) {
+                        value.f *= alpha;
+                    } else if (!target_premult && source_premult) {
+                        value.f *= inv_alpha;
+                    }
+                }
                 save(dest, f, value, x, y);
             }
 

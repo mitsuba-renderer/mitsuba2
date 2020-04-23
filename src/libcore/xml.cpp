@@ -349,8 +349,11 @@ void upgrade_tree(XMLSource &src, pugi::xml_node &node, const Version &version) 
 
     if (version < Version(2, 0, 0)) {
         // Upgrade all attribute names from camelCase to underscore_case
-        for (pugi::xpath_node result: node.select_nodes("//@name")) {
-            pugi::xml_attribute name_attrib = result.attribute();
+        for (pugi::xpath_node result: node.select_nodes("//*[@name]")) {
+            pugi::xml_node n = result.node();
+            if (std::strcmp(n.name(), "default") == 0)
+                continue;
+            pugi::xml_attribute name_attrib = n.attribute("name");
             std::string name = name_attrib.value();
             for (size_t i = 0; i < name.length() - 1; ++i) {
                 if (std::islower(name[i]) && std::isupper(name[i + 1])) {
@@ -366,6 +369,20 @@ void upgrade_tree(XMLSource &src, pugi::xml_node &node, const Version &version) 
         }
         for (pugi::xpath_node result: node.select_nodes("//lookAt"))
             result.node().set_name("lookat");
+        // automatically rename reserved identifiers
+        for (pugi::xpath_node result: node.select_nodes("//@id")) {
+            pugi::xml_attribute id_attrib = result.attribute();
+            char const* val = id_attrib.value();
+            if (val && val[0] == '_') {
+                std::string new_id = std::string("ID") + val + "__UPGR";
+                Log(Warn, "Changing identifier: \"%s\" -> \"%s\"", val, new_id.c_str());
+                id_attrib = new_id.c_str();
+            }
+        }
+
+        // changed parameters
+        for (pugi::xpath_node result: node.select_nodes("//bsdf[@type='diffuse']/*/@name[.='diffuse_reflectance']"))
+            result.attribute() = "reflectance";
 
         // Update 'uoffset', 'voffset', 'uscale', 'vscale' to transform block
         for (pugi::xpath_node result : node.select_nodes(
@@ -635,6 +652,18 @@ static std::pair<std::string, std::string> parse_xml(XMLSource &src, XMLParseCon
 
                     try {
                         if (std::string(doc.begin()->name()) == "scene") {
+                            auto version_attr_incl = doc.begin()->attribute("version");
+                            if (version_attr_incl) {
+                                Version version;
+                                try {
+                                    version = version_attr_incl.value();
+                                } catch (const std::exception &) {
+                                    nested_src.throw_error(*doc.begin(), "could not parse version number \"%s\"", version_attr_incl.value());
+                                }
+                                upgrade_tree(nested_src, *doc.begin(), version);
+                                doc.begin()->remove_attribute(version_attr_incl);
+                            }
+
                             for (pugi::xml_node &ch: doc.begin()->children()) {
                                 auto [arg_name, nested_id] = parse_xml(nested_src, ctx, ch, parent_tag,
                                           props, param, arg_counter, 1);
@@ -948,18 +977,34 @@ static std::pair<std::string, std::string> parse_xml(XMLSource &src, XMLParseCon
             case Tag::Matrix: {
                     check_attributes(src, node, { "value" });
                     std::vector<std::string> tokens = string::tokenize(node.attribute("value").value());
-                    if (tokens.size() != 16)
-                        Throw("matrix: expected 16 values");
+                    if (tokens.size() != 16 && tokens.size() != 9)
+                        Throw("matrix: expected 16 or 9 values");
                     Matrix4f matrix;
-                    for (int i = 0; i < 4; ++i) {
-                        for (int j = 0; j < 4; ++j) {
-                            try {
-                                matrix(i, j) = detail::stof(tokens[i * 4 + j]);
-                            } catch (...) {
-                                src.throw_error(node, "could not parse floating point value \"%s\"",
-                                                tokens[i * 4 + j]);
+                    if (tokens.size() == 16) {
+                        for (int i = 0; i < 4; ++i) {
+                            for (int j = 0; j < 4; ++j) {
+                                try {
+                                    matrix(i, j) = detail::stof(tokens[i * 4 + j]);
+                                } catch (...) {
+                                    src.throw_error(node, "could not parse floating point value \"%s\"",
+                                                    tokens[i * 4 + j]);
+                                }
                             }
                         }
+                    } else {
+                        Log(Warn, "3x3 matrix will be stored as a 4x4 matrix, with the same last row and column as the identity matrix.");
+                        Matrix3f mat3;
+                        for (int i = 0; i < 3; ++i) {
+                            for (int j = 0; j < 3; ++j) {
+                                try {
+                                    mat3(i, j) = detail::stof(tokens[i * 3 + j]);
+                                } catch (...) {
+                                    src.throw_error(node, "could not parse floating point value \"%s\"",
+                                                    tokens[i * 3 + j]);
+                                }
+                            }
+                        }
+                        matrix = Matrix4f(mat3);
                     }
                     ctx.transform = Transform4f(matrix) * ctx.transform;
                 }
@@ -1029,7 +1074,7 @@ static ref<Object> instantiate_node(XMLParseContext &ctx, const std::string &id)
                 } else {
                     int ctr = 0;
                     for (auto c : children)
-                        props.set_object(kv.first + "_" + std::to_string(ctr++), children[0], false);
+                        props.set_object(kv.first + "_" + std::to_string(ctr++), c, false);
                 }
             } catch (const std::exception &e) {
                 if (strstr(e.what(), "Error while loading") == nullptr)

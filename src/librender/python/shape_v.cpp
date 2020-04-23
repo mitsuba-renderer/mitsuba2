@@ -54,14 +54,17 @@ MTS_PY_EXPORT(Shape) {
     MTS_PY_CLASS(Mesh, Shape)
         .def(py::init<const std::string &, Struct *, ScalarSize, Struct *, ScalarSize>(),
             D(Mesh, Mesh))
+        .def(py::init<const std::string &, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, short, const ScalarMatrix4f &>(), "Constructor to call from Blender")
         .def_method(Mesh, vertex_struct)
         .def_method(Mesh, face_struct)
+        .def_method(Mesh, vertex_count)
+        .def_method(Mesh, face_count)
         .def_method(Mesh, has_vertex_normals)
         .def_method(Mesh, has_vertex_texcoords)
         .def_method(Mesh, has_vertex_colors)
-        .def_method(Mesh, write)
         .def_method(Mesh, recompute_vertex_normals)
         .def_method(Mesh, recompute_bbox)
+        .def("write_ply", &Mesh::write_ply, "stream"_a, "Export mesh as a binary PLY file")
         .def("vertices", [](py::object &o) {
             Mesh &m = py::cast<Mesh&>(o);
             py::dtype dtype = o.attr("vertex_struct")().attr("dtype")();

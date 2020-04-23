@@ -33,6 +33,9 @@ MTS_VARIANT SamplingIntegrator<Float, Spectrum>::SamplingIntegrator(const Proper
 
     m_samples_per_pass = (uint32_t) props.size_("samples_per_pass", (size_t) -1);
     m_timeout = props.float_("timeout", -1.f);
+
+    /// Disable direct visibility of emitters if needed
+    m_hide_emitters = props.bool_("hide_emitters", false);
 }
 
 MTS_VARIANT SamplingIntegrator<Float, Spectrum>::~SamplingIntegrator() { }
@@ -230,7 +233,8 @@ MTS_VARIANT void SamplingIntegrator<Float, Spectrum>::render_sample(
 
     ray.scale_differential(diff_scale_factor);
 
-    std::pair<Spectrum, Mask> result = sample(scene, sampler, ray, aovs + 5, active);
+    const Medium *medium = sensor->medium();
+    std::pair<Spectrum, Mask> result = sample(scene, sampler, ray, medium, aovs + 5, active);
     result.first = ray_weight * result.first;
 
     UnpolarizedSpectrum spec_u = depolarize(result.first);
@@ -258,6 +262,7 @@ MTS_VARIANT std::pair<Spectrum, typename SamplingIntegrator<Float, Spectrum>::Ma
 SamplingIntegrator<Float, Spectrum>::sample(const Scene * /* scene */,
                                             Sampler * /* sampler */,
                                             const RayDifferential3f & /* ray */,
+                                            const Medium * /* medium */,
                                             Float * /* aovs */,
                                             Mask /* active */) const {
     NotImplementedError("sample");
@@ -278,9 +283,6 @@ MTS_VARIANT MonteCarloIntegrator<Float, Spectrum>::MonteCarloIntegrator(const Pr
     m_max_depth = props.int_("max_depth", -1);
     if (m_max_depth < 0 && m_max_depth != -1)
         Throw("\"max_depth\" must be set to -1 (infinite) or a value >= 0");
-
-    /// Disable direct visibility of emitters if needed
-    m_hide_emitters = props.bool_("hide_emitters", false);
 }
 
 MTS_VARIANT MonteCarloIntegrator<Float, Spectrum>::~MonteCarloIntegrator() { }

@@ -93,13 +93,14 @@ template <typename Float, typename Spectrum>
 class PathIntegrator : public MonteCarloIntegrator<Float, Spectrum> {
 public:
     MTS_IMPORT_BASE(MonteCarloIntegrator, m_max_depth, m_rr_depth)
-    MTS_IMPORT_TYPES(Scene, Sampler, Emitter, EmitterPtr, BSDF, BSDFPtr)
+    MTS_IMPORT_TYPES(Scene, Sampler, Medium, Emitter, EmitterPtr, BSDF, BSDFPtr)
 
     PathIntegrator(const Properties &props) : Base(props) { }
 
     std::pair<Spectrum, Mask> sample(const Scene *scene,
                                      Sampler *sampler,
                                      const RayDifferential3f &ray_,
+                                     const Medium * /* medium */,
                                      Float * /* aovs */,
                                      Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::SamplingIntegratorSample, active);
@@ -141,7 +142,7 @@ public:
 
             // Stop if we've exceeded the number of requested bounces, or
             // if there are no more active lanes. Only do this latter check
-            // in GPU mode when the number of requested bounces infinite
+            // in GPU mode when the number of requested bounces is infinite
             // since it causes a costly synchronization.
             if ((uint32_t) depth >= (uint32_t) m_max_depth ||
                 ((!is_cuda_array_v<Float> || m_max_depth < 0) && none(active)))

@@ -25,7 +25,7 @@ TEST_SCENE_DIR = realpath(join(os.path.dirname(
 scenes = glob.glob(join(TEST_SCENE_DIR, '*', '*.xml'))
 
 # List of test scene folders to exclude
-EXCLUDE_FOLDERS = []
+EXCLUDE_FOLDERS = ['participating_media']
 
 
 def get_ref_fname(scene_fname):
@@ -202,6 +202,7 @@ if __name__ == '__main__':
             img, var_img = bitmap_extract(bmp)
 
             # Write rendered image to a file
+            os.makedirs(dirname(ref_fname), exist_ok=True)
             xyz_to_rgb_bmp(img).write(ref_fname)
             print('Saved rendered image to: ' + ref_fname)
 
