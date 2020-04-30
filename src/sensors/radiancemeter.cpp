@@ -65,8 +65,8 @@ public:
             }
 
             if (props.has_property("direction")) {
-                ScalarPoint3f origin     = props.point3f("origin");
-                ScalarVector3f direction = props.vector3f("direction");
+                ScalarPoint3f origin     = props.array3f("origin");
+                ScalarVector3f direction = props.array3f("direction");
                 ScalarPoint3f target     = origin + direction;
                 auto [up, unused]        = coordinate_system(direction);
 

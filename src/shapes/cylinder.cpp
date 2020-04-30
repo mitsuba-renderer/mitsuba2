@@ -84,8 +84,8 @@ public:
     Cylinder(const Properties &props) : Base(props) {
         m_radius = props.float_("radius", 1.f);
 
-        ScalarPoint3f p0 = props.point3f("p0", ScalarPoint3f(0.f, 0.f, 0.f)),
-                      p1 = props.point3f("p1", ScalarPoint3f(0.f, 0.f, 1.f));
+        ScalarPoint3f p0 = props.array3f("p0", ScalarPoint3f(0.f, 0.f, 0.f)),
+                      p1 = props.array3f("p1", ScalarPoint3f(0.f, 0.f, 1.f));
 
         ScalarVector3f d = p1 - p0;
         m_length = norm(d);

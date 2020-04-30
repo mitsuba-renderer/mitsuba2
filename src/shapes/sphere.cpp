@@ -101,7 +101,7 @@ public:
 
     Sphere(const Properties &props) : Base(props) {
         m_object_to_world =
-            ScalarTransform4f::translate(ScalarVector3f(props.point3f("center", ScalarPoint3f(0.f))));
+            ScalarTransform4f::translate(ScalarVector3f(props.array3f("center", ScalarPoint3f(0.f))));
         m_radius = props.float_("radius", 1.f);
 
         if (props.has_property("to_world")) {
