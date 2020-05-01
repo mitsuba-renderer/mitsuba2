@@ -17,6 +17,8 @@
 
 #if !defined(__WINDOWS__)
 #  include <signal.h>
+#else
+# include <windows.h>
 #endif
 
 using namespace mitsuba;
