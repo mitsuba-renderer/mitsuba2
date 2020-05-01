@@ -2,6 +2,7 @@ import enoki as ek
 import pytest
 import mitsuba
 
+from mitsuba.python.test.util import fresolver_append_path
 
 def test01_invalid_xml(variant_scalar_rgb):
     from mitsuba.core import xml
@@ -723,3 +724,60 @@ def test29_dict_scene_reference(variants_all_rgb):
             },
         })
     e.match("""Referenced id "bsdf2_id" not found""")
+
+
+@fresolver_append_path
+def test30_dict_expand_nested_object(variants_all_rgb):
+    from mitsuba.core import xml
+    # Nested dictionary objects should be expanded
+    b0 = xml.load_dict({
+        "type" : "diffuse",
+        "reflectance" : {
+            "type" : "bitmap",
+            "filename" : "resources/data/envmap/museum.exr"
+        }
+    })
+
+    b1 = xml.load_string("""
+        <bsdf type="diffuse" version="2.0.0">
+            <texture type="bitmap" name="reflectance">
+                <string name="filename" value="resources/data/envmap/museum.exr"/>
+            </texture>
+        </bsdf>
+    """)
+
+    assert str(b0) == str(b1)
+
+    # Check that root object isn't expanded
+    texture = xml.load_dict({
+            "type" : "bitmap",
+            "filename" : "resources/data/envmap/museum.exr"
+    })
+    assert len(texture.expand()) == 1
+
+    # But we should be able to use this object in another dict, and it will be expanded
+    b3 = xml.load_dict({
+        "type" : "diffuse",
+        "reflectance" : texture
+    })
+    assert str(b0) == str(b3)
+
+    # Object should be expanded when used through a reference
+    scene = xml.load_dict({
+        "type" : "scene",
+        "mytexture" : {
+            "type" : "bitmap",
+            "filename" : "resources/data/envmap/museum.exr"
+        },
+        "shape1" : {
+            "type" : "sphere",
+            "bsdf" : {
+                "type" : "diffuse",
+                "reflectance" : {
+                    "type" : "ref",
+                    "id" : "mytexture"
+                }
+            }
+        },
+    })
+    assert str(b0) == str(scene.shapes()[0].bsdf())
