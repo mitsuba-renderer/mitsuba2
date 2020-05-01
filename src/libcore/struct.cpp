@@ -727,8 +727,8 @@ public:
                     cc.vmovd(vr.xmm, vr.gp.r32());
                     cc.vcvtph2ps(vr.xmm, vr.xmm);
                 #else
-                    auto call = cc.call(imm_ptr((void *) enoki::half::float16_to_float32),
-                        FuncSignature1<float, uint16_t>(CallConv::kIdHostCDecl));
+                    auto call = cc.call(imm((void *) enoki::half::float16_to_float32),
+                        FuncSignatureT<float, uint16_t>(CallConv::kIdHostCDecl));
                     call->setArg(0, vr.gp);
                     call->setRet(0, vr.xmm);
                 #endif
