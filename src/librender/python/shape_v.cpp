@@ -55,7 +55,7 @@ MTS_PY_EXPORT(Shape) {
     MTS_PY_CLASS(Mesh, Shape)
         .def(py::init<const std::string &, Struct *, ScalarSize, Struct *, ScalarSize>(),
             D(Mesh, Mesh))
-        .def(py::init<const std::string &, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, short, const ScalarMatrix4f &>(), "Constructor to call from Blender")
+        .def(py::init<const std::string &, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, short, const ScalarTransform4f &>(), "Constructor to call from Blender")
         .def_method(Mesh, vertex_struct)
         .def_method(Mesh, face_struct)
         .def_method(Mesh, vertex_count)
