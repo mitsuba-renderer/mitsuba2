@@ -94,7 +94,7 @@ def test03_sample_ray(variant_packet_spectral, spectrum_key):
 
     # Sample wavelengths on the spectrum
     it = SurfaceInteraction3f.zero(3)
-    wav, spec = spectrum.sample(it, sample_shifted(wavelength_sample))
+    wav, spec = spectrum.sample_spectrum(it, sample_shifted(wavelength_sample))
 
     # Sample a position on the shape
     ps = shape.sample_position(time, pos_sample)

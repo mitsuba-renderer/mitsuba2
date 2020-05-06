@@ -127,7 +127,7 @@ def test_sample_ray(variant_packet_spectral, spectrum_key, wavelength_sample, po
 
     # Sample wavelengths on the spectrum
     it = SurfaceInteraction3f.zero()
-    wav, spec = spectrum.sample(it, sample_shifted(wavelength_sample))
+    wav, spec = spectrum.sample_spectrum(it, sample_shifted(wavelength_sample))
     it.wavelengths = wav
     spec = spectrum.eval(it)
     spec = ek.select(angle <= beam_width_rad, spec, spec *

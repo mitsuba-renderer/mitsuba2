@@ -62,7 +62,7 @@ def test02_sample_ray(variant_packet_spectral, spectrum_key):
 
     # Sample wavelengths on the spectrum
     it = SurfaceInteraction3f.zero(3)
-    wav, spec = spectrum.sample(it, sample_shifted(wavelength_sample))
+    wav, spec = spectrum.sample_spectrum(it, sample_shifted(wavelength_sample))
 
     assert ek.allclose(res, spec * 4 * ek.pi * ek.pi)
     assert ek.allclose(ray.time, time)
