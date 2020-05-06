@@ -131,7 +131,7 @@ def test_sample_direction(variant_scalar_spectral, spectrum_key, direction):
 
 
 @pytest.mark.parametrize("direction", [[0, 0, -1], [1, 1, 1], [0, 0, 1]])
-def test_sample_ray(variant_scalar_rgb, direction):
+def test_sample_ray(variant_scalar_spectral, direction):
     import enoki as ek
     from mitsuba.core import Vector2f, Vector3f
 
