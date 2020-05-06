@@ -1,7 +1,9 @@
-import mitsuba
-import pytest
-import enoki as ek
+from itertools import cycle
 
+import pytest
+
+import enoki as ek
+import mitsuba
 
 xml_spectrum = {
     "d65": """
@@ -131,30 +133,34 @@ def test_sample_direction(variant_scalar_spectral, spectrum_key, direction):
 
 
 @pytest.mark.parametrize("direction", [[0, 0, -1], [1, 1, 1], [0, 0, 1]])
-def test_sample_ray(variant_scalar_rgb, direction):
-    import enoki as ek
-    from mitsuba.core import Vector2f, Vector3f
+@pytest.mark.parametrize("spectrum_key", xml_spectrum_keys)
+def test_sample_ray(variant_scalar_spectral, direction, spectrum_key):
+    from mitsuba.core import Vector2f, Vector3f, sample_shifted
+    from mitsuba.render import SurfaceInteraction3f
 
-    emitter = make_emitter(direction=direction)
+    emitter = make_emitter(direction=direction, spectrum_key=spectrum_key)
+    spectrum = make_spectrum(spectrum_key)
     direction = Vector3f(direction)
 
     time = 1.0
-    wavelength_sample = 0.3
-    directional_sample = [0.3, 0.2]
 
-    for spatial_sample in [
-        [0.85, 0.13],
-        [0.16, 0.50],
-        [0.00, 1.00],
-        [0.32, 0.87],
-        [0.16, 0.44],
-        [0.17, 0.44],
-        [0.22, 0.81],
-        [0.12, 0.82],
-        [0.99, 0.42],
-        [0.72, 0.40],
-        [0.01, 0.61],
-    ]:
+    for wavelength_sample, spatial_sample, directional_sample in zip(
+        cycle([0.3, 0.7]),
+        [
+            [0.85, 0.13],
+            [0.16, 0.50],
+            [0.00, 1.00],
+            [0.32, 0.87],
+            [0.16, 0.44],
+            [0.17, 0.44],
+            [0.22, 0.81],
+            [0.12, 0.82],
+            [0.99, 0.42],
+            [0.72, 0.40],
+            [0.01, 0.61],
+        ],
+        cycle([[0.3, 0.2]])
+    ):
         ray, _ = emitter.sample_ray(
             time, wavelength_sample, spatial_sample, directional_sample)
 
@@ -164,3 +170,9 @@ def test_sample_ray(variant_scalar_rgb, direction):
         # Check that ray origin is outside of bounding sphere
         # Bounding sphere is centered at world origin and has radius 1 without scene
         assert ek.norm(ray.o) >= 1.
+
+        # Check that passed irradiance spectrum is used for wavelength sampling
+        it = SurfaceInteraction3f.zero()
+        wav, spec = spectrum.sample_spectrum(
+            it, sample_shifted(wavelength_sample))
+        assert ek.allclose(ray.wavelengths, wav)
