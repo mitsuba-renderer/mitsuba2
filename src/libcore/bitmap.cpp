@@ -493,7 +493,7 @@ void Bitmap::convert(Bitmap *target) const {
         }
 
         Throw("Unable to convert %s to %s: don't know how to obtain channel \"%s\".",
-              m_struct->to_string(), target_struct->to_string(), field.name);
+              m_struct, target_struct, field.name);
     }
 
     StructConverter conv(m_struct, target_struct, true);
@@ -847,7 +847,7 @@ std::string Bitmap::to_string() const {
         << "  component_format = " << m_component_format << "," << std::endl
         << "  size = " << m_size << "," << std::endl
         << "  srgb_gamma = " << m_srgb_gamma << "," << std::endl
-        << "  struct = " << string::indent(m_struct->to_string()) << "," << std::endl;
+        << "  struct = " << string::indent(m_struct) << "," << std::endl;
 
     std::vector<std::string> keys = m_metadata.property_names();
     if (!keys.empty()) {
@@ -950,7 +950,7 @@ void Bitmap::read_openexr(Stream *stream) {
         } else if (type_name == "v3f") {
             auto v = static_cast<const Imf::V3fAttribute *>(attr);
             Imath::V3f vec = v->value();
-            m_metadata.set_vector3f(name, Vector3f(vec.x, vec.y, vec.z));
+            m_metadata.set_array3f(name, Vector3f(vec.x, vec.y, vec.z));
         } else if (type_name == "m44f") {
             auto v = static_cast<const Imf::M44fAttribute *>(attr);
             Matrix4f M;
@@ -1324,14 +1324,8 @@ void Bitmap::write_openexr(Stream *stream, int quality) const {
                 else
                     header.insert(it->c_str(), Imf::FloatAttribute(metadata.float_(*it)));
                 break;
-            case Type::Vector3f: {
-                    Vector3f val = metadata.vector3f(*it);
-                    header.insert(it->c_str(), Imf::V3fAttribute(
-                        Imath::V3f((float) val.x(), (float) val.y(), (float) val.z())));
-                }
-                break;
-            case Type::Point3f: {
-                    Point3f val = metadata.point3f(*it);
+            case Type::Array3f: {
+                    Vector3f val = metadata.array3f(*it);
                     header.insert(it->c_str(), Imf::V3fAttribute(
                         Imath::V3f((float) val.x(), (float) val.y(), (float) val.z())));
                 }

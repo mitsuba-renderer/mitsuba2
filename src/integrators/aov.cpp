@@ -164,8 +164,7 @@ public:
         std::pair<Spectrum, Mask> result { 0.f, false };
 
         SurfaceInteraction3f si = scene->ray_intersect(ray, active);
-        active = si.is_valid();
-        si[!active] = zero<SurfaceInteraction3f>();
+        si[!si.is_valid()] = zero<SurfaceInteraction3f>();
         size_t ctr = 0;
 
         for (size_t i = 0; i < m_aov_types.size(); ++i) {
@@ -269,7 +268,7 @@ public:
             << "  aovs = " << m_aov_names << "," << std::endl
             << "  integrators = [" << std::endl;
         for (size_t i = 0; i < m_integrators.size(); ++i) {
-            oss << "    " << string::indent(m_integrators[i].first->to_string(), 4);
+            oss << "    " << string::indent(m_integrators[i].first, 4);
             if (i + 1 < m_integrators.size())
                 oss << ",";
             oss << std::endl;

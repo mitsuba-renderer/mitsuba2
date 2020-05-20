@@ -156,7 +156,7 @@ public:
     void traverse(TraversalCallback *callback) override;
 
     /// Update internal state following a parameter update
-    void parameters_changed() override;
+    void parameters_changed(const std::vector<std::string> &/*keys*/ = {}) override;
 
     /// Return a human-readable string representation of the scene contents.
     virtual std::string to_string() const override;
@@ -169,6 +169,9 @@ protected:
     /// Create the ray-intersection acceleration data structure
     void accel_init_cpu(const Properties &props);
     void accel_init_gpu(const Properties &props);
+
+    /// Updates the ray-intersection acceleration data structure
+    void accel_parameters_changed_gpu();
 
     /// Release the ray-intersection acceleration data structure
     void accel_release_cpu();

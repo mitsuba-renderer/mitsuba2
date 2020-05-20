@@ -1,10 +1,13 @@
-all: optix_rt.ptx optix_attr.ptx
+mts_include_folder = ../../include
+mts_shape_folder   = ../../src/shapes/optix
+mts_optix_main     = ../../src/librender/optix/optix_rt.cu
 
-optix_rt.ptx: optix_rt.cu
-	nvcc optix_rt.cu -O3 -gencode arch=compute_50,code=compute_50 --ptx -I /opt/optix/include/
+all: optix_rt.ptx
 
-optix_attr.ptx: optix_attr.cu
-	nvcc optix_attr.cu -O3 -gencode arch=compute_50,code=compute_50 --ptx -I /opt/optix/include/
+optix_rt.ptx: $(mts_optix_main) $(mts_include_folder)/* $(mts_shape_folder)/*
+	nvcc $(mts_optix_main) \
+		 -I $(mts_include_folder) -I $(mts_shape_folder) -I /opt/optix-7.0.0/include/ \
+		 -O3 -gencode arch=compute_61,code=compute_61 --ptx
 
 clean:
-	rm -f optix_rt.ptx optix_attr.ptx
+	rm -f optix_rt.ptx

@@ -80,10 +80,6 @@ public:
         if (!m_nested_bsdf)
            Throw("Child BSDF not specified");
 
-        parameters_changed();
-    }
-
-    void parameters_changed() override {
         m_components.clear();
         for (size_t i = 0; i < m_nested_bsdf->component_count(); ++i)
             m_components.push_back(m_nested_bsdf->flags(i));
@@ -157,6 +153,12 @@ public:
 
         return result;
     }
+        
+    Spectrum eval_null_transmission(const SurfaceInteraction3f &si,
+                                    Mask active) const override {
+        Float opacity = eval_opacity(si, active);
+        return 1 - opacity * (1 - m_nested_bsdf->eval_null_transmission(si, active));
+    }
 
     MTS_INLINE Float eval_opacity(const SurfaceInteraction3f &si, Mask active) const {
         return clamp(m_opacity->eval_1(si, active), 0.f, 1.f);
@@ -171,7 +173,7 @@ public:
         std::ostringstream oss;
         oss << "Mask[" << std::endl
             << "  opacity = " << m_opacity << "," << std::endl
-            << "  nested_bsdf = " << string::indent(m_nested_bsdf->to_string()) << std::endl
+            << "  nested_bsdf = " << string::indent(m_nested_bsdf) << std::endl
             << "]";
         return oss.str();
     }

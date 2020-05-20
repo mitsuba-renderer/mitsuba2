@@ -239,8 +239,8 @@ public:
         // TODO x_fov
     }
 
-    void parameters_changed() override {
-        Base::parameters_changed();
+    void parameters_changed(const std::vector<std::string> &keys) override {
+        Base::parameters_changed(keys);
         // TODO
     }
 
@@ -253,8 +253,8 @@ public:
             << "  near_clip = " << m_near_clip << "," << std::endl
             << "  far_clip = " << m_far_clip << "," << std::endl
             << "  focus_distance = " << m_focus_distance << "," << std::endl
-            << "  film = " << indent(m_film->to_string()) << "," << std::endl
-            << "  sampler = " << indent(m_sampler->to_string()) << "," << std::endl
+            << "  film = " << indent(m_film) << "," << std::endl
+            << "  sampler = " << indent(m_sampler) << "," << std::endl
             << "  resolution = " << m_resolution << "," << std::endl
             << "  shutter_open = " << m_shutter_open << "," << std::endl
             << "  shutter_open_time = " << m_shutter_open_time << "," << std::endl

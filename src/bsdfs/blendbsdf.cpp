@@ -71,10 +71,6 @@ public:
         if (bsdf_index != 2)
             Throw("BlendBSDF: Two child BSDFs must be specified!");
 
-        parameters_changed();
-    }
-
-    void parameters_changed() override {
         m_components.clear();
         for (size_t i = 0; i < 2; ++i)
             for (size_t j = 0; j < m_nested_bsdf[i]->component_count(); ++j)
@@ -165,7 +161,7 @@ public:
     MTS_INLINE Float eval_weight(const SurfaceInteraction3f &si, const Mask &active) const {
         return clamp(m_weight->eval_1(si, active), 0.f, 1.f);
     }
-
+    
     void traverse(TraversalCallback *callback) override {
         callback->put_object("weight", m_weight.get());
         callback->put_object("bsdf_0", m_nested_bsdf[0].get());
@@ -175,9 +171,9 @@ public:
     std::string to_string() const override {
         std::ostringstream oss;
         oss << "BlendBSDF[" << std::endl
-            << "  weight = " << string::indent(m_weight->to_string()) << "," << std::endl
-            << "  nested_bsdf[0] = " << string::indent(m_nested_bsdf[0]->to_string()) << "," << std::endl
-            << "  nested_bsdf[1] = " << string::indent(m_nested_bsdf[1]->to_string()) << std::endl
+            << "  weight = " << string::indent(m_weight) << "," << std::endl
+            << "  nested_bsdf[0] = " << string::indent(m_nested_bsdf[0]) << "," << std::endl
+            << "  nested_bsdf[1] = " << string::indent(m_nested_bsdf[1]) << std::endl
             << "]";
         return oss.str();
     }

@@ -10,6 +10,10 @@
     #include <embree3/rtcore.h>
 #endif
 
+#if defined(MTS_ENABLE_OPTIX)
+    #include <mitsuba/render/optix_api.h>
+#endif
+
 NAMESPACE_BEGIN(mitsuba)
 
 #if defined(MTS_ENABLE_EMBREE)
@@ -31,6 +35,9 @@ NAMESPACE_BEGIN(mitsuba)
 #endif
 
 MTS_VARIANT Shape<Float, Spectrum>::Shape(const Properties &props) : m_id(props.id()) {
+    m_to_world = props.transform("to_world", ScalarTransform4f());
+    m_to_object = m_to_world.inverse();
+
     for (auto &kv : props.objects()) {
         Emitter *emitter = dynamic_cast<Emitter *>(kv.second.get());
         Sensor *sensor = dynamic_cast<Sensor *>(kv.second.get());
@@ -69,7 +76,12 @@ MTS_VARIANT Shape<Float, Spectrum>::Shape(const Properties &props) : m_id(props.
         m_bsdf = PluginManager::instance()->create_object<BSDF>(Properties("diffuse"));
 }
 
-MTS_VARIANT Shape<Float, Spectrum>::~Shape() {}
+MTS_VARIANT Shape<Float, Spectrum>::~Shape() {
+#if defined(MTS_ENABLE_OPTIX)
+    if constexpr (is_cuda_array_v<Float>)
+        cuda_free(m_optix_data_ptr);
+#endif
+}
 
 MTS_VARIANT std::string Shape<Float, Spectrum>::id() const {
     return m_id;
@@ -220,8 +232,20 @@ MTS_VARIANT RTCGeometry Shape<Float, Spectrum>::embree_geometry(RTCDevice device
 #endif
 
 #if defined(MTS_ENABLE_OPTIX)
-MTS_VARIANT RTgeometrytriangles Shape<Float, Spectrum>::optix_geometry(RTcontext) {
-    NotImplementedError("optix_geometry");
+static const uint32_t optix_geometry_flags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
+
+MTS_VARIANT void Shape<Float, Spectrum>::optix_prepare_geometry() {
+    NotImplementedError("optix_prepare_geometry");
+}
+
+MTS_VARIANT void Shape<Float, Spectrum>::optix_build_input(OptixBuildInput &build_input) const {
+    build_input.type = OPTIX_BUILD_INPUT_TYPE_CUSTOM_PRIMITIVES;
+    // Assumes the aabb is always the first member of the data struct
+    build_input.aabbArray.aabbBuffers   = (CUdeviceptr*) &m_optix_data_ptr;
+    build_input.aabbArray.numPrimitives = 1;
+    build_input.aabbArray.strideInBytes = sizeof(OptixAabb);
+    build_input.aabbArray.flags         = optix_geometry_flags;
+    build_input.aabbArray.numSbtRecords = 1;
 }
 #endif
 
@@ -300,6 +324,26 @@ Shape<Float, Spectrum>::normal_derivative(const SurfaceInteraction3f & /*si*/,
     NotImplementedError("normal_derivative");
 }
 
+MTS_VARIANT typename Shape<Float, Spectrum>::UnpolarizedSpectrum
+Shape<Float, Spectrum>::eval_attribute(const std::string & /*name*/,
+                                       const SurfaceInteraction3f & /*si*/,
+                                       Mask /*active*/) const {
+    NotImplementedError("eval_attribute");
+}
+
+MTS_VARIANT Float
+Shape<Float, Spectrum>::eval_attribute_1(const std::string& /*name*/,
+                                         const SurfaceInteraction3f &/*si*/,
+                                         Mask /*active*/) const {
+    NotImplementedError("eval_attribute_1");
+}
+MTS_VARIANT typename Shape<Float, Spectrum>::Color3f
+Shape<Float, Spectrum>::eval_attribute_3(const std::string& /*name*/,
+                                         const SurfaceInteraction3f &/*si*/,
+                                         Mask /*active*/) const {
+    NotImplementedError("eval_attribute_3");
+}
+
 MTS_VARIANT typename Shape<Float, Spectrum>::ScalarFloat
 Shape<Float, Spectrum>::surface_area() const {
     NotImplementedError("surface_area");
@@ -328,6 +372,8 @@ Shape<Float, Spectrum>::effective_primitive_count() const {
 }
 
 MTS_VARIANT void Shape<Float, Spectrum>::traverse(TraversalCallback *callback) {
+    callback->put_parameter("to_world", m_to_world);
+
     callback->put_object("bsdf", m_bsdf.get());
     if (m_emitter)
         callback->put_object("emitter", m_emitter.get());
@@ -339,16 +385,35 @@ MTS_VARIANT void Shape<Float, Spectrum>::traverse(TraversalCallback *callback) {
         callback->put_object("exterior_medium", m_exterior_medium.get());
 }
 
-MTS_VARIANT void Shape<Float, Spectrum>::parameters_changed() {
-    m_bsdf->parameters_changed();
+MTS_VARIANT
+void Shape<Float, Spectrum>::parameters_changed(const std::vector<std::string> &/*keys*/) {
     if (m_emitter)
-        m_emitter->parameters_changed();
+        m_emitter->parameters_changed({"parent"});
     if (m_sensor)
-        m_sensor->parameters_changed();
-    if (m_interior_medium)
-        m_interior_medium->parameters_changed();
-    if (m_exterior_medium)
-        m_exterior_medium->parameters_changed();
+        m_sensor->parameters_changed({"parent"});
+}
+
+MTS_VARIANT void Shape<Float, Spectrum>::set_children() {
+    if (m_emitter)
+        m_emitter->set_shape(this);
+    if (m_sensor)
+        m_sensor->set_shape(this);
+};
+
+MTS_VARIANT std::string Shape<Float, Spectrum>::get_children_string() const {
+    std::vector<std::pair<std::string, const Object*>> children;
+    children.push_back({ "bsdf", m_bsdf });
+    if (m_emitter) children.push_back({ "emitter", m_emitter });
+    if (m_sensor) children.push_back({ "sensor", m_sensor });
+    if (m_interior_medium) children.push_back({ "interior_medium", m_interior_medium });
+    if (m_exterior_medium) children.push_back({ "exterior_medium", m_exterior_medium });
+
+    std::ostringstream oss;
+    size_t i = 0;
+    for (const auto& [name, child]: children)
+        oss << name << " = " << child << (++i < children.size() ? ",\n" : "");
+
+    return oss.str();
 }
 
 MTS_IMPLEMENT_CLASS_VARIANT(Shape, Object, "shape")

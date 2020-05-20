@@ -16,17 +16,15 @@
 NAMESPACE_BEGIN(mitsuba)
 
 using Float       = typename Properties::Float;
-using Vector3f    = typename Properties::Vector3f;
-using Point3f     = typename Properties::Point3f;
 using Color3f     = typename Properties::Color3f;
+using Array3f     = typename Properties::Array3f;
 using Transform4f = typename Properties::Transform4f;
 
 using VariantType = variant<
     bool,
     int64_t,
     Float,
-    Vector3f,
-    Point3f,
+    Array3f,
     std::string,
     Transform4f,
     Color3f,
@@ -41,20 +39,24 @@ struct alignas(16) Entry {
 };
 
 struct SortKey {
-    bool operator()(std::string a, std::string b) const {
+    bool operator()(const std::string &a, const std::string &b) const {
         size_t i = 0;
         while (i < a.size() && i < b.size() && a[i] == b[i])
             ++i;
-        a = a.substr(i);
-        b = b.substr(i);
-        char *end1 = nullptr,
-             *end2 = nullptr;
-        long l1 = std::strtol(a.c_str(), &end1, 10);
-        long l2 = std::strtol(b.c_str(), &end2, 10);
-        if (*end1 == '\0' && *end2 == '\0')
-            return l1 < l2;
-        else
-            return a < b;
+
+        const char *a_ptr = a.c_str() + i;
+        const char *b_ptr = b.c_str() + i;
+
+        if (std::isdigit(*a_ptr) && std::isdigit(*b_ptr)) {
+            char *a_end = nullptr,
+                 *b_end = nullptr;
+            long l1 = std::strtol(a_ptr, &a_end, 10);
+            long l2 = std::strtol(b_ptr, &b_end, 10);
+            if (*a_end == '\0' && *b_end == '\0')
+                return l1 < l2;
+        }
+
+        return std::strcmp(a_ptr, b_ptr) < 0;
     }
 };
 
@@ -93,10 +95,7 @@ struct Properties::PropertiesPrivate {
 
 DEFINE_PROPERTY_ACCESSOR(bool,              boolean,   set_bool,              bool_)
 DEFINE_PROPERTY_ACCESSOR(int64_t,           integer,   set_long,              long_)
-DEFINE_PROPERTY_ACCESSOR(Float,             float,     set_float,             float_)
 DEFINE_PROPERTY_ACCESSOR(std::string,       string,    set_string,            string)
-DEFINE_PROPERTY_ACCESSOR(Vector3f,          vector,    set_vector3f,          vector3f)
-DEFINE_PROPERTY_ACCESSOR(Point3f,           point,     set_point3f,           point3f)
 DEFINE_PROPERTY_ACCESSOR(NamedReference,    ref,       set_named_reference,   named_reference)
 DEFINE_PROPERTY_ACCESSOR(Transform4f,       transform, set_transform,         transform)
 DEFINE_PROPERTY_ACCESSOR(Color3f,           color,     set_color,             color)
@@ -132,8 +131,7 @@ namespace {
         Type operator()(const bool &) { return Type::Bool; }
         Type operator()(const int64_t &) { return Type::Long; }
         Type operator()(const Float &) { return Type::Float; }
-        Type operator()(const Vector3f &) { return Type::Vector3f; }
-        Type operator()(const Point3f &) { return Type::Point3f; }
+        Type operator()(const Array3f &) { return Type::Array3f; }
         Type operator()(const std::string &) { return Type::String; }
         Type operator()(const Transform4f &) { return Type::Transform; }
         Type operator()(const Color3f &) { return Type::Color; }
@@ -149,8 +147,7 @@ namespace {
         void operator()(const bool &b) { os << (b ? "true" : "false"); }
         void operator()(const int64_t &i) { os << i; }
         void operator()(const Float &f) { os << f; }
-        void operator()(const Vector3f &v) { os << v; }
-        void operator()(const Point3f &v) { os << v; }
+        void operator()(const Array3f &t) { os << t; }
         void operator()(const std::string &s) { os << "\"" << s << "\""; }
         void operator()(const Transform4f &t) { os << t; }
         void operator()(const Color3f &t) { os << t; }
@@ -363,6 +360,70 @@ size_t Properties::size_(const std::string &name, const size_t &def_val) const {
     }
     it->second.queried = true;
     return (size_t) v;
+}
+
+/// Float setter
+void Properties::set_float(const std::string &name, const Float &value, bool warn_duplicates) {
+    if (has_property(name) && warn_duplicates)
+        Log(Warn, "Property \"%s\" was specified multiple times!", name);
+    d->entries[name].data = (Float) value;
+    d->entries[name].queried = false;
+}
+
+/// Float getter (without default)
+Float Properties::float_(const std::string &name) const {
+    const auto it = d->entries.find(name);
+    if (it == d->entries.end())
+        Throw("Property \"%s\" has not been specified!", name);
+    if (!(it->second.data.is<Float>() || it->second.data.is<int64_t>()))
+        Throw("The property \"%s\" has the wrong type (expected <float>).", name);
+    it->second.queried = true;
+    if (it->second.data.is<int64_t>())
+        return (int64_t) it->second.data;
+    return (Float) it->second.data;
+}
+
+/// Float getter (with default)
+Float Properties::float_(const std::string &name, const Float &def_val) const {
+    const auto it = d->entries.find(name);
+    if (it == d->entries.end())
+        return def_val;
+    if (!(it->second.data.is<Float>() || it->second.data.is<int64_t>()))
+        Throw("The property \"%s\" has the wrong type (expected <float>).", name);
+    it->second.queried = true;
+    if (it->second.data.is<int64_t>())
+        return (int64_t) it->second.data;
+    return (Float) it->second.data;
+}
+
+/// Array3f setter
+void Properties::set_array3f(const std::string &name, const Array3f &value, bool warn_duplicates) {
+    if (has_property(name) && warn_duplicates)
+        Log(Warn, "Property \"%s\" was specified multiple times!", name);
+    d->entries[name].data = (Array3f) value;
+    d->entries[name].queried = false;
+}
+
+/// Array3f getter (without default)
+Array3f Properties::array3f(const std::string &name) const {
+    const auto it = d->entries.find(name);
+    if (it == d->entries.end())
+        Throw("Property \"%s\" has not been specified!", name);
+    if (!it->second.data.is<Array3f>())
+        Throw("The property \"%s\" has the wrong type (expected <vector> or <point>).", name);
+    it->second.queried = true;
+    return (Array3f) it->second.data;
+}
+
+/// Array3f getter (with default)
+Array3f Properties::array3f(const std::string &name, const Array3f &def_val) const {
+    const auto it = d->entries.find(name);
+    if (it == d->entries.end())
+        return def_val;
+    if (!it->second.data.is<Array3f>())
+        Throw("The property \"%s\" has the wrong type (expected <vector> or <point>).", name);
+    it->second.queried = true;
+    return (Array3f) it->second.data;
 }
 
 /// AnimatedTransform setter.

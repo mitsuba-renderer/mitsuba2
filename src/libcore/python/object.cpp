@@ -1,5 +1,6 @@
 #include <mitsuba/python/python.h>
 #include <mitsuba/core/logger.h>
+#include <mitsuba/core/plugin.h>
 
 extern py::object cast_object(Object *o);
 
@@ -30,7 +31,21 @@ public:
 };
 
 MTS_PY_EXPORT(Object) {
-    py::class_<Class>(m, "Class", D(Class));
+    py::class_<Class>(m, "Class", D(Class))
+        .def_method(Class, name)
+        .def_method(Class, variant)
+        .def_method(Class, alias)
+        .def_method(Class, parent, py::return_value_policy::reference);
+
+    py::class_<PluginManager, std::unique_ptr<PluginManager, py::nodelete>>(m, "PluginManager", D(PluginManager))
+        .def_static_method(PluginManager, instance, py::return_value_policy::reference)
+        .def("get_plugin_class", [](PluginManager &pmgr, const std::string &name, const std::string &variant){
+            try {
+                return pmgr.get_plugin_class(name, variant);
+            } catch(std::runtime_error &e){
+                return static_cast<const Class *>(nullptr);
+            }
+        }, "name"_a, "variant"_a, py::return_value_policy::reference, D(PluginManager, get_plugin_class));
 
     py::class_<TraversalCallback, PyTraversalCallback>(m, "TraversalCallback")
         .def(py::init<>());
@@ -50,7 +65,7 @@ MTS_PY_EXPORT(Object) {
             return l;
         }, D(Object, expand))
         .def_method(Object, traverse, "cb"_a)
-        .def_method(Object, parameters_changed)
+        .def_method(Object, parameters_changed, "keys"_a = py::list())
         .def_property_readonly("ptr", [](Object *self) { return (uintptr_t) self; })
         .def("class_", &Object::class_, py::return_value_policy::reference, D(Object, class))
         .def("__repr__", &Object::to_string, D(Object, to_string));

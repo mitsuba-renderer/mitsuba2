@@ -194,12 +194,6 @@ public:
             hprod(m_resolution) * Channels);
     }
 
-    void traverse(TraversalCallback *callback) override {
-        callback->put_parameter("data", m_data);
-        callback->put_parameter("resolution", m_resolution);
-        callback->put_parameter("transform", m_transform);
-    }
-
     UnpolarizedSpectrum eval(const SurfaceInteraction3f &si, Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::TextureEvaluate, active);
 
@@ -298,42 +292,42 @@ public:
         }
     }
 
-    void parameters_changed() override {
-        /// Convert m_data into a managed array (available in CPU/GPU address space)
-        if constexpr (is_cuda_array_v<Float>)
-            m_data = m_data.managed();
+    void traverse(TraversalCallback *callback) override {
+        callback->put_parameter("data", m_data);
+        callback->put_parameter("resolution", m_resolution);
+        callback->put_parameter("transform", m_transform);
+    }
 
-        // Recompute the mean texture value following an update
-        ScalarFloat *ptr = m_data.data();
+    void parameters_changed(const std::vector<std::string> &keys = {}) override {
+        if (keys.empty() || string::contains(keys, "data")) {
+            /// Convert m_data into a managed array (available in CPU/GPU address space)
+            if constexpr (is_cuda_array_v<Float>)
+                m_data = m_data.managed();
 
-        double mean = 0.0;
-        size_t pixel_count = hprod(m_resolution);
-        if (Channels == 3) {
-            if (is_spectral_v<Spectrum> && !Raw) {
-                for (size_t i = 0; i < pixel_count; ++i) {
-                    ScalarColor3f value = load_unaligned<ScalarColor3f>(ptr);
-                    mean += (double) srgb_model_mean(value);
-                    ptr += 3;
+            // Recompute the mean texture value following an update
+            ScalarFloat *ptr = m_data.data();
+
+            double mean = 0.0;
+            size_t pixel_count = hprod(m_resolution);
+            if (Channels == 3) {
+                if (is_spectral_v<Spectrum> && !Raw) {
+                    for (size_t i = 0; i < pixel_count; ++i) {
+                        ScalarColor3f value = load_unaligned<ScalarColor3f>(ptr);
+                        mean += (double) srgb_model_mean(value);
+                        ptr += 3;
+                    }
+                } else {
+                    for (size_t i = 0; i < pixel_count; ++i) {
+                        ScalarFloat value = ptr[i];
+                        value = clamp(value, 0.f, 1.f);
+                        ptr[i] = value;
+                        mean += (double) value;
+                    }
                 }
-            } else {
-                for (size_t i = 0; i < pixel_count; ++i) {
-                    ScalarColor3f value = load_unaligned<ScalarColor3f>(ptr);
-                    value = clamp(value, 0.f, 1.f);
-                    store_unaligned(ptr, value);
-                    mean += (double) luminance(value);
-                    ptr += 3;
-                }
-            }
-        } else {
-            for (size_t i = 0; i < pixel_count; ++i) {
-                ScalarFloat value = ptr[i];
-                value = clamp(value, 0.f, 1.f);
-                ptr[i] = value;
-                mean += (double) value;
+
+                m_mean = ScalarFloat(mean / pixel_count);
             }
         }
-
-        m_mean = ScalarFloat(mean / pixel_count);
     }
 
     ScalarFloat mean() const override { return m_mean; }
