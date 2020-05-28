@@ -277,6 +277,9 @@ Mesh<Float, Spectrum>::fill_surface_interaction(const Ray3f &ray,
         Float t;
         std::tie(valid, b1, b2, t) = ray_intersect_triangle(si.prim_index, ray, active);
 
+        // Kill the ray if we can't recompute the triangle intersection
+        masked(si.t, !valid && active) = math::Infinity<Float>;
+        
         // Replace the data by differentiable data
         active &= valid;
         masked(si.t, active) = t;
