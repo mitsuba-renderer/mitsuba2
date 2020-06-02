@@ -5,10 +5,10 @@ import enoki as ek
 import mitsuba
 mitsuba.set_variant('gpu_autodiff_rgb')
 
-from mitsuba.core import UInt32, Float, Thread, xml, Vector2f, Vector3f, Transform4f, ScalarTransform4f
+from mitsuba.core import Thread, xml, UInt32, Float, Vector2f, Vector3f, Transform4f, ScalarTransform4f
 from mitsuba.render import SurfaceInteraction3f
 from mitsuba.python.util import traverse
-from mitsuba.python.autodiff import render, write_bitmap, Adam, SGD
+from mitsuba.python.autodiff import render, write_bitmap, Adam
 
 # Return contiguous flattened array (will be included in next enoki release)
 def ravel(buf, dim = 3):
@@ -32,7 +32,7 @@ if not os.path.isdir(output_path):
 # Load example scene
 scene_folder = '../../../resources/data/docs/examples/invert_heightfield/'
 Thread.thread().file_resolver().append(scene_folder)
-scene = xml.load_file(scene_folder + 'heightfield.xml')
+scene = xml.load_file(scene_folder + 'scene.xml')
 
 params = traverse(scene)
 positions_buf = params['grid_mesh.vertex_positions_buf']
@@ -77,7 +77,7 @@ disp_tex_params['data'] = ek.full(Float, 0.25, len(disp_tex_params['data']))
 disp_tex_params.update()
 
 # Construct an Adam optimizer that will adjust the texture parameters
-opt = Adam(disp_tex_params, lr=0.005)
+opt = Adam(disp_tex_params, lr=0.002)
 
 time_a = time.time()
 
