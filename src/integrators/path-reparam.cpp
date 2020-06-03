@@ -152,28 +152,26 @@ public:
                                      const Medium * /* medium */,
                                      Float * /* aovs */,
                                      Mask active_primary) const override {
-
-        RayDifferential3f primary_ray = primary_ray_;
-
-        // Estimate kappa for the convolution of pixel integrals, based on ray
-        // differentials.
-        Float angle = acos(min(dot(primary_ray.d_x, primary_ray.d),
-                               dot(primary_ray.d_y, primary_ray.d)));
-        Float target_mean_cos =
-            min(cos(angle * 0.4f /*arbitrary*/), Float(1.f - 1e-7f));
-
-        // The vMF distribution has an analytic expression for the mean cosine:
-        //                  mean = 1 + 2/(exp(2*k)-1) - 1/k.
-        // For large values of kappa, 1-1/k is a precise approximation of this
-        // function. It can be inverted to find k from the mean cosine.
-        Float kappa_camera = Float(1.f) / (Float(1.f) - target_mean_cos);
-
-        const size_t nb_pimary_rays = slices(primary_ray.d);
-        const UInt32 arange_indices = arange<UInt32>(nb_pimary_rays);
-
-        Spectrum result(0.f);
-
         if constexpr (is_cuda_array_v<Float>) {
+            RayDifferential3f primary_ray = primary_ray_;
+
+            // Estimate kappa for the convolution of pixel integrals, based on ray
+            // differentials.
+            Float angle = acos(min(dot(primary_ray.d_x, primary_ray.d),
+                                dot(primary_ray.d_y, primary_ray.d)));
+            Float target_mean_cos =
+                min(cos(angle * 0.4f /*arbitrary*/), Float(1.f - 1e-7f));
+
+            // The vMF distribution has an analytic expression for the mean cosine:
+            //                  mean = 1 + 2/(exp(2*k)-1) - 1/k.
+            // For large values of kappa, 1-1/k is a precise approximation of this
+            // function. It can be inverted to find k from the mean cosine.
+            Float kappa_camera = Float(1.f) / (Float(1.f) - target_mean_cos);
+
+            const size_t nb_pimary_rays = slices(primary_ray.d);
+            const UInt32 arange_indices = arange<UInt32>(nb_pimary_rays);
+
+            Spectrum result(0.f);
 
             // ---------------- Convolution of pixel integrals -------------
 
@@ -277,30 +275,31 @@ public:
             for (size_t depth = 1;; ++depth) {
 
                 // ---------------- Intersection with emitters ----------------
+                {
+                    Spectrum emission(0.f);
+                    emission[active] = emission_weight * throughput * emitter->eval(si, active);
 
-                Spectrum emission(0.f);
-                emission[active] = emission_weight * throughput * emitter->eval(si, active);
+                    Spectrum emission_0 = gather<Spectrum>(emission, arange_indices);
+                    Spectrum emission_1 = gather<Spectrum>(emission, arange_indices + nb_pimary_rays);
 
-                Spectrum emission_0 = gather<Spectrum>(emission, arange_indices);
-                Spectrum emission_1 = gather<Spectrum>(emission, arange_indices + nb_pimary_rays);
+                    Float weights_0 = gather<Float>(current_weight, arange_indices);
+                    Float weights_1 = gather<Float>(current_weight, arange_indices + nb_pimary_rays);
 
-                Float weights_0 = gather<Float>(current_weight, arange_indices);
-                Float weights_1 = gather<Float>(current_weight, arange_indices + nb_pimary_rays);
+                    if (depth >= m_disable_gradient_bounce) {
+                        result += detach(emission_0) * 0.5f; // NOTE: detach so nothing is added to the gradient
+                        result += detach(emission_1) * 0.5f;
+                    } else if (m_use_variance_reduction) {
+                        // Avoid numerical errors due to tiny weights
+                        weights_0 = select(abs(weights_0) < 0.00001f, Float(1.f), weights_0);
+                        weights_1 = select(abs(weights_1) < 0.00001f, Float(1.f), weights_1);
 
-                if (depth >= m_disable_gradient_bounce) {
-                    result += detach(emission_0) * 0.5f; // NOTE: detach so nothing is added to the gradient
-                    result += detach(emission_1) * 0.5f;
-                } else if (m_use_variance_reduction) {
-                    // Avoid numerical errors due to tiny weights
-                    weights_0 = select(abs(weights_0) < 0.00001f, Float(1.f), weights_0);
-                    weights_1 = select(abs(weights_1) < 0.00001f, Float(1.f), weights_1);
-
-                    // Variance reduction, assumption that contribution = weight * constant
-                    result += (emission_0 - emission_1 / weights_1 * (weights_0 - detach(weights_0))) * 0.5f; // NOTE: detach here so to only add `e_1/w_1*w_0` to the gradient (only try to reduce the variance of the gradient)
-                    result += (emission_1 - emission_0 / weights_0 * (weights_1 - detach(weights_1))) * 0.5f;
-                } else {
-                    result += emission_0 * 0.5f;
-                    result += emission_1 * 0.5f;
+                        // Variance reduction, assumption that contribution = weight * constant
+                        result += (emission_0 - emission_1 / weights_1 * (weights_0 - detach(weights_0))) * 0.5f; // NOTE: detach here so to only add `e_1/w_1*w_0` to the gradient (only try to reduce the variance of the gradient)
+                        result += (emission_1 - emission_0 / weights_0 * (weights_1 - detach(weights_1))) * 0.5f;
+                    } else {
+                        result += emission_0 * 0.5f;
+                        result += emission_1 * 0.5f;
+                    }
                 }
 
                 active &= si.is_valid();
@@ -585,8 +584,8 @@ public:
                 // Multiply the BSDF value by the convolution kernel. Use a
                 // correction term for the convolution (otherwise less energy
                 // at grazing angles)
-                Float cosangle = sample_bs.wo.z();
-                Float correction_factor = m_vmf_hemisphere.eval(m_kappa_conv, cosangle, convolution);
+                Float cosangle_vmf = sample_bs.wo.z();
+                Float correction_factor = m_vmf_hemisphere.eval(m_kappa_conv, cosangle_vmf, convolution);
 
                 bsdf_value = select(convolution, bsdf_value * pdf_conv_new_dir / correction_factor, bsdf_value);
 
@@ -658,6 +657,10 @@ public:
 
             return { result, valid_ray };
         } else {
+            ENOKI_MARK_USED(scene);
+            ENOKI_MARK_USED(sampler);
+            ENOKI_MARK_USED(primary_ray_);
+            ENOKI_MARK_USED(active_primary);
             Throw("PathReparamIntegrator: currently this integrator must be run on the GPU.");
             return {Spectrum(0.f), Mask(false)};
         }
@@ -710,7 +713,7 @@ protected:
 
         using Matrix = enoki::Matrix<Float, 3>;
 
-        unsigned int nb_samples = rays.size();
+        size_t nb_samples = rays.size();
 
         if (rays.size() < 2 || rays.size() != sis.size())
             Throw("PathReparamIntegrator::estimate_discontinuity: invalid number of samples for discontinuity estimation");
@@ -723,7 +726,7 @@ protected:
         Vector3f ray1_n = sis[1].n;
         Vector3f ray1_d = rays[1].d;
 
-        for (unsigned int i = 2; i < nb_samples; i++) {
+        for (size_t i = 2; i < nb_samples; i++) {
             Mask diff  = neq(sis[0].shape, sis[i].shape);
             Mask i_hit = neq(sis[i].shape, nullptr);
             is_ray1_hit_uint = select(diff, select(i_hit, UInt32(1), UInt32(0)), is_ray1_hit_uint);

@@ -426,6 +426,7 @@ Mesh<Float, Spectrum>::fill_surface_interaction(const Ray3f &ray,
             b1 = gather<Float>(cache[0], cache_indices, active);
             b2 = gather<Float>(cache[1], cache_indices, active);
         } else {
+            ENOKI_MARK_USED(cache_indices);
             b1 = cache[0];
             b2 = cache[1];
         }
