@@ -1,12 +1,8 @@
-#include <mitsuba/core/bsphere.h>
-#include <mitsuba/core/fresolver.h>
-#include <mitsuba/core/plugin.h>
 #include <mitsuba/core/properties.h>
 #include <mitsuba/core/warp.h>
-#include <mitsuba/render/emitter.h>
-#include <mitsuba/render/scene.h>
-#include <mitsuba/render/texture.h>
+#include <mitsuba/core/filesystem.h>
 #include <mitsuba/core/bitmap.h>
+#include <mitsuba/render/emitter.h>
 #include "sunsky/sunmodel.h"
 #include "sunsky/skymodel.h"
 
@@ -18,18 +14,6 @@ NAMESPACE_BEGIN(mitsuba)
 
 Skylight emitter (:monosp:`sky`)
 -------------------------------------------------
-
-.. pluginparameters::
-
- * - radiance
-   - |spectrum|
-   - Specifies the emitted radiance in units of power per unit area per unit steradian.
-     (Default: :ref:`emitter-d65`)
-
-This plugin implements a skylight emitter, which surrounds
-the scene and radiates diffuse illumination towards it. This is often
-a good default light source when the goal is to visualize some loaded
-geometry that uses basic (e.g. diffuse) materials.
 
  */
 
@@ -45,9 +29,6 @@ public:
     }
 
     SkyEmitter(const Properties &props) : Base(props) {
-        /* Until `set_scene` is called, we have no information
-           about the scene and default to the unit bounding sphere. */
-        m_bsphere = ScalarBoundingSphere3f(ScalarPoint3f(0.f), 1.f);
 
         m_flags = +EmitterFlags::Infinite;
 
@@ -58,9 +39,10 @@ public:
         m_sun = compute_sun_coordinates<Float>(props);
         m_extend = props.bool_("extend", false);
         m_albedo = props.texture<Texture>("albedo", 0.2f);
+        m_flags = EmitterFlags::Infinite | EmitterFlags::SpatiallyVarying;
 
         SurfaceInteraction3f si;
-        si.wavelengths = 0/0;   // TODO : change when implementing spectral
+        si.wavelengths = 0/0;   // TODO: change when implementing spectral
 
         UnpolarizedSpectrum albedo = m_albedo->eval(si);
 
@@ -78,20 +60,15 @@ public:
         if (sun_elevation < 0)
             Log(Error, "The sun is below the horizon -- this is not supported by the sky model.");
 
-        for (size_t i = 0; i < Spectrum::Size; i++) {
-            if constexpr (Spectrum::Size == 3)
+        if constexpr (is_rgb_v<Spectrum>) {
+            for (size_t i = 0; i < Spectrum::Size; ++i)
                 m_state[i] = arhosek_rgb_skymodelstate_alloc_init(
                     (double)m_turbidity, (double)albedo[i], (double)sun_elevation);
-            else
+        } else {
+            for (size_t i = 0; i < Spectrum::Size; ++i)
                 m_state[i] = arhosekskymodelstate_alloc_init(
                     (double)sun_elevation, (double)m_turbidity, (double)albedo[i]);
         }
-    }
-
-    void set_scene(const Scene *scene) override {
-        m_bsphere = scene->bbox().bounding_sphere();
-        m_bsphere.radius = max(math::RayEpsilon<Float>,
-                               m_bsphere.radius * (1.f + math::RayEpsilon<Float>));
     }
 
     Spectrum eval(const SurfaceInteraction3f &si, Mask active) const override {
@@ -101,13 +78,14 @@ public:
 
     std::vector<ref<Object>> expand() const override {
         ref<Bitmap> bitmap = new Bitmap(Bitmap::PixelFormat::RGBA, Struct::Type::Float32, 
-            Vector2f(m_resolution, m_resolution/2.f));
+            Vector2i(m_resolution, m_resolution / 2));
 
-        Point2f factor((2*math::Pi<Float>) / bitmap->width(), math::Pi<Float> / bitmap->height());
+        Point2f factor((2 * math::Pi<Float>) / bitmap->width(), 
+            math::Pi<Float> / bitmap->height());
 
         for (size_t y = 0; y < bitmap->height(); ++y) {
             Float theta = (y + .5f) * factor.y();
-            Spectrum *target = (Spectrum*) bitmap->data() + y * bitmap->width();
+            Spectrum *target = (Spectrum *) bitmap->data() + y * bitmap->width();
 
             for (size_t x = 0; x < bitmap->width(); ++x) {
                 Float phi = (x + .5f) * factor.x();
@@ -116,6 +94,7 @@ public:
             }
         }
 
+        bitmap =  bitmap->convert(Bitmap::PixelFormat::RGB, struct_type_v<Float>, false);
         Properties prop("envmap");
         prop.set_pointer("bitmap", bitmap.get());
         ref<Object> texture = PluginManager::instance()->create_object<Base>(prop).get();
@@ -123,7 +102,7 @@ public:
         return {texture};
     }
 
-    Spectrum get_sky_radiance(SphericalCoordinates<Float> coords) const {
+    Spectrum get_sky_radiance(const SphericalCoordinates<Float> coords) const {
         
         Float theta = coords.elevation / m_stretch;
 
@@ -134,8 +113,8 @@ public:
                 theta = 0.5f * math::Pi<Float> - 1e-4f;
         }
 
-        Float cos_gamma = cos(theta) * cos(math::Pi<Float> - m_sun.elevation)
-            + sin(theta) * sin(math::Pi<Float> - m_sun.elevation)
+        Float cos_gamma = cos(theta) * cos(m_sun.elevation)
+            + sin(theta) * sin(m_sun.elevation)
             * cos(coords.azimuth - m_sun.azimuth);
 
         // Angle between the sun and the spherical coordinates in radians
@@ -143,7 +122,7 @@ public:
 
         Spectrum result;
         for (size_t i = 0; i < Spectrum::Size; i++) {
-            if constexpr (Spectrum::Size == 3)
+            if constexpr (is_rgb_v<Spectrum>)
                 result[i] = (Float) (arhosek_tristim_skymodel_radiance(
                     m_state[i], (double)theta, (double)gamma, i) / 106.856980); // (sum of Spectrum::CIE_Y)
             else {
@@ -163,32 +142,32 @@ public:
         return result * m_scale;
     }
 
-    std::pair<DirectionSample3f, Spectrum>
-    sample_direction(const Interaction3f &it, const Point2f &sample, Mask active) const override {
-        MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleDirection, active);
+    // std::pair<DirectionSample3f, Spectrum>
+    // sample_direction(const Interaction3f &it, const Point2f &sample, Mask active) const override {
+    //     MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleDirection, active);
 
-        Vector3f d = warp::square_to_uniform_sphere(sample);
-        Float dist = 2.f * m_bsphere.radius;
+    //     Vector3f d = warp::square_to_uniform_sphere(sample);
+    //     Float dist = 2.f * m_bsphere.radius;
 
-        DirectionSample3f ds;
-        ds.p      = it.p + d * dist;
-        ds.n      = -d;
-        ds.uv     = Point2f(0.f);
-        ds.time   = it.time;
-        ds.delta  = false;
-        ds.object = this;
-        ds.d      = d;
-        ds.dist   = dist;
-        ds.pdf    = pdf_direction(it, ds, active);
+    //     DirectionSample3f ds;
+    //     ds.p      = it.p + d * dist;
+    //     ds.n      = -d;
+    //     ds.uv     = Point2f(0.f);
+    //     ds.time   = it.time;
+    //     ds.delta  = false;
+    //     ds.object = this;
+    //     ds.d      = d;
+    //     ds.dist   = dist;
+    //     ds.pdf    = pdf_direction(it, ds, active);
 
-        SurfaceInteraction3f si = zero<SurfaceInteraction3f>();
-        si.wavelengths = it.wavelengths;
+    //     SurfaceInteraction3f si = zero<SurfaceInteraction3f>();
+    //     si.wavelengths = it.wavelengths;
 
-        return std::make_pair(
-            ds,
-            unpolarized<Spectrum>(eval(si, active)) / ds.pdf
-        );
-    }
+    //     return std::make_pair(
+    //         ds,
+    //         unpolarized<Spectrum>(eval(si, active)) / ds.pdf
+    //     );
+    // }
 
     Float pdf_direction(const Interaction3f &, const DirectionSample3f &ds,
                         Mask active) const override {
@@ -205,11 +184,10 @@ public:
     std::string to_string() const override {
         std::ostringstream oss;
         oss << "SkyEmitter[" << std::endl
-            << "  bsphere = " << m_bsphere << "," << std::endl
             << "  turbidity = " << m_turbidity << "," << std::endl
-            << "  sun_pos = " << m_sun.to_string() << std::endl
-            << "  resolution = " << m_resolution << std::endl
-            << "  stretch = " << m_stretch << std::endl
+            << "  sun_pos = " << m_sun.to_string() << ","  << std::endl
+            << "  resolution = " << m_resolution << ","  << std::endl
+            << "  stretch = " << m_stretch << ","  << std::endl
             << "  scale = " << m_scale << std::endl
             << "]";
         return oss.str();
@@ -217,7 +195,6 @@ public:
 
     MTS_DECLARE_CLASS()
 protected:
-    ScalarBoundingSphere3f m_bsphere;
     /// Environment map resolution in pixels
     int m_resolution;
     /// Constant scale factor applied to the model

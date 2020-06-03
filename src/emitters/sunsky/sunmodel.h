@@ -3,6 +3,10 @@
 #include <enoki/transform.h>
 #include <enoki/array_math.h>
 #include <mitsuba/core/vector.h>
+#include <mitsuba/core/plugin.h>
+#include <mitsuba/core/distr_1d.h>
+#include <mitsuba/render/texture.h>
+#include <mitsuba/render/interaction.h>
 
 NAMESPACE_BEGIN(mitsuba)
 
@@ -69,6 +73,16 @@ template <typename Float> struct SphericalCoordinates {
         return oss.str();
     }
 };
+
+template <typename Float>
+Vector<Float, 3> to_sphere(const SphericalCoordinates<Float> coords) {
+    Float sin_theta = sin(coords.elevation);
+    Float cos_theta = cos(coords.elevation);
+    Float sin_phi = sin(coords.azimuth);
+    Float cos_phi = cos(coords.azimuth);
+
+    return Vector<Float, 3>(sin_phi * sin_theta, cos_theta, -cos_phi * sin_theta);
+}
 
 /**
  * \brief Compute the spherical coordinates of the vector \c d
@@ -234,6 +248,159 @@ SphericalCoordinates<Float> compute_sun_coordinates(const Properties &props) {
         SphericalCoordinates coords = compute_sun_coordinates<Float>(date_time, location);
 
         return coords;
+    }
+}
+
+/* The following is from the implementation of "A Practical Analytic Model for
+   Daylight" by A.J. Preetham, Peter Shirley, and Brian Smits */
+
+/* All data lifted from MI. Units are either [] or cm^-1. refer when in doubt MI */
+
+// k_o Spectrum table from pg 127, MI.
+template <typename Float>
+Float k_o_wavelengths[64] = {
+    300, 305, 310, 315, 320, 325, 330, 335, 340, 345,
+    350, 355, 445, 450, 455, 460, 465, 470, 475, 480,
+    485, 490, 495, 500, 505, 510, 515, 520, 525, 530,
+    535, 540, 545, 550, 555, 560, 565, 570, 575, 580,
+    585, 590, 595, 600, 605, 610, 620, 630, 640, 650,
+    660, 670, 680, 690, 700, 710, 720, 730, 740, 750,
+    760, 770, 780, 790
+};
+
+template <typename Float>
+Float k_o_amplitudes[65] = {
+    10.0, 4.8, 2.7, 1.35, .8, .380, .160, .075, .04, .019, .007,
+    .0, .003, .003, .004, .006, .008, .009, .012, .014, .017,
+    .021, .025, .03, .035, .04, .045, .048, .057, .063, .07,
+    .075, .08, .085, .095, .103, .110, .12, .122, .12, .118,
+    .115, .12, .125, .130, .12, .105, .09, .079, .067, .057,
+    .048, .036, .028, .023, .018, .014, .011, .010, .009,
+    .007, .004, .0, .0
+};
+
+// k_g Spectrum table from pg 130, MI.
+template <typename Float>
+Float k_g_wavelengths[4] = {
+    759, 760, 770, 771
+};
+
+template <typename Float>
+Float k_g_amplitudes[4] = {
+    0, 3.0, 0.210, 0
+};
+
+// k_wa Spectrum table from pg 130, MI.
+template <typename Float>
+Float k_wa_wavelengths[13] = {
+    689, 690, 700, 710, 720,
+    730, 740, 750, 760, 770,
+    780, 790, 800
+};
+
+template <typename Float>
+Float k_wa_amplitudes[13] = {
+    0, 0.160e-1, 0.240e-1, 0.125e-1,
+    0.100e+1, 0.870, 0.610e-1, 0.100e-2,
+    0.100e-4, 0.100e-4, 0.600e-3,
+    0.175e-1, 0.360e-1
+};
+
+/* Wavelengths corresponding to the table below */
+template <typename Float>
+Float sol_wavelengths[38] = {
+    380, 390, 400, 410, 420, 430, 440, 450,
+    460, 470, 480, 490, 500, 510, 520, 530,
+    540, 550, 560, 570, 580, 590, 600, 610,
+    620, 630, 640, 650, 660, 670, 680, 690,
+    700, 710, 720, 730, 740, 750
+};
+
+/* Solar amplitude in watts / (m^2 * nm * sr) */
+template <typename Float>
+Float sol_amplitudes[38] = {
+    16559.0, 16233.7, 21127.5, 25888.2, 25829.1,
+    24232.3, 26760.5, 29658.3, 30545.4, 30057.5,
+    30663.7, 28830.4, 28712.1, 27825.0, 27100.6,
+    27233.6, 26361.3, 25503.8, 25060.2, 25311.6,
+    25355.9, 25134.2, 24631.5, 24173.2, 23685.3,
+    23212.1, 22827.7, 22339.8, 21970.2, 21526.7,
+    21097.9, 20728.3, 20240.4, 19870.8, 19427.2,
+    19072.4, 18628.9, 18259.2
+};
+
+template <typename Float, typename Spectrum>
+ref<Texture<Float, Spectrum>> compute_sun_radiance(Float theta, Float turbidity, Float factor) {
+    using Texture = Texture<Float, Spectrum>;
+    using IrregularContinuousDistribution = IrregularContinuousDistribution<Float>;
+    // TODO: use ScalarFloat
+
+    IrregularContinuousDistribution k_o_curve(k_o_wavelengths<Float>, k_o_amplitudes<Float>, 64);
+    IrregularContinuousDistribution k_g_curve(k_g_wavelengths<Float>, k_g_amplitudes<Float>, 4);
+    IrregularContinuousDistribution k_wa_curve(k_wa_wavelengths<Float>, k_wa_amplitudes<Float>, 13);
+    IrregularContinuousDistribution sol_curve(sol_wavelengths<Float>, sol_amplitudes<Float>, 38);
+    
+    std::vector<Float> data(91), wavelengths(91);  // (800 - 350) / 5  + 1
+
+    Float beta = 0.04608365822050f * turbidity - 0.04586025928522f;
+
+    // Relative Optical Mass
+    Float m = 1.0f / ((Float) cos(theta) + 0.15f *
+        pow(93.885f - theta * math::InvPi<Float> * 180.0f, (Float) -1.253f));
+    
+    Float lambda;
+    int i = 0;
+    for (i = 0, lambda = 350; i < 91; i++, lambda += 5) {
+
+        // Rayleigh Scattering
+        // Results agree with the graph (pg 115, MI) */
+        Float tau_r = exp(-m * 0.008735f * pow(lambda / 1000.0f, (Float) -4.08));
+
+        // Aerosol (water + dust) attenuation
+        // beta - amount of aerosols present
+        // alpha - ratio of small to large particle sizes. (0:4,usually 1.3)
+        // Results agree with the graph (pg 121, MI)
+        const Float alpha = 1.3f;
+        Float tau_a = exp(-m * beta * pow(lambda / 1000.0f, -alpha));  // lambda should be in um
+
+        // Attenuation due to ozone absorption
+        // lOzone - amount of ozone in cm(NTP)
+        // Results agree with the graph (pg 128, MI)
+        const Float l_ozone = .35f;
+        Float tau_o = exp(-m * k_o_curve.eval_pdf(lambda) * l_ozone);
+
+        // Attenuation due to mixed gases absorption
+        // Results agree with the graph (pg 131, MI)
+        Float tau_g = exp(-1.41f * k_g_curve.eval_pdf(lambda) * m / pow(1 + 118.93f
+            * k_g_curve.eval_pdf(lambda) * m, (Float) 0.45f));
+
+        // Attenuation due to water vapor absorbtion
+        // w - precipitable water vapor in centimeters (standard = 2)
+        // Results agree with the graph (pg 132, MI)
+        const Float w = 2.0f;
+        Float tau_wa = exp(-0.2385f * k_wa_curve.eval_pdf(lambda) * w * m /
+                pow(1 + 20.07f * k_wa_curve.eval_pdf(lambda) * w * m, (Float) 0.45f));
+
+        data[i] = sol_curve.eval_pdf(lambda) * tau_r * tau_a * tau_o * tau_g * tau_wa * factor;
+        wavelengths[i] = lambda;
+    }
+        
+    if constexpr (is_rgb_v<Spectrum>) {
+        Color<Float, 3> color = spectrum_to_rgb<Float>(wavelengths, data, false) * MTS_CIE_Y_NORMALIZATION;
+
+        Properties props("srgb");
+        props.set_color("color", color);
+        props.set_bool("unbounded", true);
+        ref<Texture> discretized = PluginManager::instance()->create_object<Texture>(props);
+        
+        return discretized;
+    } else {
+        Properties props("regular");
+        props.set_pointer("wavelengths", wavelengths.data());
+        props.set_pointer("values", data.data());
+        props.set_long("size", wavelengths.size());
+        ref<Texture> interpolated = PluginManager::instance()->create_object<Texture>(props);
+        return interpolated;
     }
 }
 
