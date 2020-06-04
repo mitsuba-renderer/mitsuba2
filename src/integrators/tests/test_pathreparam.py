@@ -220,6 +220,9 @@ scene_template_dict = {
 def test01_light_position(variant_gpu_autodiff_rgb):
     from mitsuba.core import Float, Vector3f, Transform4f, ScalarTransform4f, ScalarVector3f, xml
 
+    if ek.cuda_mem_get_info()[1] < int(1e9):
+        pytest.skip('Insufficient GPU memory')
+
     @fresolver_append_path
     def make_scene(integrator, spp, param):
         scene_dict = dict(scene_template_dict)
@@ -242,6 +245,9 @@ def test01_light_position(variant_gpu_autodiff_rgb):
 def test02_object_position(variant_gpu_autodiff_rgb):
     from mitsuba.core import Float, Transform4f, ScalarTransform4f, ScalarVector3f, xml
     from mitsuba.python.util import traverse
+
+    if ek.cuda_mem_get_info()[1] < int(1e9):
+        pytest.skip('Insufficient GPU memory')
 
     @fresolver_append_path
     def make_scene(integrator, spp, param):
@@ -266,6 +272,9 @@ def test03_object_rotation(variant_gpu_autodiff_rgb):
     from mitsuba.core import Float, Transform4f, ScalarTransform4f, ScalarVector3f, xml
     from mitsuba.python.util import traverse
 
+    if ek.cuda_mem_get_info()[1] < int(1e9):
+        pytest.skip('Insufficient GPU memory')
+
     @fresolver_append_path
     def make_scene(integrator, spp, param):
         scene_dict = dict(scene_template_dict)
@@ -289,6 +298,9 @@ def test04_object_scaling(variant_gpu_autodiff_rgb):
     from mitsuba.core import Float, Transform4f, ScalarTransform4f, xml
     from mitsuba.python.util import traverse
 
+    if ek.cuda_mem_get_info()[1] < int(1e9):
+        pytest.skip('Insufficient GPU memory')
+
     @fresolver_append_path
     def make_scene(integrator, spp, param):
         scene_dict = dict(scene_template_dict)
@@ -311,6 +323,9 @@ def test04_object_scaling(variant_gpu_autodiff_rgb):
 def test05_glossy_reflection(variant_gpu_autodiff_rgb):
     from mitsuba.core import Float, Transform4f, ScalarTransform4f, ScalarVector3f, xml
     from mitsuba.python.util import traverse
+
+    if ek.cuda_mem_get_info()[1] < int(1e9):
+        pytest.skip('Insufficient GPU memory')
 
     @fresolver_append_path
     def make_scene(integrator, spp, param):
@@ -341,6 +356,9 @@ def test05_glossy_reflection(variant_gpu_autodiff_rgb):
 def test06_envmap(variant_gpu_autodiff_rgb):
     from mitsuba.core import Float, Transform4f, ScalarTransform4f, xml
     from mitsuba.python.util import traverse
+
+    if ek.cuda_mem_get_info()[1] < int(1e9):
+        pytest.skip('Insufficient GPU memory')
 
     @fresolver_append_path
     def make_scene(integrator, spp, param):
