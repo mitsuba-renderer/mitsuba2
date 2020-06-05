@@ -137,7 +137,7 @@ public:
             m_use_variance_reduction ? "enabled" : "disabled");
         Log(Debug, "Convolutions %s",
             m_use_convolution ? "enabled" : "disabled");
-        Log(Info, "Convolutions for envmap %s",
+        Log(Debug, "Convolutions for envmap %s",
             m_use_convolution_envmap ? "enabled" : "disabled");
         Log(Debug, "Gradient of diffuse reflections %s",
             m_disable_gradient_diffuse ? "disabled" : "enabled");

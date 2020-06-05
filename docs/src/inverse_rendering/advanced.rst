@@ -162,15 +162,15 @@ Note that those functions will be natively supported by ``enoki`` in a futur rel
 
 .. code-block:: python
 
-    # Return contiguous flattened array (will be included in next enoki release)
+    # Convert flat array into a vector of arrays (will be included in next enoki release)
     def ravel(buf, dim = 3):
-        idx = dim * UInt32.arange(int(len(buf) / dim))
+        idx = dim * UInt32.arange(ek.slices(buf) // dim)
         if dim == 2:
             return Vector2f(ek.gather(buf, idx), ek.gather(buf, idx + 1))
         elif dim == 3:
             return Vector3f(ek.gather(buf, idx), ek.gather(buf, idx + 1), ek.gather(buf, idx + 2))
 
-    # Convert flat array into a vector of arrays (will be included in next enoki release)
+    # Return contiguous flattened array (will be included in next enoki release)
     def unravel(source, target, dim = 3):
         idx = UInt32.arange(ek.slices(source))
         for i in range(dim):
@@ -219,8 +219,8 @@ adjusted by the optimizer.
     def apply_transformation():
         trasfo = Transform4f.translate(params_optim["translate"])
         new_positions = trasfo.transform_point(positions_initial)
-        unravel(new_positions, positions_buf)
-        params['object.vertex_positions_buf'] = positions_buf
+        unravel(new_positions, params['object.vertex_positions_buf'])
+        params.set_dirty('object.vertex_positions_buf')
         params.update()
 
 For the sake of this example, we synthetize the reference image with the null tranform:
@@ -349,8 +349,8 @@ displacement map is refined.
     # Apply displacement to mesh vertex positions and call update scene
     def apply_displacement(amplitude = 0.05):
         new_positions = disp_tex.eval_1(mesh_si) * normals_initial * amplitude + positions_initial
-        unravel(new_positions, positions_buf)
-        params['grid_mesh.vertex_positions_buf'] = positions_buf
+        unravel(new_positions, params['grid_mesh.vertex_positions_buf'])
+        params.set_dirty('grid_mesh.vertex_positions_buf')
         params.update()
 
 We can now generate a reference image.

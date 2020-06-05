@@ -9,12 +9,12 @@ from mitsuba.core import xml, Thread, Transform4f, Bitmap, Float, Vector3f, UInt
 from mitsuba.python.util import traverse
 from mitsuba.python.autodiff import render, write_bitmap, Adam
 
-# Return contiguous flattened array (will be included in next enoki release)
-def ravel(buf):
-    idx = 3 * UInt32.arange(int(len(buf) / 3))
+# Convert flat array into a vector of arrays (will be included in next enoki release)
+def ravel(buf, dim = 3):
+    idx = dim * UInt32.arange(ek.slices(buf) // dim)
     return Vector3f(ek.gather(buf, idx), ek.gather(buf, idx + 1), ek.gather(buf, idx + 2))
 
-# Convert flat array into a vector of arrays (will be included in next enoki release)
+# Return contiguous flattened array (will be included in next enoki release)
 def unravel(source, target, dim = 3):
     idx = UInt32.arange(ek.slices(source))
     for i in range(dim):
@@ -49,8 +49,8 @@ opt = Adam(params_optim, lr=0.02)
 def apply_transformation():
     trasfo = Transform4f.translate(params_optim["translate"])
     new_positions = trasfo.transform_point(positions_initial)
-    unravel(new_positions, positions_buf)
-    params['object.vertex_positions_buf'] = positions_buf
+    unravel(new_positions, params['object.vertex_positions_buf'])
+    params.set_dirty('object.vertex_positions_buf')
     params.update()
 
 # Render a reference image (no derivatives used yet)

@@ -50,6 +50,9 @@ Mesh<Float, Spectrum>::Mesh(const std::string &name, ScalarSize vertex_count,
     m_vertex_normals_buf.managed();
     m_vertex_texcoords_buf.managed();
 
+    if constexpr (is_cuda_array_v<Float>)
+        cuda_sync();
+
     m_mesh = true;
     set_children();
 }
@@ -860,6 +863,11 @@ MTS_VARIANT void Mesh<Float, Spectrum>::traverse(TraversalCallback *callback) {
 
 MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed(const std::vector<std::string> &keys) {
     if (keys.empty() || string::contains(keys, "vertex_positions_buf")) {
+        if constexpr (is_cuda_array_v<Float>) {
+            cuda_eval();
+            cuda_sync();
+        }
+
         if (has_vertex_normals())
             recompute_vertex_normals();
 
