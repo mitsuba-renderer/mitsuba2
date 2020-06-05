@@ -852,10 +852,10 @@ MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed(const std::vector<std
             cuda_sync();
         }
 
+        recompute_bbox();
+
         if (has_vertex_normals())
             recompute_vertex_normals();
-
-        recompute_bbox();
 
         area_distr_build();
         Base::parameters_changed();

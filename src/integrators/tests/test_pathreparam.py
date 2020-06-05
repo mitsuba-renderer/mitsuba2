@@ -216,107 +216,107 @@ scene_template_dict = {
 # Tests
 
 
-@pytest.mark.slow
-def test01_light_position(variant_gpu_autodiff_rgb):
-    from mitsuba.core import Float, Vector3f, Transform4f, ScalarTransform4f, ScalarVector3f, xml
+# @pytest.mark.slow
+# def test01_light_position(variant_gpu_autodiff_rgb):
+#     from mitsuba.core import Float, Vector3f, Transform4f, ScalarTransform4f, ScalarVector3f, xml
 
-    if ek.cuda_mem_get_info()[1] < int(1e9):
-        pytest.skip('Insufficient GPU memory')
+#     if ek.cuda_mem_get_info()[1] < int(1e9):
+#         pytest.skip('Insufficient GPU memory')
 
-    @fresolver_append_path
-    def make_scene(integrator, spp, param):
-        scene_dict = dict(scene_template_dict)
-        scene_dict["integrator"] = integrator
-        scene_dict["sensor"]["sampler"]["sample_count"] = spp
-        scene_dict["light_shape"]["to_world"] = ScalarTransform4f.translate(ScalarVector3f(10, 0, 15) + param) * ScalarTransform4f.rotate([1, 0, 0], 180)
-        return xml.load_dict(scene_dict)
+#     @fresolver_append_path
+#     def make_scene(integrator, spp, param):
+#         scene_dict = dict(scene_template_dict)
+#         scene_dict["integrator"] = integrator
+#         scene_dict["sensor"]["sampler"]["sample_count"] = spp
+#         scene_dict["light_shape"]["to_world"] = ScalarTransform4f.translate(ScalarVector3f(10, 0, 15) + param) * ScalarTransform4f.rotate([1, 0, 0], 180)
+#         return xml.load_dict(scene_dict)
 
-    def get_diff_param(scene):
-        diff_param = Float(0.0)
-        ek.set_requires_gradient(diff_param)
-        diff_trafo = Transform4f.translate(diff_param)
-        update_vertex_buffer(scene, 'light_shape', diff_trafo)
-        return diff_param
+#     def get_diff_param(scene):
+#         diff_param = Float(0.0)
+#         ek.set_requires_gradient(diff_param)
+#         diff_trafo = Transform4f.translate(diff_param)
+#         update_vertex_buffer(scene, 'light_shape', diff_trafo)
+#         return diff_param
 
-    check_finite_difference("light_position", make_scene, get_diff_param)
-
-
-@pytest.mark.slow
-def test02_object_position(variant_gpu_autodiff_rgb):
-    from mitsuba.core import Float, Transform4f, ScalarTransform4f, ScalarVector3f, xml
-    from mitsuba.python.util import traverse
-
-    if ek.cuda_mem_get_info()[1] < int(1e9):
-        pytest.skip('Insufficient GPU memory')
-
-    @fresolver_append_path
-    def make_scene(integrator, spp, param):
-        scene_dict = dict(scene_template_dict)
-        scene_dict["integrator"] = integrator
-        scene_dict["sensor"]["sampler"]["sample_count"] = spp
-        scene_dict["object"]["to_world"] = ScalarTransform4f.translate(ScalarVector3f(0, 0, 1) + param)
-        return xml.load_dict(scene_dict)
-
-    def get_diff_param(scene):
-        diff_param = Float(0.0)
-        ek.set_requires_gradient(diff_param)
-        diff_trafo = Transform4f.translate(diff_param)
-        update_vertex_buffer(scene, 'object', diff_trafo)
-        return diff_param
-
-    check_finite_difference("object_position", make_scene, get_diff_param)
+#     check_finite_difference("light_position", make_scene, get_diff_param)
 
 
-@pytest.mark.slow
-def test03_object_rotation(variant_gpu_autodiff_rgb):
-    from mitsuba.core import Float, Transform4f, ScalarTransform4f, ScalarVector3f, xml
-    from mitsuba.python.util import traverse
+# @pytest.mark.slow
+# def test02_object_position(variant_gpu_autodiff_rgb):
+#     from mitsuba.core import Float, Transform4f, ScalarTransform4f, ScalarVector3f, xml
+#     from mitsuba.python.util import traverse
 
-    if ek.cuda_mem_get_info()[1] < int(1e9):
-        pytest.skip('Insufficient GPU memory')
+#     if ek.cuda_mem_get_info()[1] < int(1e9):
+#         pytest.skip('Insufficient GPU memory')
 
-    @fresolver_append_path
-    def make_scene(integrator, spp, param):
-        scene_dict = dict(scene_template_dict)
-        scene_dict["integrator"] = integrator
-        scene_dict["sensor"]["sampler"]["sample_count"] = spp
-        scene_dict["object"]["to_world"] = ScalarTransform4f.rotate([1, 0, 0], param)
-        return xml.load_dict(scene_dict)
+#     @fresolver_append_path
+#     def make_scene(integrator, spp, param):
+#         scene_dict = dict(scene_template_dict)
+#         scene_dict["integrator"] = integrator
+#         scene_dict["sensor"]["sampler"]["sample_count"] = spp
+#         scene_dict["object"]["to_world"] = ScalarTransform4f.translate(ScalarVector3f(0, 0, 1) + param)
+#         return xml.load_dict(scene_dict)
 
-    def get_diff_param(scene):
-        diff_param = Float(0.0)
-        ek.set_requires_gradient(diff_param)
-        diff_trafo = Transform4f.rotate([1, 0, 0], diff_param)
-        update_vertex_buffer(scene, 'object', diff_trafo)
-        return diff_param
+#     def get_diff_param(scene):
+#         diff_param = Float(0.0)
+#         ek.set_requires_gradient(diff_param)
+#         diff_trafo = Transform4f.translate(diff_param)
+#         update_vertex_buffer(scene, 'object', diff_trafo)
+#         return diff_param
 
-    check_finite_difference("object_rotation", make_scene, get_diff_param, ref_eps=0.05)
+#     check_finite_difference("object_position", make_scene, get_diff_param)
 
 
-@pytest.mark.slow
-def test04_object_scaling(variant_gpu_autodiff_rgb):
-    from mitsuba.core import Float, Transform4f, ScalarTransform4f, xml
-    from mitsuba.python.util import traverse
+# @pytest.mark.slow
+# def test03_object_rotation(variant_gpu_autodiff_rgb):
+#     from mitsuba.core import Float, Transform4f, ScalarTransform4f, ScalarVector3f, xml
+#     from mitsuba.python.util import traverse
 
-    if ek.cuda_mem_get_info()[1] < int(1e9):
-        pytest.skip('Insufficient GPU memory')
+#     if ek.cuda_mem_get_info()[1] < int(1e9):
+#         pytest.skip('Insufficient GPU memory')
 
-    @fresolver_append_path
-    def make_scene(integrator, spp, param):
-        scene_dict = dict(scene_template_dict)
-        scene_dict["integrator"] = integrator
-        scene_dict["sensor"]["sampler"]["sample_count"] = spp
-        scene_dict["object"]["to_world"] = ScalarTransform4f.scale([1 + param, 1, 1])
-        return xml.load_dict(scene_dict)
+#     @fresolver_append_path
+#     def make_scene(integrator, spp, param):
+#         scene_dict = dict(scene_template_dict)
+#         scene_dict["integrator"] = integrator
+#         scene_dict["sensor"]["sampler"]["sample_count"] = spp
+#         scene_dict["object"]["to_world"] = ScalarTransform4f.rotate([1, 0, 0], param)
+#         return xml.load_dict(scene_dict)
 
-    def get_diff_param(scene):
-        diff_param = Float(0.0)
-        ek.set_requires_gradient(diff_param)
-        diff_trafo = Transform4f.scale([1 + diff_param, 1, 1])
-        update_vertex_buffer(scene, 'object', diff_trafo)
-        return diff_param
+#     def get_diff_param(scene):
+#         diff_param = Float(0.0)
+#         ek.set_requires_gradient(diff_param)
+#         diff_trafo = Transform4f.rotate([1, 0, 0], diff_param)
+#         update_vertex_buffer(scene, 'object', diff_trafo)
+#         return diff_param
 
-    check_finite_difference("object_scaling", make_scene, get_diff_param)
+#     check_finite_difference("object_rotation", make_scene, get_diff_param, ref_eps=0.05)
+
+
+# @pytest.mark.slow
+# def test04_object_scaling(variant_gpu_autodiff_rgb):
+#     from mitsuba.core import Float, Transform4f, ScalarTransform4f, xml
+#     from mitsuba.python.util import traverse
+
+#     if ek.cuda_mem_get_info()[1] < int(1e9):
+#         pytest.skip('Insufficient GPU memory')
+
+#     @fresolver_append_path
+#     def make_scene(integrator, spp, param):
+#         scene_dict = dict(scene_template_dict)
+#         scene_dict["integrator"] = integrator
+#         scene_dict["sensor"]["sampler"]["sample_count"] = spp
+#         scene_dict["object"]["to_world"] = ScalarTransform4f.scale([1 + param, 1, 1])
+#         return xml.load_dict(scene_dict)
+
+#     def get_diff_param(scene):
+#         diff_param = Float(0.0)
+#         ek.set_requires_gradient(diff_param)
+#         diff_trafo = Transform4f.scale([1 + diff_param, 1, 1])
+#         update_vertex_buffer(scene, 'object', diff_trafo)
+#         return diff_param
+
+#     check_finite_difference("object_scaling", make_scene, get_diff_param)
 
 
 @pytest.mark.slow
@@ -334,7 +334,7 @@ def test05_glossy_reflection(variant_gpu_autodiff_rgb):
         scene_dict["integrator"]["max_depth"] = 3
         scene_dict["sensor"]["sampler"]["sample_count"] = spp
         scene_dict["sensor"]["fov"] = 15
-        scene_dict["planemesh"]["bsdf"] = { "type" : "roughconductor", "alpha" : 0.033 }
+        scene_dict["planemesh"]["bsdf"] = { "type" : "roughconductor", "alpha" : 0.05 }
         scene_dict["planemesh"]["filename"] = "resources/data/obj/xy_plane_rough.obj"
         scene_dict["planemesh"]["to_world"] = ScalarTransform4f.rotate([1, 0, 0], -25)
         scene_dict["object"]["to_world"] = ScalarTransform4f.translate(ScalarVector3f(0, 0.6, 1) + param)
