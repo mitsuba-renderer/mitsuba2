@@ -407,11 +407,11 @@ Mesh<Float, Spectrum>::fill_surface_interaction(const Ray3f &ray,
                                                 Mask active) const {
     MTS_MASK_ARGUMENT(active);
 
-    // TODO this should check the flag require_gradient(vertex_position(0)) and so on
-    bool gradients_required = is_diff_array_v<Float>;
+    // Check whether the SurfaceInteraction need to be differentiable w.t.r. m_vertex_positions_buf
+    bool differentiable_pos = is_diff_array_v<Float> && requires_gradient(m_vertex_positions_buf);
 
     Float b1, b2;
-    if (gradients_required) {
+    if (!cache || differentiable_pos) {
         // Recompute ray / triangle intersection to get differentiable b1, b2 and t
         Mask valid;
         Float t;
@@ -424,7 +424,6 @@ Mesh<Float, Spectrum>::fill_surface_interaction(const Ray3f &ray,
         active &= valid;
         masked(si.t, active) = t;
     } else {
-        Assert(cache);
         if constexpr (is_cuda_array_v<Float>){
             b1 = gather<Float>(cache[0], cache_indices, active);
             b2 = gather<Float>(cache[1], cache_indices, active);
@@ -530,21 +529,6 @@ Mesh<Float, Spectrum>::normal_derivative(const SurfaceInteraction3f &si, bool sh
     Normal3f n0 = vertex_normal(fi[0], active),
              n1 = vertex_normal(fi[1], active),
              n2 = vertex_normal(fi[2], active);
-
-    // Vector3f rel = si.p - p0,
-    //          du  = p1 - p0,
-    //          dv  = p2 - p0;
-
-    // /* Solve a least squares problem to determine
-    //    the UV coordinates within the current triangle */
-    // Float b1  = dot(du, rel), b2 = dot(dv, rel),
-    //       a11 = dot(du, du), a12 = dot(du, dv),
-    //       a22 = dot(dv, dv),
-    //       inv_det = rcp(a11 * a22 - a12 * a12);
-
-    // Float u = fmsub (a22, b1, a12 * b2) * inv_det,
-    //       v = fnmadd(a12, b1, a11 * b2) * inv_det,
-    //       w = 1.f - u - v;
 
     /* Now compute the derivative of "normalize(u*n1 + v*n2 + (1-u-v)*n0)"
        with respect to [u, v] in the local triangle parameterization.
