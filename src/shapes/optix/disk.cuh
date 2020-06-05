@@ -58,16 +58,20 @@ extern "C" __global__ void __closesthit__disk() {
         if (v < 0.f)
             v += 1.f;
 
-        float cos_phi = (r != 0.f ? local.x() * inv_r : 1.f),
-              sin_phi = (r != 0.f ? local.y() * inv_r : 0.f);
-
-        Vector3f dp_du = disk->to_world.transform_vector(Vector3f( cos_phi, sin_phi, 0.f));
-        Vector3f dp_dv = disk->to_world.transform_vector(Vector3f(-sin_phi, cos_phi, 0.f));
-
-        Vector3f ns = normalize(disk->to_world.transform_normal(Vector3f(0.f, 0.f, 1.f)));
-        Vector3f ng = ns;
         Vector2f uv = Vector2f(r, v);
         Vector3f p = ray_o_ + ray_d_ * t;
+
+        Vector3f ng, ns, dp_du, dp_dv;
+        if (params.fill_surface_interaction) {
+            float cos_phi = (r != 0.f ? local.x() * inv_r : 1.f),
+                sin_phi = (r != 0.f ? local.y() * inv_r : 0.f);
+
+            dp_du = disk->to_world.transform_vector(Vector3f( cos_phi, sin_phi, 0.f));
+            dp_dv = disk->to_world.transform_vector(Vector3f(-sin_phi, cos_phi, 0.f));
+
+            ns = normalize(disk->to_world.transform_normal(Vector3f(0.f, 0.f, 1.f)));
+            ng = ns;
+        }
 
         write_output_params(params, launch_index,
                             sbt_data->shape_ptr,

@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from typing import Union, Tuple
 import enoki as ek
+from mitsuba.python.util import is_differentiable
 
 
 def _render_helper(scene, spp=None, sensor_index=0):
@@ -122,7 +123,8 @@ def render(scene,
            spp: Union[None, int, Tuple[int, int]] = None,
            unbiased=False,
            optimizer: 'mitsuba.python.autodiff.Optimizer' = None,
-           sensor_index=0):
+           sensor_index=0,
+           pre_render_callback = lambda: None):
     """
     Perform a differentiable of the scene `scene`, returning a floating point
     array containing RGB values and AOVs, if applicable.
@@ -171,6 +173,11 @@ def render(scene,
     Parameter ``sensor_index`` (``int``):
         When the scene contains more than one sensor/camera, this parameter
         can be specified to select the desired sensor.
+
+    Parameter ``pre_render_callback`` (``void callback()``):
+        Function called before rendering the scene. This is useful when
+        ``unbiased=True`` as one might want to update the scene in between
+        the two renders.
     """
     if unbiased:
         if optimizer is None:
@@ -180,8 +187,11 @@ def render(scene,
             spp = (spp, spp)
 
         with optimizer.disable_gradients():
+            pre_render_callback()
             image = _render_helper(scene, spp=spp[0],
                                    sensor_index=sensor_index)
+
+        pre_render_callback()
         image_diff = _render_helper(scene, spp=spp[1],
                                     sensor_index=sensor_index)
         ek.reattach(image, image_diff)
@@ -189,6 +199,7 @@ def render(scene,
         if type(spp) is tuple:
             raise Exception('render(): unbiased=False requires that spp '
                             'is either an integer or None!')
+        pre_render_callback()
         image = _render_helper(scene, spp=spp, sensor_index=sensor_index)
 
     return image
@@ -209,7 +220,7 @@ class Optimizer:
         """
         self.set_learning_rate(lr)
         self.params = params
-        if not params.all_differentiable():
+        if not all(is_differentiable(params[k]) for k in params.keys()):
             raise Exception('Optimizer.__init__(): all parameters should '
                             'be differentiable!')
         self.state = {}

@@ -263,6 +263,7 @@ public:
         bs.sampled_type      = select(selected_r,
                                       UInt32(+BSDFFlags::GlossyReflection),
                                       UInt32(+BSDFFlags::GlossyTransmission));
+        bs.sampled_roughness = (sample_distr.alpha_u() + sample_distr.alpha_v())/2;
 
         Float dwh_dwo = 0.f;
 

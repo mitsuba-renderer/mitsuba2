@@ -71,7 +71,10 @@
     "enabled": [
         # The "scalar_rgb" variant *must* be included at the moment.
         "scalar_rgb",
-        "scalar_spectral"
+        "scalar_spectral",
+        "gpu_autodiff_spectral",
+        "gpu_autodiff_rgb",
+        "gpu_autodiff_mono"
     ],
 
     # If mitsuba is launched without any specific mode parameter,

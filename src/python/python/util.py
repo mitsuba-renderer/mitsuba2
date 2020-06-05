@@ -41,19 +41,7 @@ class ParameterMap:
         return self.get_property(*(self.properties[key]))
 
     def __setitem__(self, key: str, value):
-        item = self.properties[key]
-        node = item[2]
-        while node is not None:
-            parent, depth = self.hierarchy[node]
-
-            name = key
-            if parent is not None:
-                key, name = key.rsplit('.', 1)
-
-            self.update_list.setdefault((depth, node), [])
-            self.update_list[(depth, node)].append(name)
-
-            node = parent
+        item = self.set_dirty(key)
         return self.set_property(item[0], item[1], value)
 
     def __delitem__(self, key: str) -> None:
@@ -87,12 +75,6 @@ class ParameterMap:
 
         return ParameterMapItemIterator(self)
 
-    def all_differentiable(self):
-        for k in self.keys():
-            if not is_differentiable(self[k]):
-                return False
-        return True
-
     def torch(self) -> dict:
         """
         Converts all Enoki arrays into PyTorch arrays and return them as a
@@ -100,6 +82,29 @@ class ParameterMap:
         Mitsuba scene.
         """
         return {k: v.torch().requires_grad_() for k, v in self.items()}
+
+    def set_dirty(self, key: str):
+        """
+        Marks a specific parameter and its parent objects as dirty. A subsequent call
+        to :py:meth:`~mitsuba.python.util.ParameterMap.update()` will refresh their internal
+        state. This function is automatically called when overwriting a parameter using
+        :py:meth:`~mitsuba.python.util.ParameterMap.__setitem__()`.
+        """
+        item = self.properties[key]
+        node = item[2]
+        while node is not None:
+            parent, depth = self.hierarchy[node]
+
+            name = key
+            if parent is not None:
+                key, name = key.rsplit('.', 1)
+
+            self.update_list.setdefault((depth, node), [])
+            self.update_list[(depth, node)].append(name)
+
+            node = parent
+
+        return item
 
     def update(self) -> None:
         """

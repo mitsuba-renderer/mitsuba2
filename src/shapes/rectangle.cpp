@@ -177,34 +177,52 @@ public:
                       && abs(local.y()) <= 1.f;
     }
 
-    void fill_surface_interaction(const Ray3f &ray_, const Float *cache,
-                                  SurfaceInteraction3f &si_out, Mask active) const override {
+    SurfaceInteraction3f fill_surface_interaction(const Ray3f &ray_,
+                                                  const Float *cache,
+                                                  const UInt32 &cache_indices,
+                                                  SurfaceInteraction3f si,
+                                                  Mask active) const override {
         MTS_MASK_ARGUMENT(active);
 
-#if !defined(MTS_ENABLE_EMBREE)
-        Float local_x = cache[0];
-        Float local_y = cache[1];
-#else
-        ENOKI_MARK_USED(cache);
-        Ray3f ray     = m_to_object.transform_affine(ray_);
-        Float t       = -ray.o.z() * ray.d_rcp.z();
-        Point3f local = ray(t);
-        Float local_x = local.x();
-        Float local_y = local.y();
+        // TODO: make si differentiable w.r.t. shape parameters if necessary
+
+#if defined(MTS_ENABLE_EMBREE)
+        cache = nullptr;
 #endif
 
-        SurfaceInteraction3f si(si_out);
+        Float local_x, local_y;
+        if (cache) {
+            if constexpr (is_cuda_array_v<Float>){
+                local_x = gather<Float>(cache[0], cache_indices, active);
+                local_y = gather<Float>(cache[1], cache_indices, active);
+            } else {
+                local_x = cache[0];
+                local_y = cache[1];
+            }
+        } else {
+            Ray3f ray     = m_to_object.transform_affine(ray_);
+            Float t       = -ray.o.z() * ray.d_rcp.z();
+            Point3f local = ray(t);
+            local_x = local.x();
+            local_y = local.y();
+        }
 
-        si.n          = m_frame.n;
-        si.sh_frame.n = m_frame.n;
-        si.dp_du      = m_frame.s;
-        si.dp_dv      = m_frame.t;
-        si.p          = ray_(si.t);
-        si.time       = ray_.time;
-        si.uv         = Point2f(fmadd(local_x, .5f, .5f),
-                                fmadd(local_y, .5f, .5f));
+        si.n[active]            = m_frame.n;
+        si.sh_frame.n[active]   = m_frame.n;
+        si.dp_du[active]        = m_frame.s;
+        si.dp_dv[active]        = m_frame.t;
+        si.p[active]            = ray_(si.t);
+        masked(si.time, active) = ray_.time;
+        si.uv[active]           = Point2f(fmadd(local_x, .5f, .5f),
+                                          fmadd(local_y, .5f, .5f));
 
-        si_out[active] = si;
+        return si;
+    }
+
+    std::pair<Point3f, Normal3f> differentiable_position(const SurfaceInteraction3f &si,
+                                                         Mask /*active*/) const override {
+        Vector2f local = 2.f * (si.uv - 0.5f);
+        return { m_to_world.transform_affine(Point3f(local.x(), local.y(), 0.f)) , m_frame.n };
     }
 
     std::pair<Vector3f, Vector3f> normal_derivative(const SurfaceInteraction3f & /*si*/,

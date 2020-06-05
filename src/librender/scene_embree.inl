@@ -77,8 +77,8 @@ Scene<Float, Spectrum>::ray_intersect_cpu(const Ray3f &ray, Mask active) const {
                 // Create the cache for the Mesh shape
                 Float cache[2] = { rh.hit.u, rh.hit.v };
 
-                // Ask shape to fill in the rest
-                si.shape->fill_surface_interaction(ray, cache, si);
+                // Ask shape(s) to fill in the rest using the cache
+                si.fill_surface_interaction(ray, (void *)cache);
 
                 // Gram-schmidt orthogonalization to compute local shading frame
                 si.sh_frame.s = normalize(
@@ -132,8 +132,8 @@ Scene<Float, Spectrum>::ray_intersect_cpu(const Ray3f &ray, Mask active) const {
                 // Create the cache for the Mesh shapes
                 Float cache[2] = { load<Float>(rh.hit.u), load<Float>(rh.hit.v) };
 
-                // Ask shape(s) to fill in the rest
-                si.shape->fill_surface_interaction(ray, cache, si, hit);
+                // Ask shape(s) to fill in the rest using the cache
+                si.fill_surface_interaction(ray, (void *)cache, hit);
 
                 // Gram-schmidt orthogonalization to compute local shading frame
                 si.sh_frame.s = normalize(

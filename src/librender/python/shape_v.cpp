@@ -30,7 +30,7 @@ MTS_PY_EXPORT(Shape) {
             "ray"_a, "active"_a = true, D(Shape, ray_intersect))
         .def("ray_test", vectorize(&Shape::ray_test), "ray"_a, "active"_a = true)
         .def("fill_surface_interaction", &Shape::fill_surface_interaction,
-                "ray"_a, "cache"_a, "si"_a, "active"_a = true) // TODO vectorize this
+                "ray"_a, "cache"_a, "cache_indices"_a, "si"_a, "active"_a = true) // TODO vectorize this
         .def("bbox", py::overload_cast<>(
             &Shape::bbox, py::const_), D(Shape, bbox))
         .def("bbox", py::overload_cast<ScalarUInt32>(

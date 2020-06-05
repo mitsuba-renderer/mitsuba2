@@ -7,10 +7,27 @@
 
 NAMESPACE_BEGIN(mitsuba)
 
+
+/**
+ * \brief Specifies the surface interaction computation mode when tracing rays
+ */
+enum class HitComputeMode : uint32_t {
+    /// Let the tracer engine (Embree, Optix) compute the surface interaction
+    Default = 0,
+
+    /// Compute a differential surface interaction if shape parameters require gradients. This
+    /// mode will disable the computation by the tracer engine.
+    Differentiable = 1,
+
+    /// Only compute si.t, si.p, si.uv (barycentric), si.shape, and si.prim_index
+    Least = 2
+};
+
+
 template <typename Float, typename Spectrum>
 class MTS_EXPORT_RENDER Scene : public Object {
 public:
-    MTS_IMPORT_TYPES(BSDF, Emitter, Film, Sampler, Shape, Sensor, Integrator, Medium, MediumPtr)
+    MTS_IMPORT_TYPES(BSDF, Emitter, EmitterPtr, Film, Sampler, Shape, ShapePtr, Sensor, Integrator, Medium, MediumPtr)
 
     /// Instantiate a scene from a \ref Properties object
     Scene(const Properties &props);
@@ -34,6 +51,10 @@ public:
      *    intersection was actually found.
      */
     SurfaceInteraction3f ray_intersect(const Ray3f &ray, Mask active = true) const;
+
+    SurfaceInteraction3f ray_intersect(const Ray3f &ray,
+                                       HitComputeMode mode = HitComputeMode::Default,
+                                       Mask active = true) const;
 
     /**
      * \brief Ray intersection using brute force search. Used in
@@ -67,6 +88,30 @@ public:
     // =============================================================
     //! @{ \name Sampling interface
     // =============================================================
+
+    /**
+     * \brief Sample the emitters of the scene
+     *
+     * Given an arbitrary reference point in the scene, this method samples
+     * an emitter.
+     *
+     * Ideally, the implementation should importance sample the product of
+     * the emission profile and the geometry term between the reference point
+     * and the position on the emitter.
+     *
+     * \param ref
+     *    A reference point somewhere within the scene
+     *
+     * \param sample
+     *    A uniformly distributed sample
+     *
+     * \return
+     *    The sampled emitter and the sample probability.
+     */
+    std::pair<EmitterPtr, Float>
+    sample_emitter(const Interaction3f &ref,
+                   const Float &sample,
+                   Mask active = true) const;
 
     /**
      * \brief Direct illumination sampling routine
@@ -179,7 +224,7 @@ protected:
 
     /// Trace a ray
     MTS_INLINE SurfaceInteraction3f ray_intersect_cpu(const Ray3f &ray, Mask active) const;
-    MTS_INLINE SurfaceInteraction3f ray_intersect_gpu(const Ray3f &ray, Mask active) const;
+    MTS_INLINE SurfaceInteraction3f ray_intersect_gpu(const Ray3f &ray, HitComputeMode mode, Mask active) const;
     MTS_INLINE SurfaceInteraction3f ray_intersect_naive_cpu(const Ray3f &ray, Mask active) const;
 
     /// Trace a shadow ray

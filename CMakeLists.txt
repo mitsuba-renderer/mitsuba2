@@ -572,6 +572,7 @@ macro (add_file DST SRC)
 endmacro()
 
 add_file(data/srgb.coeff ${CMAKE_BINARY_DIR}/ext_build/rgb2spec/srgb.coeff rgb2spec_opt_run)
+add_file(data/vmf-hemisphere.data ${CMAKE_CURRENT_SOURCE_DIR}/src/integrators/vmf-hemisphere.data)
 
 file(COPY resources/data/ior DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/dist/data)
 

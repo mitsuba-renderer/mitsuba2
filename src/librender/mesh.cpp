@@ -50,6 +50,9 @@ Mesh<Float, Spectrum>::Mesh(const std::string &name, ScalarSize vertex_count,
     m_vertex_normals_buf.managed();
     m_vertex_texcoords_buf.managed();
 
+    if constexpr (is_cuda_array_v<Float>)
+        cuda_sync();
+
     m_mesh = true;
     set_children();
 }
@@ -396,13 +399,40 @@ Mesh<Float, Spectrum>::barycentric_coordinates(const SurfaceInteraction3f &si,
     return {w, u, v};
 }
 
-MTS_VARIANT void Mesh<Float, Spectrum>::fill_surface_interaction(const Ray3f & /*ray*/,
-                                                                 const Float *cache,
-                                                                 SurfaceInteraction3f &si,
-                                                                 Mask active) const {
-    // Barycentric coordinates within triangle
-    Float b1 = cache[0],
-          b2 = cache[1];
+MTS_VARIANT typename Mesh<Float, Spectrum>::SurfaceInteraction3f
+Mesh<Float, Spectrum>::fill_surface_interaction(const Ray3f &ray,
+                                                const Float *cache,
+                                                const UInt32 &cache_indices,
+                                                SurfaceInteraction3f si,
+                                                Mask active) const {
+    MTS_MASK_ARGUMENT(active);
+
+    // Check whether the SurfaceInteraction need to be differentiable w.t.r. m_vertex_positions_buf
+    bool differentiable_pos = is_diff_array_v<Float> && requires_gradient(m_vertex_positions_buf);
+
+    Float b1, b2;
+    if (!cache || differentiable_pos) {
+        // Recompute ray / triangle intersection to get differentiable b1, b2 and t
+        Mask valid;
+        Float t;
+        std::tie(valid, b1, b2, t) = ray_intersect_triangle(si.prim_index, ray, active);
+
+        // Kill the ray if we can't recompute the triangle intersection
+        masked(si.t, !valid && active) = math::Infinity<Float>;
+
+        // Replace the data by differentiable data
+        active &= valid;
+        masked(si.t, active) = t;
+    } else {
+        if constexpr (is_cuda_array_v<Float>){
+            b1 = gather<Float>(cache[0], cache_indices, active);
+            b2 = gather<Float>(cache[1], cache_indices, active);
+        } else {
+            ENOKI_MARK_USED(cache_indices);
+            b1 = cache[0];
+            b2 = cache[1];
+        }
+    }
 
     Float b0 = 1.f - b1 - b2;
 
@@ -459,6 +489,30 @@ MTS_VARIANT void Mesh<Float, Spectrum>::fill_surface_interaction(const Ray3f & /
     // Tangents
     si.dp_du[active] = dp_du;
     si.dp_dv[active] = dp_dv;
+
+    return si;
+}
+
+MTS_VARIANT std::pair<typename Mesh<Float, Spectrum>::Point3f, typename Mesh<Float, Spectrum>::Normal3f>
+Mesh<Float, Spectrum>::differentiable_position(const SurfaceInteraction3f &si, Mask active) const {
+    // NOTE: here we assume that the si was computed using HitComputeMode::Least
+    Float b1 = si.uv.x(),
+          b2 = si.uv.y();
+    Float b0 = 1.f - b1 - b2;
+
+    auto fi = face_indices(si.prim_index, active);
+
+    Point3f p0 = vertex_position(fi[0], active),
+            p1 = vertex_position(fi[1], active),
+            p2 = vertex_position(fi[2], active);
+
+    Vector3f dp0 = p1 - p0,
+             dp1 = p2 - p0;
+
+    // Face normal
+    Normal3f n = normalize(cross(dp0, dp1));
+    Point3f p = p0 * detach(b0) + p1 * detach(b1) + p2 * detach(b2);
+    return { p, n };
 }
 
 MTS_VARIANT std::pair<typename Mesh<Float, Spectrum>::Vector3f, typename Mesh<Float, Spectrum>::Vector3f>
@@ -796,10 +850,15 @@ MTS_VARIANT void Mesh<Float, Spectrum>::traverse(TraversalCallback *callback) {
 
 MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed(const std::vector<std::string> &keys) {
     if (keys.empty() || string::contains(keys, "vertex_positions_buf")) {
-        if (has_vertex_normals())
-            recompute_vertex_normals();
+        if constexpr (is_cuda_array_v<Float>) {
+            cuda_eval();
+            cuda_sync();
+        }
 
         recompute_bbox();
+
+        if (has_vertex_normals())
+            recompute_vertex_normals();
 
         area_distr_build();
         Base::parameters_changed();

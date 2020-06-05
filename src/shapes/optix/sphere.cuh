@@ -77,28 +77,32 @@ extern "C" __global__ void __closesthit__sphere() {
             phi += 2.f * M_PI;
 
         Vector2f uv = Vector2f(phi / (2.f * M_PI), theta / M_PI);
-        Vector3f dp_du = Vector3f(-local.y(), local.x(), 0.f);
 
-        float rd      = sqrt(rd_2),
-              inv_rd  = 1.f / rd,
-              cos_phi = local.x() * inv_rd,
-              sin_phi = local.y() * inv_rd;
+        Vector3f ng, dp_du, dp_dv;
+        if (params.fill_surface_interaction) {
+            dp_du = Vector3f(-local.y(), local.x(), 0.f);
 
-        Vector3f dp_dv = Vector3f(local.z() * cos_phi,
-                                  local.z() * sin_phi,
-                                  -rd);
+            float rd      = sqrt(rd_2),
+                inv_rd  = 1.f / rd,
+                cos_phi = local.x() * inv_rd,
+                sin_phi = local.y() * inv_rd;
 
-        // Check for singularity
-        if (rd == 0.f)
-            dp_dv = Vector3f(1.f, 0.f, 0.f);
+            dp_dv = Vector3f(local.z() * cos_phi,
+                             local.z() * sin_phi,
+                             -rd);
 
-        dp_du = sphere->to_world.transform_vector(dp_du) * (2.f * M_PI);
-        dp_dv = sphere->to_world.transform_vector(dp_dv) * M_PI;
+            // Check for singularity
+            if (rd == 0.f)
+                dp_dv = Vector3f(1.f, 0.f, 0.f);
 
-        if (sphere->flip_normals)
-            ns = -ns;
+            dp_du = sphere->to_world.transform_vector(dp_du) * (2.f * M_PI);
+            dp_dv = sphere->to_world.transform_vector(dp_dv) * M_PI;
 
-        Vector3f ng = ns;
+            if (sphere->flip_normals)
+                ns = -ns;
+
+            ng = ns;
+        }
 
         write_output_params(params, launch_index,
                             sbt_data->shape_ptr,

@@ -322,7 +322,7 @@ overly large value.
 .. note::
 
     The full Python script of this tutorial can be found in the file:
-    :file:`docs/examples/10_diff_render/invert_cbox.py`.
+    :file:`docs/examples/10_inverse_rendering/invert_cbox.py`.
 
 
 Forward-mode differentiation
@@ -395,4 +395,4 @@ respect to albedo, the red color disappears.
 .. note::
 
     The full Python script of this tutorial can be found in the file:
-    :file:`docs/examples/10_diff_render/forward_diff.py`.
+    :file:`docs/examples/10_inverse_rendering/forward_diff.py`.
