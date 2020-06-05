@@ -5,17 +5,16 @@ import numpy as np
 
 from mitsuba.python.test.util import fresolver_append_path
 
-# TODO should be replaced by enoki functions
+# Convert flat array into a vector of arrays (will be included in next enoki release)
 def ravel(buf, dim = 3):
     from mitsuba.core import UInt32, Point2f, Point3f
-    idx = dim * UInt32.arange(int(len(buf) / dim))
+    idx = dim * UInt32.arange(ek.slices(buf) // dim)
     if dim == 2:
         return Point2f(ek.gather(buf, idx), ek.gather(buf, idx + 1))
     elif dim == 3:
         return Point3f(ek.gather(buf, idx), ek.gather(buf, idx + 1), ek.gather(buf, idx + 2))
 
-
-# TODO should be replaced by enoki functions
+# Return contiguous flattened array (will be included in next enoki release)
 def unravel(source, target, dim = 3):
     from mitsuba.core import UInt32
     idx = UInt32.arange(ek.slices(source))
@@ -145,14 +144,15 @@ def update_vertex_buffer(scene, object_name, diff_trafo):
     from mitsuba.python.util import traverse
 
     params = traverse(scene)
+    key = object_name + '.vertex_positions_buf'
 
-    vertex_positions_buf = params[object_name + '.vertex_positions_buf']
+    vertex_positions_buf = params[key]
     vertex_positions = ravel(vertex_positions_buf)
 
     vertex_positions_t = diff_trafo.transform_point(vertex_positions)
 
-    unravel(vertex_positions_t, vertex_positions_buf)
-    params[object_name + '.vertex_positions_buf'] = vertex_positions_buf
+    unravel(vertex_positions_t, params[key])
+    params.set_dirty(key)
 
     params.update()
 
