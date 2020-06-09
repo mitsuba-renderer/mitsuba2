@@ -79,34 +79,24 @@ public:
         bitmap = bitmap->convert(Bitmap::PixelFormat::RGBA, struct_type_v<ScalarFloat>, false);
         m_filename = file_path.filename().string();
 
+        /* Add an extra column to the image data with the same values as in the first
+           column. This ensures correctness of sampling using 2D distribution without
+           the need of wrapping  */
+        m_resolution = bitmap->size() + ScalarVector2u(1, 0);
 
-        // Add an extra row and column to the image data with the same values as in the first
-        // row and column. This ensures correctness of sampling using 2D distribution without
-        // the need of wrapping.
-        m_resolution = bitmap->size() + 1;
-
-        std::unique_ptr<ScalarFloat[]> luminance(new ScalarFloat[hprod(m_resolution)]);
         std::unique_ptr<ScalarFloat[]> data(new ScalarFloat[hprod(m_resolution) * 4]);
 
         ScalarFloat *bitmap_ptr = (ScalarFloat *) bitmap->data(),
-                    *data_ptr   = (ScalarFloat *) data.get(),
-                    *lum_ptr    = (ScalarFloat *) luminance.get();
+                    *data_ptr   = (ScalarFloat *) data.get();
 
         for (size_t y = 0; y < m_resolution.y(); ++y) {
-            size_t offset_y = (y % bitmap->size().y()) * bitmap->size().x();
-
-            ScalarFloat sin_theta =
-                std::sin(y / ScalarFloat(m_resolution.y() - 1) * math::Pi<ScalarFloat>);
-
+            size_t offset_y = y * bitmap->size().x();
             for (size_t x = 0; x < m_resolution.x(); ++x) {
-                size_t bitmap_x = x % bitmap->size().x();
-
-                size_t index = 4 * offset_y + bitmap_x;
+                size_t index = 4 * (offset_y + x % bitmap->size().x());
                 ScalarColor3f rgb = load_unaligned<ScalarVector3f>(bitmap_ptr + index);
-                ScalarFloat lum   = mitsuba::luminance(rgb);
-
                 ScalarVector4f coeff;
                 if constexpr (is_monochromatic_v<Spectrum>) {
+                    ScalarFloat lum = mitsuba::luminance(rgb);
                     coeff = ScalarVector4f(lum, lum, lum, 1.f);
                 } else if constexpr (is_rgb_v<Spectrum>) {
                     coeff = concat(rgb, ScalarFloat(1.f));
@@ -121,15 +111,16 @@ public:
                     coeff = concat((ScalarColor3f) srgb_model_fetch(rgb_norm), scale);
                 }
 
-                *lum_ptr++ = lum * sin_theta;
                 store_unaligned(data_ptr, coeff);
                 data_ptr += 4;
             }
         }
         m_data = DynamicBuffer<Float>::copy(data.get(), hprod(m_resolution) * 4);
 
+        // Process edge of the image and initialize warp 2D distribution
+        parameters_changed();
+
         m_scale = props.float_("scale", 1.f);
-        m_warp = Warp(luminance.get(), m_resolution);
         m_d65 = Texture::D65(1.f);
         m_flags = EmitterFlags::Infinite | EmitterFlags::SpatiallyVarying;
     }
@@ -232,6 +223,13 @@ public:
         if (keys.empty() || string::contains(keys, "data")) {
             m_data.managed();
 
+            // Average values on first and last row (north and south poles)
+            UInt32 indices = arange<UInt32>(m_resolution.x());
+            scatter(m_data, hmean(gather<Vector4f>(m_data, indices)), indices);
+            indices += m_resolution.x() * (m_resolution.y() - 1);
+            scatter(m_data, hmean(gather<Vector4f>(m_data, indices)), indices);
+
+            // Update warp 2D distribution
             std::unique_ptr<ScalarFloat[]> luminance(new ScalarFloat[hprod(m_resolution)]);
 
             ScalarFloat *ptr     = (ScalarFloat *) m_data.data(),
