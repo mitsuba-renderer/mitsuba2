@@ -79,17 +79,30 @@ public:
         bitmap = bitmap->convert(Bitmap::PixelFormat::RGBA, struct_type_v<ScalarFloat>, false);
         m_filename = file_path.filename().string();
 
-        std::unique_ptr<ScalarFloat[]> luminance(new ScalarFloat[bitmap->pixel_count()]);
 
-        ScalarFloat *ptr     = (ScalarFloat *) bitmap->data(),
-                    *lum_ptr = (ScalarFloat *) luminance.get();
+        // Add an extra row and column to the image data with the same values as in the first
+        // row and column. This ensures correctness of sampling using 2D distribution without
+        // the need of wrapping.
+        m_resolution = bitmap->size() + 1;
 
-        for (size_t y = 0; y < bitmap->size().y(); ++y) {
+        std::unique_ptr<ScalarFloat[]> luminance(new ScalarFloat[hprod(m_resolution)]);
+        std::unique_ptr<ScalarFloat[]> data(new ScalarFloat[hprod(m_resolution) * 4]);
+
+        ScalarFloat *bitmap_ptr = (ScalarFloat *) bitmap->data(),
+                    *data_ptr   = (ScalarFloat *) data.get(),
+                    *lum_ptr    = (ScalarFloat *) luminance.get();
+
+        for (size_t y = 0; y < m_resolution.y(); ++y) {
+            size_t offset_y = (y % bitmap->size().y()) * bitmap->size().x();
+
             ScalarFloat sin_theta =
-                std::sin(y / ScalarFloat(bitmap->size().y() - 1) * math::Pi<ScalarFloat>);
+                std::sin(y / ScalarFloat(m_resolution.y() - 1) * math::Pi<ScalarFloat>);
 
-            for (size_t x = 0; x < bitmap->size().x(); ++x) {
-                ScalarColor3f rgb = load_unaligned<ScalarVector3f>(ptr);
+            for (size_t x = 0; x < m_resolution.x(); ++x) {
+                size_t bitmap_x = x % bitmap->size().x();
+
+                size_t index = 4 * offset_y + bitmap_x;
+                ScalarColor3f rgb = load_unaligned<ScalarVector3f>(bitmap_ptr + index);
                 ScalarFloat lum   = mitsuba::luminance(rgb);
 
                 ScalarVector4f coeff;
@@ -109,13 +122,11 @@ public:
                 }
 
                 *lum_ptr++ = lum * sin_theta;
-                store_unaligned(ptr, coeff);
-                ptr += 4;
+                store_unaligned(data_ptr, coeff);
+                data_ptr += 4;
             }
         }
-
-        m_resolution = bitmap->size();
-        m_data = DynamicBuffer<Float>::copy(bitmap->data(), hprod(m_resolution) * 4);
+        m_data = DynamicBuffer<Float>::copy(data.get(), hprod(m_resolution) * 4);
 
         m_scale = props.float_("scale", 1.f);
         m_warp = Warp(luminance.get(), m_resolution);
@@ -226,7 +237,6 @@ public:
             ScalarFloat *ptr     = (ScalarFloat *) m_data.data(),
                         *lum_ptr = (ScalarFloat *) luminance.get();
 
-
             for (size_t y = 0; y < m_resolution.y(); ++y) {
                 ScalarFloat sin_theta =
                     std::sin(y / ScalarFloat(m_resolution.y() - 1) * math::Pi<ScalarFloat>);
@@ -265,11 +275,15 @@ public:
 
 protected:
     UnpolarizedSpectrum eval_spectrum(Point2f uv, const Wavelength &wavelengths, Mask active) const {
-        uv *= Vector2f(m_resolution - 1u);
+        // The code below matches the behaviour of Distribution2D::eval()
 
-        Point2u pos = min(Point2u(uv), m_resolution - 2u);
+        // Avoid issues with roundoff error
+        uv = clamp(uv, 0.f, 1.f);
 
-        Point2f w1 = uv - Point2f(pos),
+        // Compute linear interpolation weights
+        uv *= (m_resolution - 1);
+        Point2u pos = min(Point2u(Point2i(uv)), m_resolution - 2);
+        Point2f w1 = uv - Point2f(Point2i(pos)),
                 w0 = 1.f - w1;
 
         const uint32_t width = m_resolution.x();
