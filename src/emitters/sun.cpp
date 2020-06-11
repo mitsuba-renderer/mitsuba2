@@ -2,8 +2,6 @@
 #include <mitsuba/core/properties.h>
 #include <mitsuba/core/bitmap.h>
 #include <mitsuba/core/warp.h>
-#include <mitsuba/core/filesystem.h>
-#include <enoki/morton.h>
 #include "sunsky/sunmodel.h"
 
 NAMESPACE_BEGIN(mitsuba)
@@ -20,7 +18,6 @@ public:
     MTS_IMPORT_TYPES(Scene, Texture)
 
     SunEmitter(const Properties &props) : Base(props) {
-
         m_resolution = props.int_("resolution", 512);
         m_scale = props.float_("scale", 1.0f);
         m_sun_radius_scale = props.float_("sun_radius_scale", 1.0f);
@@ -42,6 +39,44 @@ public:
             factor *= m_solid_angle;
         }
         m_radiance = compute_sun_radiance<Float, Spectrum>(m_sun.elevation, m_turbidity, factor);
+    }
+
+    /// Van der Corput radical inverse in base 2 with double precision
+    inline double radicalInverse2Double(uint64_t n, uint64_t scramble = 0ULL) const {
+        /* Efficiently reverse the bits in 'n' using binary operations */
+    #if (defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 2))) || defined(__clang__)
+        n = __builtin_bswap64(n);
+    #else
+        printf("!!!!!!!!!!!!!!!!!!!!! radical else\n");
+        n = (n << 32) | (n >> 32);
+        n = ((n & 0x0000ffff0000ffffULL) << 16) | ((n & 0xffff0000ffff0000ULL) >> 16);
+        n = ((n & 0x00ff00ff00ff00ffULL) << 8)  | ((n & 0xff00ff00ff00ff00ULL) >> 8);
+    #endif
+        n = ((n & 0x0f0f0f0f0f0f0f0fULL) << 4)  | ((n & 0xf0f0f0f0f0f0f0f0ULL) >> 4);
+        n = ((n & 0x3333333333333333ULL) << 2)  | ((n & 0xccccccccccccccccULL) >> 2);
+        n = ((n & 0x5555555555555555ULL) << 1)  | ((n & 0xaaaaaaaaaaaaaaaaULL) >> 1);
+
+        // Account for the available precision and scramble
+        n = (n >> (64 - 53)) ^ (scramble & ~-(1LL << 53));
+
+        return (double) n / (double) (1ULL << 53);
+    }
+
+    /// Sobol' radical inverse in base 2 with double precision.
+    inline double sobol2Double(uint64_t n, uint64_t scramble = 0ULL) const {
+        scramble &= ~-(1LL << 53);
+        for (uint64_t v = 1ULL << 52; n != 0; n >>= 1, v ^= v >> 1)
+            if (n & 1)
+                scramble ^= v;
+        return (double) scramble / (double) (1ULL << 53);
+    }
+
+    /// Generate an element from a (0, 2) sequence (without scrambling)
+    inline Point2f sample02(size_t n) const {
+        return Point2f(
+            radicalInverse2Double((uint64_t) n),
+            sobol2Double((uint64_t) n)
+        );
     }
 
     std::vector<ref<Object>> expand() const override {
@@ -83,11 +118,9 @@ public:
         Spectrum value = m_radiance->eval(si) * (2 * math::Pi<Float> * 
             (1 - cos(m_theta))) * (Float) (bitmap->width() * bitmap->height()) /
             (2 * math::Pi<Float> * math::Pi<Float> * n_samples);
-        
-        size_t samples = ceil(enoki::sqrt(n_samples)) * ceil(enoki::sqrt(n_samples));
-        for (size_t i = 0; i < samples; ++i) {
 
-            Vector3f dir = frame.to_world(warp::square_to_uniform_cone<Float>(enoki::morton_decode<Point2u>(i) / enoki::sqrt(samples), cos_theta));
+        for (size_t i = 0; i < n_samples; ++i) {
+            Vector3f dir = frame.to_world(warp::square_to_uniform_cone<Float>(sample02(i), cos_theta));
 
             Float sin_theta = safe_sqrt(1 - dir.y() * dir.y());
             SphericalCoordinates sph_coords = from_sphere(dir);
