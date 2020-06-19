@@ -47,11 +47,11 @@ def test02_ply_triangle(variant_scalar_rgb):
     faces = m.faces_buffer()
 
     assert not m.has_vertex_normals()
-    assert ek.slices(positions) == 9
+    assert ek.slices(positions) == 9 + 3 # always allocate one extra triangle in the buffers
     assert ek.allclose(positions[0:3], [0, 0, 0])
     assert ek.allclose(positions[3:6], [0, 0, 1])
     assert ek.allclose(positions[6:9], [0, 1, 0])
-    assert ek.slices(faces) == 3
+    assert ek.slices(faces) == 3 + 3 # always allocate one extra triangle in the buffers
     assert faces[0] == UInt32(0)
     assert faces[1] == UInt32(1)
     assert faces[2] == UInt32(2)
@@ -122,8 +122,8 @@ def test05_load_simple_mesh(variant_scalar_rgb):
         faces = shape.faces_buffer()
 
         assert shape.has_vertex_normals()
-        assert ek.slices(positions) == 72
-        assert ek.slices(faces) == 36
+        assert ek.slices(positions) == 72 + 3 # always allocate one extra triangle in the buffers
+        assert ek.slices(faces) == 36 + 3 # always allocate one extra triangle in the buffers
         assert ek.allclose(faces[6:9], [4, 5, 6])
         assert ek.allclose(positions[:5], [130, 165, 65, 82, 165])
 

@@ -276,12 +276,14 @@ public:
         m_vertex_count = vertex_ctr;
         m_face_count = (ScalarSize) triangles.size();
 
-        m_faces_buf = DynamicBuffer<UInt32>::copy(triangles.data(), m_face_count * 3);
-        m_vertex_positions_buf = empty<FloatStorage>(m_vertex_count * 3);
+        // Add a dummy triangle to trigger the allocation of one extra triangle in the buffer
+        triangles.push_back(ScalarIndex3());
+        m_faces_buf = DynamicBuffer<UInt32>::copy(triangles.data(), (m_face_count + 1) * 3);
+        m_vertex_positions_buf = empty<FloatStorage>((m_vertex_count + 1) * 3);
         if (!m_disable_vertex_normals)
-            m_vertex_normals_buf = empty<FloatStorage>(m_vertex_count * 3);
+            m_vertex_normals_buf = empty<FloatStorage>((m_vertex_count + 1) * 3);
         if (!texcoords.empty())
-            m_vertex_texcoords_buf = empty<FloatStorage>(m_vertex_count * 2);
+            m_vertex_texcoords_buf = empty<FloatStorage>((m_vertex_count + 1) * 2);
 
         // TODO this is needed for the bbox(..) methods, but is it slower?
         m_faces_buf.managed();
@@ -293,8 +295,8 @@ public:
             const VertexBinding *v = &v_;
 
             while (v && v->key != ScalarIndex3{{0, 0, 0}}) {
-                InputFloat* position_ptr   = m_vertex_positions_buf.data() + v->value * 3;
-                InputFloat* normal_ptr   = m_vertex_normals_buf.data() + v->value * 3;
+                InputFloat* position_ptr = m_vertex_positions_buf.data() + v->value * 3;
+                InputFloat* normal_ptr   = m_vertex_normals_buf.data()   + v->value * 3;
                 InputFloat* texcoord_ptr = m_vertex_texcoords_buf.data() + v->value * 2;
                 auto key = v->key;
 

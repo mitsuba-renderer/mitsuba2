@@ -192,14 +192,15 @@ public:
                 }
 
                 m_vertex_count = (ScalarSize) el.count;
-                m_vertex_positions_buf = empty<FloatStorage>(m_vertex_count * 3);
+                // Always allocate one extra triangle in the buffers
+                m_vertex_positions_buf = empty<FloatStorage>((m_vertex_count + 1) * 3);
                 if (!m_disable_vertex_normals)
-                    m_vertex_normals_buf = empty<FloatStorage>(m_vertex_count * 3);
+                    m_vertex_normals_buf = empty<FloatStorage>((m_vertex_count + 1) * 3);
                 if (has_vertex_texcoords)
-                    m_vertex_texcoords_buf = empty<FloatStorage>(m_vertex_count * 2);
+                    m_vertex_texcoords_buf = empty<FloatStorage>((m_vertex_count + 1) * 2);
 
                 for (auto& descr: vertex_attributes_descriptors) {
-                    descr.buf = empty<FloatStorage>(m_vertex_count * descr.dim);
+                    descr.buf = empty<FloatStorage>((m_vertex_count + 1) * descr.dim);
                     descr.buf.managed();
                 }
 
@@ -308,11 +309,12 @@ public:
                 }
 
                 m_face_count = (ScalarSize) el.count;
-                m_faces_buf = empty<DynamicBuffer<UInt32>>(m_face_count * 3);
+                // Always allocate one extra triangle in the buffers
+                m_faces_buf = empty<DynamicBuffer<UInt32>>((m_face_count + 1) * 3);
                 m_faces_buf.managed();
 
                 for (auto& descr: face_attributes_descriptors) {
-                    descr.buf = empty<FloatStorage>(m_face_count * descr.dim);
+                    descr.buf = empty<FloatStorage>((m_face_count + 1) * descr.dim);
                     descr.buf.managed();
                 }
 

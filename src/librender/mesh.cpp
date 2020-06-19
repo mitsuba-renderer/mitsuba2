@@ -37,13 +37,13 @@ Mesh<Float, Spectrum>::Mesh(const std::string &name, ScalarSize vertex_count,
                             ScalarSize face_count, const Properties &props,
                             bool has_vertex_normals, bool has_vertex_texcoords)
     : Base(props), m_name(name), m_vertex_count(vertex_count), m_face_count(face_count) {
-
-    m_faces_buf = zero<DynamicBuffer<UInt32>>(m_face_count * 3);
-    m_vertex_positions_buf = zero<FloatStorage>(m_vertex_count * 3);
+    // Always allocate one extra triangle in the buffers
+    m_faces_buf = zero<DynamicBuffer<UInt32>>((m_face_count + 1) * 3);
+    m_vertex_positions_buf = zero<FloatStorage>((m_vertex_count + 1) * 3);
     if (has_vertex_normals)
-        m_vertex_normals_buf = zero<FloatStorage>(m_vertex_count * 3);
+        m_vertex_normals_buf = zero<FloatStorage>((m_vertex_count + 1) * 3);
     if (has_vertex_texcoords)
-        m_vertex_texcoords_buf = zero<FloatStorage>(m_vertex_count * 2);
+        m_vertex_texcoords_buf = zero<FloatStorage>((m_vertex_count + 1) * 2);
 
     m_faces_buf.managed();
     m_vertex_positions_buf.managed();

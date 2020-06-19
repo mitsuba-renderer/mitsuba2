@@ -292,19 +292,28 @@ public:
             return;
 
         m_face_count = (ScalarSize) tmp_triangles.size();
-        m_faces_buf = DynamicBuffer<UInt32>::copy(tmp_triangles.data(), m_face_count * 3);
-
         m_vertex_count = vertex_ctr;
-        m_vertex_positions_buf = FloatStorage::copy(tmp_vertices.data(), m_vertex_count * 3);
-        m_vertex_normals_buf = FloatStorage::copy(tmp_normals.data(), m_vertex_count * 3);
+
+        // Add dummy data to trigger the allocation of one extra triangle in the buffer
+        tmp_triangles.push_back(ScalarIndex3());
+        tmp_vertices.push_back(std::array<InputFloat, 3>());
+        tmp_normals.push_back(std::array<InputFloat, 3>());
+        tmp_uvs.push_back(InputVector2f());
+        for (size_t p = 0; p < cols.size(); p++)
+            tmp_cols[p].push_back(std::array<InputFloat, 3>());
+
+        m_faces_buf = DynamicBuffer<UInt32>::copy(tmp_triangles.data(), (m_face_count + 1) * 3);
+
+        m_vertex_positions_buf = FloatStorage::copy(tmp_vertices.data(), (m_vertex_count + 1) * 3);
+        m_vertex_normals_buf = FloatStorage::copy(tmp_normals.data(), (m_vertex_count + 1) * 3);
 
         if (has_uvs)
-            m_vertex_texcoords_buf = FloatStorage::copy(tmp_uvs.data(), m_vertex_count * 2);
+            m_vertex_texcoords_buf = FloatStorage::copy(tmp_uvs.data(), (m_vertex_count + 1) * 2);
         if (has_cols) {
             for (size_t p = 0; p < cols.size(); p++) {
                 add_attribute(
                     cols[p].first, 3,
-                    FloatStorage::copy(tmp_cols[p].data(), m_vertex_count * 3));
+                    FloatStorage::copy(tmp_cols[p].data(), (m_vertex_count + 1) * 3));
             }
         }
 
