@@ -9,8 +9,8 @@ NAMESPACE_BEGIN(mitsuba)
 
 .. _bsdf-bumpmap:
 
-Bump map BRDF adapter (:monosp:`bumpmap`)
---------------------------------------------
+Bump map BSDF adapter (:monosp:`bumpmap`)
+-----------------------------------------
 
 .. pluginparameters::
 
@@ -28,29 +28,26 @@ Bump map BRDF adapter (:monosp:`bumpmap`)
    - Finite difference delta to compute the bump map gradient. This is a
      multiplier on the pixel size extent in texture space (Default: 0.5)
 
- Bump mapping \cite{Blinn1978Simulation} is a simple technique for cheaply
- adding surface detail to a rendering. This is done by perturbing the
- shading coordinate frame based on a displacement height field provided
- as a texture. This method can lend objects a highly realistic and detailed
- appearance (e.g. wrinkled or covered by scratches and other imperfections)
- without requiring any changes to the input geometry.
+Bump mapping is a simple technique for cheaply adding surface detail to a rendering. This is done
+by perturbing the shading coordinate frame based on a displacement height field provided as a
+texture. This method can lend objects a highly realistic and detailed appearance (e.g. wrinkled
+or covered by scratches and other imperfections) without requiring any changes to the input geometry.
 
- The implementation in Mitsuba uses the common approach of ignoring
- the usually negligible texture-space derivative of the base mesh
- surface normal. As side effect of this decision, it is invariant
- to constant offsets in the height field texture---only variations in
- its luminance cause changes to the shading frame.
+The implementation in Mitsuba uses the common approach of ignoring the usually negligible
+texture-space derivative of the base mesh surface normal. As side effect of this decision,
+it is invariant to constant offsets in the height field texture: only variations in its luminance
+cause changes to the shading frame.
 
- Note that the magnitude of the height field variations influences
- the strength of the displacement.
+Note that the magnitude of the height field variations influences
+the strength of the displacement.
 
 .. subfigstart::
 .. subfigure:: ../../resources/data/docs/images/render/bsdf_bumpmap_without.jpg
    :caption: Roughplastic BSDF
 .. subfigure:: ../../resources/data/docs/images/render/bsdf_bumpmap_with.jpg
-   :caption: Roughplastic BSDF with normal mapping
+   :caption: Roughplastic BSDF with bump mapping
 .. subfigend::
-    :label: fig-bsdf-bumpmap
+   :label: fig-bsdf-bumpmap
 
 The following XML snippet describes a rough plastic material affected by a bump
 map. Note the we set the ``raw`` properties of the bump map ``bitmap`` object to
