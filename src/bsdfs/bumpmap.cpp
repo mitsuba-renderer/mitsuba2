@@ -25,8 +25,7 @@ Bump map BSDF adapter (:monosp:`bumpmap`)
    - Bump map gradient multiplier. (Default: 1.0)
  * - epsilon
    - |float|
-   - Finite difference delta to compute the bump map gradient. This is a
-     multiplier on the pixel size extent in texture space (Default: 0.5)
+   - Finite difference delta to compute the bump map gradient. (Default: 0.0001)
 
 Bump mapping is a simple technique for cheaply adding surface detail to a rendering. This is done
 by perturbing the shading coordinate frame based on a displacement height field provided as a
@@ -87,16 +86,12 @@ public:
 
         m_strength = props.float_("strength", 1.f);
         m_bumpmap  = props.texture<Texture>("bumpmap", 0.f);
-
-        m_epsilon = props.float_("epsilon", .5f);
+        m_epsilon = props.float_("epsilon", .0001f);
 
         m_components.clear();
         for (size_t i = 0; i < m_nested_bsdf->component_count(); ++i)
             m_components.push_back(m_nested_bsdf->flags(i));
         m_flags = m_nested_bsdf->flags();
-
-        if (m_bumpmap->is_spatially_varying())
-            m_flags = m_flags | BSDFFlags::NeedsDifferentials;
     }
 
     SurfaceInteraction3f evaluate_bump(const SurfaceInteraction3f &si,
@@ -104,28 +99,18 @@ public:
 
         SurfaceInteraction3f perturbed_si(si);
 
-        // Compute pixel differential based uv delta for the gradient
-        Float du = m_epsilon * max(abs(perturbed_si.duv_dx[0]),
-                                   abs(perturbed_si.duv_dy[0]));
-        Float dv = m_epsilon * max(abs(perturbed_si.duv_dx[1]),
-                                   abs(perturbed_si.duv_dy[1]));
-
-        // Might not have differentials (or be too far from camera...)
-        du = max(0.0001f, du);
-        dv = max(0.0001f, dv);
-
         // Save current uv
         Vector2f uv_org = perturbed_si.uv;
 
         // Compute bump map 3-tap gradient
         Float displace          = m_bumpmap->eval_1(perturbed_si, active);
-        perturbed_si.uv[active] = uv_org + Vector2f(du, 0.f);
+        perturbed_si.uv[active] = uv_org + Vector2f(m_epsilon, 0.f);
         Float u_displace        = m_bumpmap->eval_1(perturbed_si, active);
-        perturbed_si.uv[active] = uv_org + Vector2f(0.f, dv);
+        perturbed_si.uv[active] = uv_org + Vector2f(0.f, m_epsilon);
         Float v_displace        = m_bumpmap->eval_1(perturbed_si, active);
 
-        Float grad_u = m_strength * (u_displace - displace) / du;
-        Float grad_v = m_strength * (v_displace - displace) / dv;
+        Float grad_u = m_strength * (u_displace - displace) / m_epsilon;
+        Float grad_v = m_strength * (v_displace - displace) / m_epsilon;
 
         // Restore uv
         perturbed_si.uv[active] = uv_org;
