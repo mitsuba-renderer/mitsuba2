@@ -38,11 +38,11 @@ MTS_VARIANT Shape<Float, Spectrum>::Shape(const Properties &props) : m_id(props.
     m_to_world = props.transform("to_world", ScalarTransform4f());
     m_to_object = m_to_world.inverse();
 
-    for (auto &kv : props.objects()) {
-        Emitter *emitter = dynamic_cast<Emitter *>(kv.second.get());
-        Sensor *sensor = dynamic_cast<Sensor *>(kv.second.get());
-        BSDF *bsdf = dynamic_cast<BSDF *>(kv.second.get());
-        Medium *medium = dynamic_cast<Medium *>(kv.second.get());
+    for (auto &[name, obj] : props.objects(false)) {
+        Emitter *emitter = dynamic_cast<Emitter *>(obj.get());
+        Sensor *sensor = dynamic_cast<Sensor *>(obj.get());
+        BSDF *bsdf = dynamic_cast<BSDF *>(obj.get());
+        Medium *medium = dynamic_cast<Medium *>(obj.get());
 
         if (emitter) {
             if (m_emitter)
@@ -53,11 +53,11 @@ MTS_VARIANT Shape<Float, Spectrum>::Shape(const Properties &props) : m_id(props.
                 Throw("Only a single BSDF child object can be specified per shape.");
             m_bsdf = bsdf;
         } else if (medium) {
-            if (kv.first == "interior") {
+            if (name == "interior") {
                 if (m_interior_medium)
                     Throw("Only a single interior medium can be specified per shape.");
                 m_interior_medium = medium;
-            } else if (kv.first == "exterior") {
+            } else if (name == "exterior") {
                 if (m_exterior_medium)
                     Throw("Only a single exterior medium can be specified per shape.");
                 m_exterior_medium = medium;
@@ -67,13 +67,19 @@ MTS_VARIANT Shape<Float, Spectrum>::Shape(const Properties &props) : m_id(props.
                 Throw("Only a single Sensor child object can be specified per shape.");
             m_sensor = sensor;
         } else {
-            Throw("Tried to add an unsupported object of type \"%s\"", kv.second);
+            continue;
         }
+
+        props.mark_queried(name);
     }
 
     // Create a default diffuse BSDF if needed.
-    if (!m_bsdf)
-        m_bsdf = PluginManager::instance()->create_object<BSDF>(Properties("diffuse"));
+    if (!m_bsdf) {
+        Properties props("diffuse");
+        if (m_emitter)
+            props.set_color("reflectance", zero<ScalarColor3f>());
+        m_bsdf = PluginManager::instance()->create_object<BSDF>(props);
+    }
 }
 
 MTS_VARIANT Shape<Float, Spectrum>::~Shape() {
@@ -398,7 +404,13 @@ MTS_VARIANT void Shape<Float, Spectrum>::set_children() {
         m_emitter->set_shape(this);
     if (m_sensor)
         m_sensor->set_shape(this);
-};
+}
+
+MTS_VARIANT
+typename Shape<Float, Spectrum>::SurfaceInteraction3f
+Shape<Float, Spectrum>::eval_parameterization(const Point2f &, Mask) const {
+    NotImplementedError("eval_parameterization");
+}
 
 MTS_VARIANT std::string Shape<Float, Spectrum>::get_children_string() const {
     std::vector<std::pair<std::string, const Object*>> children;

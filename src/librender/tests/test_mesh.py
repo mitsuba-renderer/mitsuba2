@@ -8,13 +8,13 @@ from mitsuba.python.util import traverse
 
 
 def test01_create_mesh(variant_scalar_rgb):
-    from mitsuba.core import Struct, float_dtype
     from mitsuba.render import Mesh
 
     m = Mesh("MyMesh", 3, 2)
     m.vertex_positions_buffer()[:] = [0.0, 0.0, 0.0, 1.0, 0.2, 0.0, 0.2, 1.0, 0.0]
     m.faces_buffer()[:] = [0, 1, 2, 1, 2, 0]
     m.parameters_changed()
+    m.surface_area()  # Ensure surface area computed
 
     assert str(m) == """Mesh[
   name = "MyMesh",
@@ -26,14 +26,14 @@ def test01_create_mesh(variant_scalar_rgb):
   vertices = [36 B of vertex data],
   face_count = 2,
   faces = [24 B of face data],
-  disable_vertex_normals = 0,
-  surface_area = 0.96
+  surface_area = 0.96,
+  disable_vertex_normals = 0
 ]"""
 
 
 @fresolver_append_path
 def test02_ply_triangle(variant_scalar_rgb):
-    from mitsuba.core import UInt32, Vector3f
+    from mitsuba.core import UInt32
     from mitsuba.core.xml import load_string
 
     m = load_string("""
@@ -59,7 +59,6 @@ def test02_ply_triangle(variant_scalar_rgb):
 
 @fresolver_append_path
 def test03_ply_computed_normals(variant_scalar_rgb):
-    from mitsuba.core import Vector3f
     from mitsuba.core.xml import load_string
 
     """Checks(automatic) vertex normal computation for a PLY file that
@@ -78,7 +77,7 @@ def test03_ply_computed_normals(variant_scalar_rgb):
 
 
 def test04_normal_weighting_scheme(variant_scalar_rgb):
-    from mitsuba.core import Struct, float_dtype, Vector3f
+    from mitsuba.core import Vector3f
     from mitsuba.render import Mesh
     import numpy as np
 
@@ -199,7 +198,6 @@ def test07_ply_stored_attribute(variant_scalar_rgb):
   face_count = 1,
   faces = [24 B of face data],
   disable_vertex_normals = 0,
-  surface_area = 0,
   mesh attributes = [
     face_color: 3 floats
   ]
@@ -228,8 +226,28 @@ def test08_mesh_add_attribute(variant_scalar_rgb):
   face_count = 2,
   faces = [24 B of face data],
   disable_vertex_normals = 0,
-  surface_area = 0.96,
   mesh attributes = [
     vertex_color: 3 floats
   ]
 ]"""
+
+@fresolver_append_path
+def test09_eval_parameterization(variant_scalar_rgb, variant_packet_rgb):
+    from mitsuba.core.xml import load_string
+    shape = load_string('''
+    <shape type="obj" version="2.0.0">
+        <string name="filename" value="resources/data/common/meshes/rectangle.obj"/>
+    </shape>
+    ''')
+    print(shape)
+    si = shape.eval_parameterization([-0.01, 0.5])
+    assert not ek.any(si.is_valid())
+    si = shape.eval_parameterization([1.0 - 1e-7, 1.0 - 1e-7])
+    assert ek.all(si.is_valid())
+    assert ek.allclose(si.p, [1, 1, 0])
+    si = shape.eval_parameterization([1e-7, 1e-7])
+    assert ek.all(si.is_valid())
+    assert ek.allclose(si.p, [-1, -1, 0])
+    si = shape.eval_parameterization([.2, .3])
+    assert ek.all(si.is_valid())
+    assert ek.allclose(si.p, [-.6, -.4, 0])

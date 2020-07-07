@@ -68,13 +68,14 @@ public:
     MTS_IMPORT_TYPES(Texture)
 
     NormalMap(const Properties &props) : Base(props) {
-        for (auto &kv : props.objects()) {
-            auto bsdf = dynamic_cast<Base *>(kv.second.get());
+        for (auto &[name, obj] : props.objects(false)) {
+            auto bsdf = dynamic_cast<Base *>(obj.get());
 
             if (bsdf) {
                 if (m_nested_bsdf)
                     Throw("Only a single BSDF child object can be specified.");
                 m_nested_bsdf = bsdf;
+                props.mark_queried(name);
             }
         }
         if (!m_nested_bsdf)
@@ -99,15 +100,15 @@ public:
         // Sample nested BSDF with perturbed shading frame
         SurfaceInteraction3f perturbed_si(si);
         perturbed_si.sh_frame = frame(si, active);
-        perturbed_si.wi = perturbed_si.to_local(si.to_world(si.wi));
+        perturbed_si.wi = perturbed_si.to_local(si.wi);
         auto [bs, weight] = m_nested_bsdf->sample(ctx, perturbed_si,
                                                   sample1, sample2, active);
-        active &= any(neq(weight, 0.f));
+        active &= any(neq(depolarize(weight), 0.f));
         if (none(active))
             return { bs, 0.f };
 
         // Transform sampled 'wo' back to original frame and check orientation
-        Vector3f perturbed_wo = si.to_local(perturbed_si.to_world(bs.wo));
+        Vector3f perturbed_wo = perturbed_si.to_world(bs.wo);
         active &= Frame3f::cos_theta(bs.wo) *
                   Frame3f::cos_theta(perturbed_wo) > 0.f;
         bs.wo = perturbed_wo;
@@ -121,8 +122,8 @@ public:
         // Evaluate nested BSDF with perturbed shading frame
         SurfaceInteraction3f perturbed_si(si);
         perturbed_si.sh_frame = frame(si, active);
-        perturbed_si.wi       = perturbed_si.to_local(si.to_world(si.wi));
-        Vector3f perturbed_wo = perturbed_si.to_local(si.to_world(wo));
+        perturbed_si.wi       = perturbed_si.to_local(si.wi);
+        Vector3f perturbed_wo = perturbed_si.to_local(wo);
 
         active &= Frame3f::cos_theta(wo) *
                   Frame3f::cos_theta(perturbed_wo) > 0.f;
@@ -136,8 +137,8 @@ public:
         // Evaluate nested BSDF with perturbed shading frame
         SurfaceInteraction3f perturbed_si(si);
         perturbed_si.sh_frame = frame(si, active);
-        perturbed_si.wi       = perturbed_si.to_local(si.to_world(si.wi));
-        Vector3f perturbed_wo = perturbed_si.to_local(si.to_world(wo));
+        perturbed_si.wi       = perturbed_si.to_local(si.wi);
+        Vector3f perturbed_wo = perturbed_si.to_local(wo);
 
         active &= Frame3f::cos_theta(wo) *
                   Frame3f::cos_theta(perturbed_wo) > 0.f;
@@ -146,7 +147,7 @@ public:
     }
 
     Frame3f frame(const SurfaceInteraction3f &si, Mask active) const {
-        Normal3f n = si.to_world(fmadd(m_normalmap->eval_3(si, active), 2, -1.f));
+        Normal3f n = fmadd(m_normalmap->eval_3(si, active), 2, -1.f);
 
         Frame3f result;
         result.n = normalize(n);
