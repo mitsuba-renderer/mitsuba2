@@ -23,9 +23,6 @@ Bump map BSDF adapter (:monosp:`bumpmap`)
  * - strength
    - |float|
    - Bump map gradient multiplier. (Default: 1.0)
- * - epsilon
-   - |float|
-   - Finite difference delta to compute the bump map gradient. (Default: 0.0001)
 
 Bump mapping is a simple technique for cheaply adding surface detail to a rendering. This is done
 by perturbing the shading coordinate frame based on a displacement height field provided as a
@@ -72,13 +69,14 @@ public:
     MTS_IMPORT_TYPES(Texture)
 
     BumpMap(const Properties &props) : Base(props) {
-        for (auto &kv : props.objects()) {
-            auto bsdf = dynamic_cast<Base *>(kv.second.get());
+        for (auto &[name, obj] : props.objects(false)) {
+            auto bsdf = dynamic_cast<Base *>(obj.get());
 
             if (bsdf) {
                 if (m_nested_bsdf)
                     Throw("Only a single BSDF child object can be specified.");
                 m_nested_bsdf = bsdf;
+                props.mark_queried(name);
             }
         }
         if (!m_nested_bsdf)
@@ -86,69 +84,11 @@ public:
 
         m_strength = props.float_("strength", 1.f);
         m_bumpmap  = props.texture<Texture>("bumpmap", 0.f);
-        m_epsilon = props.float_("epsilon", .0001f);
 
         m_components.clear();
         for (size_t i = 0; i < m_nested_bsdf->component_count(); ++i)
             m_components.push_back(m_nested_bsdf->flags(i));
         m_flags = m_nested_bsdf->flags();
-    }
-
-    SurfaceInteraction3f evaluate_bump(const SurfaceInteraction3f &si,
-                                       Mask active) const {
-
-        SurfaceInteraction3f perturbed_si(si);
-
-        // Save current uv
-        Vector2f uv_org = perturbed_si.uv;
-
-        // Compute bump map 3-tap gradient
-        Float displace          = m_bumpmap->eval_1(perturbed_si, active);
-        perturbed_si.uv[active] = uv_org + Vector2f(m_epsilon, 0.f);
-        Float u_displace        = m_bumpmap->eval_1(perturbed_si, active);
-        perturbed_si.uv[active] = uv_org + Vector2f(0.f, m_epsilon);
-        Float v_displace        = m_bumpmap->eval_1(perturbed_si, active);
-
-        Float grad_u = m_strength * (u_displace - displace) / m_epsilon;
-        Float grad_v = m_strength * (v_displace - displace) / m_epsilon;
-
-        // Restore uv
-        perturbed_si.uv[active] = uv_org;
-
-        // Compute surface differentials with map gradient
-        Vector3f dp_du = select(
-            active,
-            fmadd(perturbed_si.sh_frame.n,
-                  grad_u - dot(perturbed_si.sh_frame.n, perturbed_si.dp_du),
-                  perturbed_si.dp_du),
-            .0f);
-        Vector3f dp_dv = select(
-            active,
-            fmadd(perturbed_si.sh_frame.n,
-                  grad_v - dot(perturbed_si.sh_frame.n, perturbed_si.dp_dv),
-                  perturbed_si.dp_dv),
-            .0f);
-
-        // Bump-mapped shading normal
-        perturbed_si.sh_frame.n[active] = normalize(cross(dp_du, dp_dv));
-
-        // Flip if not aligned with geometric normal
-        perturbed_si.sh_frame
-            .n[active &&
-               (dot(perturbed_si.n, perturbed_si.sh_frame.n) < .0f)] *= -1.f;
-
-        // Gram-schmidt orthogonalization to compute local shading frame
-        perturbed_si.sh_frame.s[active] =
-            normalize(fnmadd(perturbed_si.sh_frame.n,
-                             dot(perturbed_si.sh_frame.n, perturbed_si.dp_du),
-                             perturbed_si.dp_du));
-        perturbed_si.sh_frame.t[active] =
-            cross(perturbed_si.sh_frame.n, perturbed_si.sh_frame.s);
-
-        // Express wi in the new the shading frame change
-        perturbed_si.wi[active] = perturbed_si.to_local(si.to_world(si.wi));
-
-        return perturbed_si;
     }
 
     std::pair<BSDFSample3f, Spectrum> sample(const BSDFContext &ctx,
@@ -159,10 +99,13 @@ public:
         MTS_MASKED_FUNCTION(ProfilerPhase::BSDFSample, active);
 
         // Sample nested BSDF with perturbed shading frame
-        const SurfaceInteraction3f perturbed_si = evaluate_bump(si, active);
+        SurfaceInteraction3f perturbed_si(si);
+        perturbed_si.sh_frame = frame(si, active);
+        perturbed_si.wi       = perturbed_si.to_local(si.to_world(si.wi));
+
         auto [bs, weight] = m_nested_bsdf->sample(ctx, perturbed_si,
                                                   sample1, sample2, active);
-        active &= any(neq(weight, 0.f));
+        active &= any(neq(depolarize(weight), 0.f));
         if (none(active))
             return { bs, 0.f };
 
@@ -180,8 +123,9 @@ public:
         MTS_MASKED_FUNCTION(ProfilerPhase::BSDFEvaluate, active);
 
         // Evaluate nested BSDF with perturbed shading frame
-        const SurfaceInteraction3f perturbed_si = evaluate_bump(si, active);
-
+        SurfaceInteraction3f perturbed_si(si);
+        perturbed_si.sh_frame = frame(si, active);
+        perturbed_si.wi       = perturbed_si.to_local(si.to_world(si.wi));
         Vector3f perturbed_wo = perturbed_si.to_local(si.to_world(wo));
 
         active &= Frame3f::cos_theta(wo) *
@@ -194,10 +138,11 @@ public:
               const Vector3f &wo, Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::BSDFEvaluate, active);
 
-        // Evaluate nested BSDF with perturbed shading frame
-        const SurfaceInteraction3f perturbed_si = evaluate_bump(si, active);
-
-        const Vector3f perturbed_wo = perturbed_si.to_local(si.to_world(wo));
+        // Evaluate nested BSDF pdf with perturbed shading frame
+        SurfaceInteraction3f perturbed_si(si);
+        perturbed_si.sh_frame = frame(si, active);
+        perturbed_si.wi       = perturbed_si.to_local(si.to_world(si.wi));
+        Vector3f perturbed_wo = perturbed_si.to_local(si.to_world(wo));
 
         active &= Frame3f::cos_theta(wo) *
                   Frame3f::cos_theta(perturbed_wo) > 0.f;
@@ -205,11 +150,38 @@ public:
         return m_nested_bsdf->pdf(ctx, perturbed_si, perturbed_wo, active);
     }
 
+    Frame3f frame(const SurfaceInteraction3f& si, Mask active) const {
+        Vector2f grad_uv = m_strength * m_bumpmap->eval_1_grad(si, active);
+        Vector3f dp_du =
+            select(active,
+                fmadd(si.sh_frame.n,
+                    grad_uv.x() - dot(si.sh_frame.n, si.dp_du), si.dp_du),
+                .0f);
+        Vector3f dp_dv =
+            select(active,
+                fmadd(si.sh_frame.n,
+                    grad_uv.y() - dot(si.sh_frame.n, si.dp_dv), si.dp_dv),
+                .0f);
+
+        // Bump-mapped shading normal
+        Frame3f result;
+        result.n[active] = normalize(cross(dp_du, dp_dv));
+
+        // Flip if not aligned with geometric normal
+        result.n[active && (dot(si.n, result.n) < .0f)] *= -1.f;
+
+        // Gram-schmidt orthogonalization to compute local shading frame
+        result.s[active] =
+            normalize(fnmadd(result.n, dot(result.n, si.dp_du), si.dp_du));
+        result.t[active] = cross(result.n, result.s);
+
+        return result;
+    }
+
     void traverse(TraversalCallback *callback) override {
         callback->put_object("nested_bsdf", m_nested_bsdf.get());
         callback->put_object("bumpmap", m_bumpmap.get());
         callback->put_parameter("strength", m_strength);
-        callback->put_parameter("epsilon", m_epsilon);
     }
 
     std::string to_string() const override {
@@ -218,7 +190,6 @@ public:
             << "  nested_bsdf = " << string::indent(m_nested_bsdf) << std::endl
             << "  bumpmap = " << string::indent(m_bumpmap) << "," << std::endl
             << "  strength = " << string::indent(m_strength) << "," << std::endl
-            << "  epsilon = " << string::indent(m_epsilon) << "," << std::endl
             << "]";
         return oss.str();
     }
@@ -226,7 +197,6 @@ public:
     MTS_DECLARE_CLASS()
 protected:
     ScalarFloat m_strength;
-    ScalarFloat m_epsilon;
     ref<Texture> m_bumpmap;
     ref<Base> m_nested_bsdf;
 };

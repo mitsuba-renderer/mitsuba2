@@ -7,6 +7,7 @@
 #include <mitsuba/render/interaction.h>
 #include <mitsuba/render/texture.h>
 #include <mitsuba/render/srgb.h>
+#include <mutex>
 #include <tbb/spin_mutex.h>
 
 NAMESPACE_BEGIN(mitsuba)
@@ -297,6 +298,67 @@ public:
                 return luminance(result);
             else
                 return result;
+        }
+    }
+
+    Vector2f eval_1_grad(const SurfaceInteraction3f& si, Mask active = true) const override {
+        MTS_MASKED_FUNCTION(ProfilerPhase::TextureEvaluate, active);
+
+        if constexpr (Channels == 3 && is_spectral_v<Spectrum> && !Raw) {
+            ENOKI_MARK_USED(si);
+            Throw("eval_1_grad(): The bitmap texture %s was queried for a "
+                "monochromatic gradient value, but texture conversion to color "
+                "spectra had previously been requested! (raw=false)",
+                to_string());
+        }
+        else {
+            if (m_filter_type == FilterType::Bilinear) {
+                // Storage representation underlying this texture
+                using StorageType = std::conditional_t<Channels == 1, Float, Color3f>;
+                using Int4 = Array<Int32, 4>;
+                using Int24 = Array<Int4, 2>;
+
+                if constexpr (!is_array_v<Mask>)
+                    active = true;
+
+                Point2f uv = m_transform.transform_affine(si.uv);
+
+                // Scale to bitmap resolution and apply shift
+                uv = fmadd(uv, m_resolution, -.5f);
+
+                // Integer pixel positions for bilinear interpolation
+                Vector2i uv_i = floor2int<Vector2i>(uv);
+
+                // Interpolation weights
+                Point2f w1 = uv - Point2f(uv_i), w0 = 1.f - w1;
+
+                // Apply wrap mode
+                Int24 uv_i_w = wrap(Int24(Int4(0, 1, 0, 1) + uv_i.x(),
+                                          Int4(0, 0, 1, 1) + uv_i.y()));
+
+                Int4 index = uv_i_w.x() + uv_i_w.y() * m_resolution.x();
+
+                /// TODO: merge into a single gather with the upcoming Enoki
+                StorageType v00 = gather<StorageType>(m_data, index.x(), active),
+                            v10 = gather<StorageType>(m_data, index.y(), active),
+                            v01 = gather<StorageType>(m_data, index.z(), active),
+                            v11 = gather<StorageType>(m_data, index.w(), active);
+
+                // Partial derivatives w.r.t. u and v (plane slopes)
+                StorageType v0_u = fmadd(w0.y(), v00, w1.y() * v01),
+                            v1_u = fmadd(w0.y(), v10, w1.y() * v11);
+                StorageType v0_v = fmadd(w0.x(), v00, w1.x() * v10),
+                            v1_v = fmadd(w0.x(), v01, w1.x() * v11);
+
+                if constexpr (Channels == 3)
+                    return m_resolution * Vector2f(luminance(v1_u - v0_u),
+                                                   luminance(v1_v - v0_v));
+                else
+                    return m_resolution * Vector2f(v1_u - v0_u,
+                                                   v1_v - v0_v);
+            }
+            // else if (m_filter_type == FilterType::Nearest)
+            return Vector2f(.0f, .0f);
         }
     }
 
