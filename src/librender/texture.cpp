@@ -74,12 +74,17 @@ Float Texture<Float, Spectrum>::pdf_position(const Point2f &, Mask) const {
 MTS_VARIANT ref<Texture<Float, Spectrum>>
 Texture<Float, Spectrum>::D65(ScalarFloat scale) {
     Properties props(is_spectral_v<Spectrum> ? "d65" : "uniform");
-    props.set_float("value", scale);
+    props.set_float(is_spectral_v<Spectrum> ? "scale" : "value", scale);
     ref<Texture> texture = PluginManager::instance()->create_object<Texture>(props);
     std::vector<ref<Object>> children = texture->expand();
     if (!children.empty())
         return (Texture *) children[0].get();
     return texture;
+}
+
+MTS_VARIANT typename Texture<Float, Spectrum>::ScalarVector2i
+Texture<Float, Spectrum>::resolution() const {
+    return ScalarVector2i(1, 1);
 }
 
 //! @}
@@ -116,6 +121,11 @@ Volume<Float, Spectrum>::eval_gradient(const Interaction3f & /*it*/, Mask /*acti
 
 MTS_VARIANT typename Volume<Float, Spectrum>::ScalarFloat
 Volume<Float, Spectrum>::max() const { NotImplementedError("max"); }
+
+MTS_VARIANT typename Volume<Float, Spectrum>::ScalarVector3i
+Volume<Float, Spectrum>::resolution() const {
+    return ScalarVector3i(1, 1, 1);
+}
 
 //! @}
 // =======================================================================
