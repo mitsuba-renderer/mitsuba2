@@ -344,12 +344,13 @@ public:
                             v01 = gather<StorageType>(m_data, index.z(), active),
                             v11 = gather<StorageType>(m_data, index.w(), active);
 
-                // Partial derivatives w.r.t. u and v (plane slopes)
+                // Partial derivatives w.r.t. x and y (plane slopes)
                 StorageType v0_u = fmadd(w0.y(), v00, w1.y() * v01),
                             v1_u = fmadd(w0.y(), v10, w1.y() * v11);
                 StorageType v0_v = fmadd(w0.x(), v00, w1.x() * v10),
                             v1_v = fmadd(w0.x(), v01, w1.x() * v11);
 
+                // TODO: Take into account arbitrary affine transform
                 if constexpr (Channels == 3)
                     return m_resolution * Vector2f(luminance(v1_u - v0_u),
                                                    luminance(v1_v - v0_v));
