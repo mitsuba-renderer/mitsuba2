@@ -164,19 +164,6 @@ public:
                            Mask active = true) const;
 
     /**
-     * \brief Trichromatic evaluation of the texture gradient at the given
-     * surface interaction
-     *
-     * \param si
-     *     An interaction record describing the associated surface position
-     *
-     * \return
-     *     A (u,v) pair of trichromatic intensity or reflectance value gradients
-     */
-    virtual std::pair<Color3f, Color3f>
-    eval_3_grad(const SurfaceInteraction3f &si, Mask active = true) const;
-
-    /**
      * Return the mean value of the spectrum over the support
      * (MTS_WAVELENGTH_MIN..MTS_WAVELENGTH_MAX)
      *

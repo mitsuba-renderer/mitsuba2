@@ -338,25 +338,27 @@ public:
 
                 Int4 index = uv_i_w.x() + uv_i_w.y() * m_resolution.x();
 
-                /// TODO: merge into a single gather with the upcoming Enoki
-                StorageType v00 = gather<StorageType>(m_data, index.x(), active),
-                            v10 = gather<StorageType>(m_data, index.y(), active),
-                            v01 = gather<StorageType>(m_data, index.z(), active),
-                            v11 = gather<StorageType>(m_data, index.w(), active);
+                auto convert_to_monochrome = [](const auto& a) {
+                    if constexpr (Channels == 3)
+                        return luminance(a);
+                    else
+                        return a;
+                };
 
-                // Partial derivatives w.r.t. x and y (plane slopes)
-                StorageType v0_u = fmadd(w0.y(), v00, w1.y() * v01),
-                            v1_u = fmadd(w0.y(), v10, w1.y() * v11);
-                StorageType v0_v = fmadd(w0.x(), v00, w1.x() * v10),
-                            v1_v = fmadd(w0.x(), v01, w1.x() * v11);
+                Float f00 = convert_to_monochrome(gather<StorageType>(m_data, index.x(), active));
+                Float f10 = convert_to_monochrome(gather<StorageType>(m_data, index.y(), active));
+                Float f01 = convert_to_monochrome(gather<StorageType>(m_data, index.z(), active));
+                Float f11 = convert_to_monochrome(gather<StorageType>(m_data, index.w(), active));
 
-                // TODO: Take into account arbitrary affine transform
-                if constexpr (Channels == 3)
-                    return m_resolution * Vector2f(luminance(v1_u - v0_u),
-                                                   luminance(v1_v - v0_v));
-                else
-                    return m_resolution * Vector2f(v1_u - v0_u,
-                                                   v1_v - v0_v);
+                // Partials w.r.t. pixel coordinate x and y
+                Vector2f df_xy{ fmadd(w0.y(), f10 - f00, w1.y() * (f11 - f01)),
+                                fmadd(w0.x(), f01 - f00, w1.x() * (f11 - f10)) };
+
+                // Partials w.r.t. u and v (include uv transform by transpose multiply)
+                Matrix uv_tm = m_transform.matrix;
+                Vector2f df_uv{ uv_tm.coeff(0, 0) * df_xy.x() + uv_tm.coeff(1, 0) * df_xy.y(),
+                                uv_tm.coeff(0, 1) * df_xy.x() + uv_tm.coeff(1, 1) * df_xy.y() };
+                return m_resolution * df_uv;
             }
             // else if (m_filter_type == FilterType::Nearest)
             return Vector2f(.0f, .0f);
