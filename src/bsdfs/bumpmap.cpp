@@ -1,3 +1,4 @@
+#include <mitsuba/core/bitmap.h>
 #include <mitsuba/core/properties.h>
 #include <mitsuba/core/string.h>
 #include <mitsuba/render/bsdf.h>
@@ -14,13 +15,13 @@ Bump map BSDF adapter (:monosp:`bumpmap`)
 
 .. pluginparameters::
 
- * - bumpmap
+ * - (Nested plugin)
    - |texture|
    - Specifies the bump map texture.
  * - (Nested plugin)
    - |bsdf|
    - A BSDF model that should be affected by the bump map
- * - strength
+ * - scale
    - |float|
    - Bump map gradient multiplier. (Default: 1.0)
 
@@ -34,8 +35,7 @@ texture-space derivative of the base mesh surface normal. As side effect of this
 it is invariant to constant offsets in the height field texture: only variations in its luminance
 cause changes to the shading frame.
 
-Note that the magnitude of the height field variations influences
-the strength of the displacement.
+Note that the magnitude of the height field variations influences the scale of the displacement.
 
 .. subfigstart::
 .. subfigure:: ../../resources/data/docs/images/render/bsdf_bumpmap_without.jpg
@@ -43,7 +43,7 @@ the strength of the displacement.
 .. subfigure:: ../../resources/data/docs/images/render/bsdf_bumpmap_with.jpg
    :caption: Roughplastic BSDF with bump mapping
 .. subfigend::
-   :label: fig-bsdf-bumpmap
+   :label: fig-bumpmap
 
 The following XML snippet describes a rough plastic material affected by a bump
 map. Note the we set the ``raw`` properties of the bump map ``bitmap`` object to
@@ -53,14 +53,14 @@ map. Note the we set the ``raw`` properties of the bump map ``bitmap`` object to
     :name: bumpmap
 
     <bsdf type="bumpmap">
-        <texture name="bumpmap" type="bitmap">
+        <texture name="arbitrary" type="bitmap">
             <boolean name="raw" value="true"/>
             <string name="filename" value="textures/bumpmap.jpg"/>
         </texture>
         <bsdf type="roughplastic"/>
     </bsdf>
 
- */
+*/
 
 template <typename Float, typename Spectrum>
 class BumpMap final : public BSDF<Float, Spectrum> {
@@ -71,20 +71,28 @@ public:
     BumpMap(const Properties &props) : Base(props) {
         for (auto &[name, obj] : props.objects(false)) {
             auto bsdf = dynamic_cast<Base *>(obj.get());
-
             if (bsdf) {
                 if (m_nested_bsdf)
                     Throw("Only a single BSDF child object can be specified.");
                 m_nested_bsdf = bsdf;
                 props.mark_queried(name);
             }
+            auto texture = dynamic_cast<Texture *>(obj.get());
+            if (texture) {
+                if (m_nested_texture)
+                    Throw("Only a single Texture child object can be specified.");
+                m_nested_texture = texture;
+                props.mark_queried(name);
+            }
         }
         if (!m_nested_bsdf)
             Throw("Exactly one BSDF child object must be specified.");
+        if (!m_nested_texture)
+            Throw("Exactly one Texture child object must be specified.");
 
-        m_strength = props.float_("strength", 1.f);
-        m_bumpmap  = props.texture<Texture>("bumpmap", 0.f);
+        m_scale = props.float_("scale", 1.f);
 
+        // Add all nested components
         m_components.clear();
         for (size_t i = 0; i < m_nested_bsdf->component_count(); ++i)
             m_components.push_back(m_nested_bsdf->flags(i));
@@ -101,8 +109,7 @@ public:
         // Sample nested BSDF with perturbed shading frame
         SurfaceInteraction3f perturbed_si(si);
         perturbed_si.sh_frame = frame(si, active);
-        perturbed_si.wi       = perturbed_si.to_local(si.to_world(si.wi));
-
+        perturbed_si.wi = perturbed_si.to_local(si.wi);
         auto [bs, weight] = m_nested_bsdf->sample(ctx, perturbed_si,
                                                   sample1, sample2, active);
         active &= any(neq(depolarize(weight), 0.f));
@@ -110,7 +117,7 @@ public:
             return { bs, 0.f };
 
         // Transform sampled 'wo' back to original frame and check orientation
-        const Vector3f perturbed_wo = si.to_local(perturbed_si.to_world(bs.wo));
+        Vector3f perturbed_wo = perturbed_si.to_world(bs.wo);
         active &= Frame3f::cos_theta(bs.wo) *
                   Frame3f::cos_theta(perturbed_wo) > 0.f;
         bs.wo = perturbed_wo;
@@ -125,8 +132,8 @@ public:
         // Evaluate nested BSDF with perturbed shading frame
         SurfaceInteraction3f perturbed_si(si);
         perturbed_si.sh_frame = frame(si, active);
-        perturbed_si.wi       = perturbed_si.to_local(si.to_world(si.wi));
-        Vector3f perturbed_wo = perturbed_si.to_local(si.to_world(wo));
+        perturbed_si.wi       = perturbed_si.to_local(si.wi);
+        Vector3f perturbed_wo = perturbed_si.to_local(wo);
 
         active &= Frame3f::cos_theta(wo) *
                   Frame3f::cos_theta(perturbed_wo) > 0.f;
@@ -141,8 +148,8 @@ public:
         // Evaluate nested BSDF pdf with perturbed shading frame
         SurfaceInteraction3f perturbed_si(si);
         perturbed_si.sh_frame = frame(si, active);
-        perturbed_si.wi       = perturbed_si.to_local(si.to_world(si.wi));
-        Vector3f perturbed_wo = perturbed_si.to_local(si.to_world(wo));
+        perturbed_si.wi       = perturbed_si.to_local(si.wi);
+        Vector3f perturbed_wo = perturbed_si.to_local(wo);
 
         active &= Frame3f::cos_theta(wo) *
                   Frame3f::cos_theta(perturbed_wo) > 0.f;
@@ -150,54 +157,51 @@ public:
         return m_nested_bsdf->pdf(ctx, perturbed_si, perturbed_wo, active);
     }
 
-    Frame3f frame(const SurfaceInteraction3f& si, Mask active) const {
-        Vector2f grad_uv = m_strength * m_bumpmap->eval_1_grad(si, active);
-        Vector3f dp_du =
-            select(active,
-                fmadd(si.sh_frame.n,
-                    grad_uv.x() - dot(si.sh_frame.n, si.dp_du), si.dp_du),
-                .0f);
-        Vector3f dp_dv =
-            select(active,
-                fmadd(si.sh_frame.n,
-                    grad_uv.y() - dot(si.sh_frame.n, si.dp_dv), si.dp_dv),
-                .0f);
+    Frame3f frame(const SurfaceInteraction3f &si, Mask active) const {
+        // Evaluate texture gradient
+        Vector2f grad_uv = m_scale * m_nested_texture->eval_1_grad(si, active);
+
+        // Compute perturbed differential geometry
+        Vector3f dp_du = fmadd(si.sh_frame.n, grad_uv.x() - dot(si.sh_frame.n, si.dp_du), si.dp_du);
+        Vector3f dp_dv = fmadd(si.sh_frame.n, grad_uv.y() - dot(si.sh_frame.n, si.dp_dv), si.dp_dv);
 
         // Bump-mapped shading normal
         Frame3f result;
-        result.n[active] = normalize(cross(dp_du, dp_dv));
+        result.n = normalize(cross(dp_du, dp_dv));
 
         // Flip if not aligned with geometric normal
-        result.n[active && (dot(si.n, result.n) < .0f)] *= -1.f;
+        result.n[dot(si.n, result.n) < .0f] *= -1.f;
+
+        // Convert to small rotation from original shading frame
+        result.n = si.to_local(result.n);
 
         // Gram-schmidt orthogonalization to compute local shading frame
-        result.s[active] =
-            normalize(fnmadd(result.n, dot(result.n, si.dp_du), si.dp_du));
-        result.t[active] = cross(result.n, result.s);
+        result.s = normalize(fnmadd(result.n, dot(result.n, si.dp_du), si.dp_du));
+        result.t = cross(result.n, result.s);
 
         return result;
     }
 
     void traverse(TraversalCallback *callback) override {
         callback->put_object("nested_bsdf", m_nested_bsdf.get());
-        callback->put_object("bumpmap", m_bumpmap.get());
-        callback->put_parameter("strength", m_strength);
+        callback->put_object("nested_texture", m_nested_texture.get());
+        callback->put_parameter("scale", m_scale);
     }
 
     std::string to_string() const override {
         std::ostringstream oss;
         oss << "BumpMap[" << std::endl
             << "  nested_bsdf = " << string::indent(m_nested_bsdf) << std::endl
-            << "  bumpmap = " << string::indent(m_bumpmap) << "," << std::endl
-            << "  strength = " << string::indent(m_strength) << "," << std::endl
+            << "  nested_texture = " << string::indent(m_nested_texture) << "," << std::endl
+            << "  scale = " << string::indent(m_scale) << "," << std::endl
             << "]";
         return oss.str();
     }
 
     MTS_DECLARE_CLASS()
 protected:
-    ScalarFloat m_strength;
-    ref<Texture> m_bumpmap;
+    ScalarFloat m_scale;
+    ref<Texture> m_nested_texture;
     ref<Base> m_nested_bsdf;
 };
 
