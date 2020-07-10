@@ -28,3 +28,31 @@ def test_sample_position(variant_packet_rgb, filter_type, wrap_mode):
     )
 
     assert chi2.run()
+
+def test_eval_grad(variant_scalar_rgb):
+    # Tests evaluating the texture gradient under different rotation
+    from mitsuba.render import SurfaceInteraction3f
+    from mitsuba.core.xml import load_string
+    from mitsuba.core import Vector2f
+    import numpy as np
+    import enoki as ek
+    delta = 1e-4
+    si = SurfaceInteraction3f()
+    for angle in np.random.rand(10, 1):
+        bitmap = load_string("""
+        <texture type="bitmap" version="2.0.0">
+            <string name="filename" value="resources/data/common/textures/noise_8x8.png"/>
+            <transform name="to_uv">
+                <rotate angle="%f"/>
+            </transform>
+        </texture>""" % angle[0]).expand()[0]
+        for uv in np.random.rand(10, 2):
+            si.uv = Vector2f(uv)
+            f = bitmap.eval_1(si)
+            si.uv = uv + Vector2f(delta, 0)
+            fu = bitmap.eval_1(si)
+            si.uv = uv + Vector2f(0, delta)
+            fv = bitmap.eval_1(si)
+            gradient_finite_difference = Vector2f((fu - f)/delta, (fv - f)/delta)
+            gradient_analytic = bitmap.eval_1_grad(si)
+            assert ek.allclose(0, ek.abs(gradient_finite_difference/gradient_analytic - 1.0), atol = 1e04)
