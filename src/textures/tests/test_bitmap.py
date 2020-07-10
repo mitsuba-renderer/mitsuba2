@@ -38,14 +38,15 @@ def test_eval_grad(variant_scalar_rgb):
     import enoki as ek
     delta = 1e-4
     si = SurfaceInteraction3f()
-    for angle in np.random.rand(10, 1):
+    for u01 in np.random.rand(10, 1):
+        angle = 360.0*u01[0]
         bitmap = load_string("""
         <texture type="bitmap" version="2.0.0">
             <string name="filename" value="resources/data/common/textures/noise_8x8.png"/>
             <transform name="to_uv">
                 <rotate angle="%f"/>
             </transform>
-        </texture>""" % angle[0]).expand()[0]
+        </texture>""" % angle).expand()[0]
         for uv in np.random.rand(10, 2):
             si.uv = Vector2f(uv)
             f = bitmap.eval_1(si)
