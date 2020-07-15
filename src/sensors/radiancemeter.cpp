@@ -3,6 +3,7 @@
 #include <mitsuba/core/transform.h>
 #include <mitsuba/render/fwd.h>
 #include <mitsuba/render/sensor.h>
+#include <mitsuba/render/texture.h>
 
 NAMESPACE_BEGIN(mitsuba)
 
@@ -27,6 +28,10 @@ Radiance meter (:monosp:`radiancemeter`)
    - |vector|
    - Alternative (and exclusive) to `to_world`. Direction in which the
      sensor is pointing in world coordinates. Must be used with `origin`.
+ * - srf
+   - |spectrum|
+   - If set, sensor response function used to sample wavelengths from. This 
+     parameter is ignored if used with nonspectral variants.
 
 This sensor plugin implements a simple radiance meter, which measures
 the incident power per unit area per unit solid angle along a
@@ -46,13 +51,23 @@ priority.
 
 */
 
-MTS_VARIANT class RadianceMeter final : public Sensor<Float, Spectrum> {
+template <typename Float, typename Spectrum>
+class RadianceMeter final : public Sensor<Float, Spectrum> {
 public:
     MTS_IMPORT_BASE(Sensor, m_film, m_world_transform, m_needs_sample_2,
                     m_needs_sample_3)
-    MTS_IMPORT_TYPES()
+    MTS_IMPORT_TYPES(Texture)
 
-    RadianceMeter(const Properties &props) : Base(props) {
+    RadianceMeter(const Properties &props) : Base(props), m_srf(nullptr) {
+        if (props.has_property("srf")) {
+            if constexpr(is_spectral_v<Spectrum>) {
+                m_srf = props.texture<Texture>("srf");
+            } else {
+                Log(Warn, "Ignoring spectral response function "
+                          "(not supported for non-spectral variants)");
+            }
+        }
+
         if (props.has_property("to_world")) {
             // if direction and origin are present but overridden by
             // to_world, they must still be marked as queried
@@ -93,22 +108,34 @@ public:
                                           const Point2f & /*aperture_sample*/,
                                           Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleRay, active);
-        Ray3f ray;
-        ray.time = time;
-
+        
         // 1. Sample spectrum
-        auto [wavelengths, wav_weight] =
-            sample_wavelength<Float, Spectrum>(wavelength_sample);
-        ray.wavelengths = wavelengths;
+        Wavelength wavelengths;
+        Spectrum wav_weight;
+        
+        if (m_srf == nullptr) {
+            std::tie(wavelengths, wav_weight) = 
+                sample_wavelength<Float, Spectrum>(wavelength_sample);
+        } else {
+            std::tie(wavelengths, wav_weight) = 
+                m_srf->sample_spectrum(
+                    zero<SurfaceInteraction3f>(), 
+                    math::sample_shifted<Wavelength>(wavelength_sample)
+                );
+        }
 
         // 2. Set ray origin and direction
+        Ray3f ray;
+        ray.time = time;
+        ray.wavelengths = wavelengths;
+
         auto trafo = m_world_transform->eval(time, active);
         ray.o      = trafo.transform_affine(Point3f{ 0.f, 0.f, 0.f });
         ray.d      = trafo.transform_affine(Vector3f{ 0.f, 0.f, 1.f });
 
         ray.update();
 
-        return std::make_pair(ray, wav_weight);
+        return { ray, wav_weight };
     }
 
     std::pair<RayDifferential3f, Spectrum>
@@ -117,15 +144,26 @@ public:
                             const Point2f & /*aperture_sample*/,
                             Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleRay, active);
-        RayDifferential3f ray;
-        ray.time = time;
-
         // 1. Sample spectrum
-        auto [wavelengths, wav_weight] =
-            sample_wavelength<Float, Spectrum>(wavelength_sample);
-        ray.wavelengths = wavelengths;
+        Wavelength wavelengths;
+        Spectrum wav_weight;
+        
+        if (m_srf == nullptr) {
+            std::tie(wavelengths, wav_weight) = 
+                sample_wavelength<Float, Spectrum>(wavelength_sample);
+        } else {
+            std::tie(wavelengths, wav_weight) = 
+                m_srf->sample_spectrum(
+                    zero<SurfaceInteraction3f>(), 
+                    math::sample_shifted<Wavelength>(wavelength_sample)
+                );
+        }
 
         // 2. Set ray origin and direction
+        RayDifferential3f ray;
+        ray.time = time;
+        ray.wavelengths = wavelengths;
+
         auto trafo = m_world_transform->eval(time, active);
         ray.o      = trafo.transform_affine(Point3f{ 0.f, 0.f, 0.f });
         ray.d      = trafo.transform_affine(Vector3f{ 0.f, 0.f, 1.f });
@@ -136,7 +174,7 @@ public:
 
         ray.update();
 
-        return std::make_pair(ray, wav_weight);
+        return { ray, wav_weight };
     }
 
     ScalarBoundingBox3f bbox() const override {
@@ -145,15 +183,20 @@ public:
     }
 
     std::string to_string() const override {
+        using string::indent;
+        
         std::ostringstream oss;
         oss << "RadianceMeter[" << std::endl
             << "  world_transform = " << m_world_transform << "," << std::endl
             << "  film = " << m_film << "," << std::endl
+            << "  srf = " << indent(m_srf)  << std::endl
             << "]";
         return oss.str();
     }
 
     MTS_DECLARE_CLASS()
+private:
+    ref<Texture> m_srf;
 };
 
 MTS_IMPLEMENT_CLASS_VARIANT(RadianceMeter, Sensor)

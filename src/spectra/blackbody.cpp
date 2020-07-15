@@ -8,8 +8,8 @@ NAMESPACE_BEGIN(mitsuba)
 
 .. _spectrum-blackbody:
 
-sRGB D65 spectrum (:monosp:`blackbody`)
----------------------------------------
+Blackbody spectrum (:monosp:`blackbody`)
+----------------------------------------
 
 This is a black body radiation spectrum for a specified temperature
 And therefore takes a single :monosp:`float`-valued parameter :paramtype:`temperature` (in Kelvins).

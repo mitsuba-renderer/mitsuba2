@@ -2,6 +2,7 @@
 #include <mitsuba/core/properties.h>
 #include <mitsuba/core/transform.h>
 #include <mitsuba/core/bbox.h>
+#include <mitsuba/render/texture.h>
 
 NAMESPACE_BEGIN(mitsuba)
 
@@ -47,6 +48,10 @@ Perspective pinhole camera (:monosp:`perspective`)
    - |float|
    - Distance to the near/far clip planes. (Default: :monosp:`near_clip=1e-2` (i.e. :monosp:`0.01`)
      and :monosp:`far_clip=1e4` (i.e. :monosp:`10000`))
+ * - srf
+   - |spectrum|
+   - If set, sensor response function used to sample wavelengths from. This parameter is ignored if 
+     used with nonspectral variants.
 
 .. subfigstart::
 .. subfigure:: ../../resources/data/docs/images/render/sensor_perspective.jpg
@@ -56,7 +61,7 @@ Perspective pinhole camera (:monosp:`perspective`)
 .. subfigend::
    :label: fig-perspective
 
-This plugin implements a simple idealizied perspective camera model, which
+This plugin implements a simple idealized perspective camera model, which
 has an infinitely small aperture. This creates an infinite depth of field,
 i.e. no optical blurring occurs.
 
@@ -89,18 +94,26 @@ public:
     MTS_IMPORT_BASE(ProjectiveCamera, m_world_transform, m_needs_sample_3,
                     m_film, m_sampler, m_resolution, m_shutter_open,
                     m_shutter_open_time, m_near_clip, m_far_clip)
-    MTS_IMPORT_TYPES()
+    MTS_IMPORT_TYPES(Texture)
 
     // =============================================================
     //! @{ \name Constructors
     // =============================================================
 
-    PerspectiveCamera(const Properties &props) : Base(props) {
+    PerspectiveCamera(const Properties &props) : Base(props), m_srf(nullptr) {
         ScalarVector2i size = m_film->size();
         m_x_fov = parse_fov(props, size.x() / (float) size.y());
 
         if (m_world_transform->has_scale())
             Throw("Scale factors in the camera-to-world transformation are not allowed!");
+
+        if (props.has_property("srf")) {
+            if constexpr(is_spectral_v<Spectrum>) {
+                m_srf = props.texture<Texture>("srf");
+            } else {
+                Log(Warn, "Ignoring spectral response function (not supported for non-spectral variants)");
+            }
+        }
 
         update_camera_transforms();
     }
@@ -143,7 +156,21 @@ public:
                                           Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleRay, active);
 
-        auto [wavelengths, wav_weight] = sample_wavelength<Float, Spectrum>(wavelength_sample);
+        // Sample spectrum
+        Wavelength wavelengths;
+        Spectrum wav_weight;
+        
+        if (m_srf == nullptr) {
+            std::tie(wavelengths, wav_weight) = 
+                sample_wavelength<Float, Spectrum>(wavelength_sample);
+        } else {
+            std::tie(wavelengths, wav_weight) = 
+                m_srf->sample_spectrum(
+                    zero<SurfaceInteraction3f>(), 
+                    math::sample_shifted<Wavelength>(wavelength_sample)
+                );
+        }
+
         Ray3f ray;
         ray.time = time;
         ray.wavelengths = wavelengths;
@@ -171,8 +198,22 @@ public:
     sample_ray_differential(Float time, Float wavelength_sample, const Point2f &position_sample,
                             const Point2f & /*aperture_sample*/, Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleRay, active);
-
-        auto [wavelengths, wav_weight] = sample_wavelength<Float, Spectrum>(wavelength_sample);
+        
+        // Sample spectrum
+        Wavelength wavelengths;
+        Spectrum wav_weight;
+        
+        if (m_srf == nullptr) {
+            std::tie(wavelengths, wav_weight) = 
+                sample_wavelength<Float, Spectrum>(wavelength_sample);
+        } else {
+            std::tie(wavelengths, wav_weight) = 
+                m_srf->sample_spectrum(
+                    zero<SurfaceInteraction3f>(), 
+                    math::sample_shifted<Wavelength>(wavelength_sample)
+                );
+        }
+                                         
         RayDifferential3f ray;
         ray.time = time;
         ray.wavelengths = wavelengths;
@@ -291,6 +332,7 @@ public:
             << "  shutter_open = " << m_shutter_open << "," << std::endl
             << "  shutter_open_time = " << m_shutter_open_time << "," << std::endl
             << "  world_transform = " << indent(m_world_transform) << std::endl
+            << "  srf = " << indent(m_srf)  << std::endl
             << "]";
         return oss.str();
     }
@@ -303,6 +345,7 @@ private:
     ScalarFloat m_normalization;
     ScalarFloat m_x_fov;
     ScalarVector3f m_dx, m_dy;
+    ref<Texture> m_srf;
 };
 
 MTS_IMPLEMENT_CLASS_VARIANT(PerspectiveCamera, ProjectiveCamera)
