@@ -113,8 +113,6 @@ public:
         auto [bs, weight] = m_nested_bsdf->sample(ctx, perturbed_si,
                                                   sample1, sample2, active);
         active &= any(neq(depolarize(weight), 0.f));
-        if (none(active))
-            return { bs, 0.f };
 
         // Transform sampled 'wo' back to original frame and check orientation
         Vector3f perturbed_wo = perturbed_si.to_world(bs.wo);
@@ -138,7 +136,7 @@ public:
         active &= Frame3f::cos_theta(wo) *
                   Frame3f::cos_theta(perturbed_wo) > 0.f;
 
-        return m_nested_bsdf->eval(ctx, perturbed_si, perturbed_wo, active);
+        return select(active, m_nested_bsdf->eval(ctx, perturbed_si, perturbed_wo, active), 0.f);
     }
 
     Float pdf(const BSDFContext &ctx, const SurfaceInteraction3f &si,
@@ -154,7 +152,7 @@ public:
         active &= Frame3f::cos_theta(wo) *
                   Frame3f::cos_theta(perturbed_wo) > 0.f;
 
-        return m_nested_bsdf->pdf(ctx, perturbed_si, perturbed_wo, active);
+        return select(active, m_nested_bsdf->pdf(ctx, perturbed_si, perturbed_wo, active), 0.f);
     }
 
     Frame3f frame(const SurfaceInteraction3f &si, Mask active) const {
