@@ -249,14 +249,6 @@ MTS_VARIANT RTCGeometry Shape<Float, Spectrum>::embree_geometry(RTCDevice device
         Throw("embree_geometry() should only be called in CPU mode.");
     }
 }
-
-MTS_VARIANT void Shape<Float, Spectrum>::init_embree_scene(RTCDevice /*device*/){
-   NotImplementedError("init_embree_scene");
-}
-
-MTS_VARIANT void Shape<Float, Spectrum>::release_embree_scene(){
-   NotImplementedError("release_embree_scene");
-}
 #endif
 
 #if defined(MTS_ENABLE_OPTIX)

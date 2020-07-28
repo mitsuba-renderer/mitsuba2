@@ -54,7 +54,7 @@ MTS_VARIANT ShapeGroup<Float, Spectrum>::~ShapeGroup() {
 }
 
 #if defined(MTS_ENABLE_EMBREE)
-MTS_VARIANT RTCGeometry ShapeGroup<Float, Spectrum>::embree_geometry(RTCDevice device) override {
+MTS_VARIANT RTCGeometry ShapeGroup<Float, Spectrum>::embree_geometry(RTCDevice device) {
     if constexpr (!is_cuda_array_v<Float>) {
         // Construct the BVH only once
         if (m_embree_scene == nullptr) {

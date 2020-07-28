@@ -39,8 +39,6 @@ MTS_VARIANT void Scene<Float, Spectrum>::accel_init_cpu(const Properties &/*prop
 }
 
 MTS_VARIANT void Scene<Float, Spectrum>::accel_release_cpu() {
-    for (Shape *shapegroup : m_shapegroups)
-        shapegroup->release_embree_scene();
     rtcReleaseScene((RTCScene) m_accel);
 }
 
