@@ -32,7 +32,14 @@ extern "C" {
 #   pragma warning(disable : 4611) // interaction between '_setjmp' and C++ object destruction is non-portable
 #endif
 
+#include <ImathBox.h>
+#include <ImfChannelList.h>
+#include <ImfCompressionAttribute.h>
+#include <ImfDoubleAttribute.h>
+#include <ImfFloatAttribute.h>
+#include <ImfIO.h>
 #include <ImfInputFile.h>
+#include <ImfIntAttribute.h>
 #include <ImfStandardAttributes.h>
 #include <ImfRgbaYca.h>
 #include <ImfOutputFile.h>
@@ -354,6 +361,76 @@ ref<Bitmap> Bitmap::resample(const Vector2u &res, const ReconstructionFilter *rf
     result->m_struct = m_struct;
     result->m_metadata = m_metadata;
     resample(result, rfilter, bc, bound, nullptr);
+    return result;
+}
+
+int Bitmap::getBytesPerComponent() const {
+    switch (m_component_format) {
+        case Struct::Type::UInt8:
+        case Struct::Type::Int8:
+            return 1;
+            break;
+        case Struct::Type::UInt16:
+        case Struct::Type::Int16:
+            return 2;
+            break;
+        case Struct::Type::UInt32:
+        case Struct::Type::Int32:
+            return 4;
+            break;
+        case Struct::Type::UInt64:
+        case Struct::Type::Int64:
+            return 8;
+            break;
+        case Struct::Type::Float16:
+            return 2;
+            break;
+        case Struct::Type::Float32:
+            return 4;
+            break;
+        case Struct::Type::Float64:
+            return 8;
+            break;
+        case Struct::Type::Invalid:
+            Log(Error, "Bitmask images have less than 1 byte per component!");
+            return -1;
+        default:
+            Log(Error, "Unknown component format!");
+            return -1;
+    }
+}
+
+ref<Bitmap> Bitmap::extractChannels(const PixelFormat fmt, const std::vector<int> &channels) const {
+    size_t channelCount = channel_count();
+
+    for (size_t i = 0; i < channels.size(); ++i)
+        if (channels[i] < 0 || channels[i] >= channelCount)
+            Log(Error,
+                "Bitmap::extractChannel(%i): channel index "
+                "must be between 0 and %i",
+                channels[i], channelCount - 1);
+
+    
+
+    ref<Bitmap> result =
+        new Bitmap(fmt, m_component_format, m_size, (int) channels.size());
+    //result->m_struct   = m_struct;
+    result->m_metadata = m_metadata;
+
+    size_t componentSize = getBytesPerComponent();
+    size_t stride        = channelCount * componentSize;
+    size_t pixelCount    = (size_t) m_size.x() * (size_t) m_size.y();
+
+    const uint8_t *source = uint8_data();
+    uint8_t *target       = result->uint8_data();
+
+    for (size_t px = 0; px < pixelCount; ++px) {
+        for (size_t ch = 0; ch < channels.size(); ++ch)
+            for (size_t c = 0; c < componentSize; ++c)
+                *target++ = (source + channels[ch] * componentSize)[c];
+        source += stride;
+    }
+
     return result;
 }
 

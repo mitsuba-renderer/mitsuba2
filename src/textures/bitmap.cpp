@@ -58,6 +58,12 @@ Bitmap texture (:monosp:`bitmap`)
      values. A 4x4 matrix can also be provided, in which case the extra row and
      column are ignored.
 
+ * - channel
+   - |string|
+   - Create a monochromatic texture based on one of the image channels
+     (e.g. r, g, b, a, x, y, z etc.). (Default: use all channels)
+
+
 This plugin provides a bitmap texture that performs interpolated lookups given
 a JPEG, PNG, OpenEXR, RGBE, TGA, or BMP input file.
 
@@ -118,10 +124,29 @@ public:
                   "\"mirror\", or \"clamp\"!", wrap_mode);
 
         m_bitmap = new Bitmap(file_path);
+        Bitmap::PixelFormat pixel_format = m_bitmap->pixel_format();
+
+
+        m_channel = props.string("channel", "");
+        if (!m_channel.empty()) {
+            /* Create a texture from a certain channel of an image */
+            
+
+            Bitmap::PixelFormat new_fmt;
+            std::vector<int> channels = findChannels(m_channel, new_fmt);
+            m_bitmap = m_bitmap->extractChannels(new_fmt, channels);
+
+
+            Log(Debug,
+                "BitmapTexture: extracted channel \"%s\" out of PixelFormat.%d to create "
+                "a new bitmap with pixel format PixelFormat.%d.",
+                m_channel, pixel_format, new_fmt);
+        }
+
+
 
         /* Convert to linear RGB float bitmap, will be converted
            into spectral profile coefficients below (in place) */
-        Bitmap::PixelFormat pixel_format = m_bitmap->pixel_format();
         switch (pixel_format) {
             case Bitmap::PixelFormat::Y:
             case Bitmap::PixelFormat::YA:
@@ -206,6 +231,53 @@ public:
     }
 
     /**
+     * Parse the channel string into a vector of channels and a new pixel format based on the new number of channels
+     * e.g.: r => [0] or rb => [0,2] or bg => [2,1] 
+     */
+    static std::vector<int> findChannels(const std::string channelStr, Bitmap::PixelFormat& new_fmt) {
+
+        std::vector<int> channels;
+        for (std::string::size_type i = 0; i < channelStr.size(); ++i) {
+            int channel = 0;
+            char c = std::tolower(channelStr[i]);
+            if (c == 'r' || c == 'x')
+                channel = 0;
+            else if (c == 'g' || c == 'y')
+                channel = 1;
+            else if (c == 'b' || c == 'z')
+                channel = 2;
+            else if (c == 'a' || c == 'A')
+                channel = 3;
+            else {
+                Log(Warn,
+                    "Unsupported channel %c in \"%s\" for converting to "
+                    "monochromatic bitmap.",
+                    c, channelStr);
+                Throw("Unsupported channel %c in \"%s\" for converting to "
+                      "monochromatic bitmap.",
+                      c, channelStr);
+            }
+            channels.emplace_back(channel);
+        }
+
+        // Set new pixel format based on number of channels
+        if (channels.size() == 1)
+            new_fmt = Bitmap::PixelFormat::Y;
+        else if (channels.size() == 2)
+            new_fmt = Bitmap::PixelFormat::YA;
+        else if (channels.size() == 3)
+            new_fmt = Bitmap::PixelFormat::RGB;
+        else if (channels.size() == 4)
+            new_fmt = Bitmap::PixelFormat::RGBA;
+        else
+            Throw("Unsupported channel count after filtering: %d (expected 1, 2, 3 or 4)", channels.size());
+
+
+
+        return channels;
+    }
+
+    /**
      * Recursively expand into an implementation specialized to the
      * actual loaded image.
      */
@@ -229,7 +301,7 @@ protected:
     template <uint32_t Channels, bool Raw> Object* expand_3() const {
         Properties props;
         return new BitmapTextureImpl<Float, Spectrum, Channels, Raw>(
-            props, m_bitmap, m_name, m_transform, m_mean, m_filter_type, m_wrap_mode);
+            props, m_bitmap, m_name, m_transform, m_mean, m_filter_type, m_wrap_mode, m_channel);
     }
 
 protected:
@@ -240,6 +312,7 @@ protected:
     ScalarFloat m_mean;
     FilterType m_filter_type;
     WrapMode m_wrap_mode;
+    std::string m_channel;
 };
 
 template <typename Float, typename Spectrum, uint32_t Channels, bool Raw>
@@ -253,13 +326,15 @@ public:
                       const ScalarTransform3f &transform,
                       ScalarFloat mean,
                       FilterType filter_type,
-                      WrapMode wrap_mode)
+                      WrapMode wrap_mode,
+                      const std::string &channel)
         : Texture(props),
           m_resolution(ScalarVector2i(bitmap->size())),
           m_inv_resolution_x((int) bitmap->width()),
           m_inv_resolution_y((int) bitmap->height()),
           m_name(name), m_transform(transform), m_mean(mean),
-          m_filter_type(filter_type), m_wrap_mode(wrap_mode){
+          m_filter_type(filter_type), m_wrap_mode(wrap_mode),
+          m_channel(channel){
         m_data = DynamicBuffer<Float>::copy(bitmap->data(),
             hprod(m_resolution) * Channels);
     }
@@ -587,6 +662,7 @@ public:
             << "  raw = " << (int) Raw << "," << std::endl
             << "  mean = " << m_mean << "," << std::endl
             << "  transform = " << string::indent(m_transform) << std::endl
+            << "  selected channel = " << m_channel << std::endl
             << "]";
         return oss.str();
     }
@@ -662,6 +738,7 @@ protected:
     ScalarFloat m_mean;
     FilterType m_filter_type;
     WrapMode m_wrap_mode;
+    std::string m_channel;
 
     // Optional: distribution for importance sampling
     mutable tbb::spin_mutex m_mutex;

@@ -239,6 +239,10 @@ public:
     /// Move constructor
     Bitmap(Bitmap &&bitmap);
 
+
+    int getBytesPerComponent() const;
+
+
     /// Return the pixel format of this bitmap
     PixelFormat pixel_format() const { return m_pixel_format; }
 
@@ -379,6 +383,13 @@ public:
     /// Equivalent to \ref write(), but executes asynchronously on a different thread
     void write_async(const fs::path &path, FileFormat format = FileFormat::Auto,
                      int quality = -1) const;
+
+    /**
+     * \brief Extract several color channels of a multi-channel
+     * bitmap and return them as a bitmap with the given pixel format
+     */
+    ref<Bitmap> Bitmap::extractChannels(PixelFormat fmt, const std::vector<int> &channels) const;
+
 
     /**
      * \brief Up- or down-sample this image to a different resolution
