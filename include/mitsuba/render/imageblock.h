@@ -77,7 +77,7 @@ public:
      * \param pos
      *    Denotes the sample position in fractional pixel coordinates. It is
      *    not checked, and so must be valid. The block's offset is subtracted
-     *    from the given position to obtain the
+     *    from the given position to obtain the final pixel position.
      *
      * \param wavelengths
      *    Sample wavelengths in nanometers
@@ -126,7 +126,7 @@ public:
      * \param pos
      *    Denotes the sample position in fractional pixel coordinates. It is
      *    not checked, and so must be valid. The block's offset is subtracted
-     *    from the given position to obtain the
+     *    from the given position to obtain the final pixel position.
      *
      * \param value
      *    Pointer to an array containing each channel of the sample values.

@@ -157,8 +157,12 @@ MTS_VARIANT bool SamplingIntegrator<Float, Spectrum>::render(Scene *scene, Senso
                                                film->reconstruction_filter(),
                                                !has_aovs);
         block->clear();
+        block->set_offset(sensor->film()->crop_offset());
+
         Vector2f pos = Vector2f(Float(idx % uint32_t(film_size[0])),
                                 Float(idx / uint32_t(film_size[0])));
+        pos += block->offset();
+
         std::vector<Float> aovs(channels.size());
 
         for (size_t i = 0; i < n_passes; i++)
