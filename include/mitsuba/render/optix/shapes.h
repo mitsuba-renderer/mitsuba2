@@ -173,7 +173,7 @@ void prepare_ias(const OptixDeviceContext &context,
                        uint32_t base_sbt_offset,
                        const OptixAccelData &accel,
                        uint32_t instance_id,
-                       const ScalarTransform4f& transf,
+                       const Transform4f& transf,
                        std::vector<OptixInstance> &out_instances) {
     // Find all instances in the list of shapes
     std::vector<Shape*> instances;
