@@ -262,8 +262,6 @@ protected:
     Volume(const Properties &props);
     virtual ~Volume() {}
 
-    virtual Mask is_inside(const Interaction3f &it, Mask active = true) const = 0;
-
     void update_bbox() {
         ScalarPoint3f a(0.f, 0.f, 0.f);
         ScalarPoint3f b(1.f, 1.f, 1.f);

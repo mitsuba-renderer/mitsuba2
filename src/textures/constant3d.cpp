@@ -7,7 +7,7 @@ NAMESPACE_BEGIN(mitsuba)
 template <typename Float, typename Spectrum>
 class ConstVolume final : public Volume<Float, Spectrum> {
 public:
-    MTS_IMPORT_BASE(Volume, is_inside, m_world_to_local)
+    MTS_IMPORT_BASE(Volume, m_world_to_local)
     MTS_IMPORT_TYPES(Texture)
 
     ConstVolume(const Properties &props) : Base(props) {
@@ -33,10 +33,6 @@ public:
         return result;
     }
 
-    Mask is_inside(const Interaction3f &it, Mask /*active*/) const override {
-        auto p = m_world_to_local * it.p;
-        return all((p >= 0) && (p <= 1));
-    }
 
     ScalarFloat max() const override { NotImplementedError("max"); }
 

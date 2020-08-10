@@ -96,10 +96,6 @@ public:
         props.mark_queried("max_value");
     }
 
-    Mask is_inside(const Interaction3f & /* it */, Mask /*active*/) const override {
-       return true; // dummy implementation
-    }
-
     template <uint32_t Channels, bool Raw> using Impl = GridVolumeImpl<Float, Spectrum, Channels, Raw>;
 
     /**
@@ -135,7 +131,7 @@ protected:
 template <typename Float, typename Spectrum, uint32_t Channels, bool Raw>
 class GridVolumeImpl final : public Volume<Float, Spectrum> {
 public:
-    MTS_IMPORT_BASE(Volume, is_inside, update_bbox, m_world_to_local)
+    MTS_IMPORT_BASE(Volume, update_bbox, m_world_to_local)
     MTS_IMPORT_TYPES()
 
     GridVolumeImpl(const Properties &props, const VolumeMetadata &meta,
@@ -205,7 +201,6 @@ public:
         }
     }
 
-
     Vector3f eval_3(const Interaction3f &it, Mask active = true) const override {
         ENOKI_MARK_USED(it);
         ENOKI_MARK_USED(active);
@@ -222,8 +217,6 @@ public:
         }
     }
 
-
-
     MTS_INLINE auto eval_impl(const Interaction3f &it, Mask active) const {
         MTS_MASKED_FUNCTION(ProfilerPhase::TextureEvaluate, active);
 
@@ -232,17 +225,10 @@ public:
         using ResultType = std::conditional_t<uses_srgb_model, UnpolarizedSpectrum, StorageType>;
 
         auto p = m_world_to_local * it.p;
-        active &= all((p >= 0) && (p <= 1));
-
         if (none_or<false>(active))
             return zero<ResultType>();
         ResultType result = interpolate(p, it.wavelengths, active);
         return select(active, result, zero<ResultType>());
-    }
-
-    Mask is_inside(const Interaction3f &it, Mask /*active*/) const override {
-        auto p = m_world_to_local * it.p;
-        return all((p >= 0) && (p <= 1));
     }
 
     template <typename T> T wrap(const T &value) const {
