@@ -173,7 +173,7 @@ void prepare_ias(const OptixDeviceContext &context,
                        uint32_t base_sbt_offset,
                        const OptixAccelData &accel,
                        uint32_t instance_id,
-                       const Transform4f& transf,
+                       const ScalarTransform4f& transf,
                        std::vector<OptixInstance> &out_instances) {
     // Find all instances in the list of shapes
     std::vector<Shape*> instances;
@@ -189,11 +189,12 @@ void prepare_ias(const OptixDeviceContext &context,
 
     unsigned int sbt_offset = base_sbt_offset;
 
-    float T[12] = {
-        transf.matrix(0, 0), transf.matrix(0, 1), transf.matrix(0, 2), transf.matrix(0, 3),
-        transf.matrix(1, 0), transf.matrix(1, 1), transf.matrix(1, 2), transf.matrix(1, 3),
-        transf.matrix(2, 0), transf.matrix(2, 1), transf.matrix(2, 2), transf.matrix(2, 3)
-    };
+    float T[12] = { (float) transf.matrix(0, 0), (float) transf.matrix(0, 1),
+                    (float) transf.matrix(0, 2), (float) transf.matrix(0, 3),
+                    (float) transf.matrix(1, 0), (float) transf.matrix(1, 1),
+                    (float) transf.matrix(1, 2), (float) transf.matrix(1, 3),
+                    (float) transf.matrix(2, 0), (float) transf.matrix(2, 1),
+                    (float) transf.matrix(2, 2), (float) transf.matrix(2, 3) };
 
     // Check whether transformation should be disabled on the IAS
     uint32_t flags = (transf == Transform4f())

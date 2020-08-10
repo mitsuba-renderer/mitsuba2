@@ -96,8 +96,8 @@ public:
         ScalarVector2i size = m_irradiance->resolution();
         m_x_fov = parse_fov(props, size.x() / (float) size.y());
 
-        m_camera_to_sample = perspective_projection(size, size, 0, m_x_fov,
-                                                    1e-4f, 1e4f);
+        m_camera_to_sample = perspective_projection<ScalarFloat>(
+            size, size, 0, m_x_fov, 1e-4f, 1e4f);
 
         m_sample_to_camera = m_camera_to_sample.inverse();
 
