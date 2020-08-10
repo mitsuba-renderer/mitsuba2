@@ -434,7 +434,7 @@ Scene<Float, Spectrum>::ray_intersect_gpu(const Ray3f &ray_, HitComputeFlags fla
             if (!has_flag(flags, HitComputeFlags::NonDifferentiable) &&
                 (requires_gradient(ray_.o) || shapes_grad_enabled())) {
                 auto pi = ray_intersect_preliminary_gpu(ray_, active);
-                return pi.compute_surface_interaction(ray_, flags, active);
+                return pi.compute_surface_interaction(ray_, flags, pi.is_valid());
             }
         }
 
