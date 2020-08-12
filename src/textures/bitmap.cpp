@@ -133,8 +133,8 @@ public:
             
 
             Bitmap::PixelFormat new_fmt;
-            std::vector<int> channels = findChannels(m_channel, new_fmt);
-            m_bitmap = m_bitmap->extractChannels(new_fmt, channels);
+            std::vector<int> channels = find_channels(m_channel, new_fmt);
+            m_bitmap = m_bitmap->extract_channels(new_fmt, channels);
 
 
             Log(Debug,
@@ -237,9 +237,9 @@ public:
     static std::vector<int> find_channels(const std::string channel_str, Bitmap::PixelFormat& new_fmt) {
 
         std::vector<int> channels;
-        for (std::string::size_type i = 0; i < channelStr.size(); ++i) {
+        for (std::string::size_type i = 0; i < channel_str.size(); ++i) {
             int channel = 0;
-            char c = std::tolower(channelStr[i]);
+            char c = std::tolower(channel_str[i]);
             if (c == 'r' || c == 'x')
                 channel = 0;
             else if (c == 'g' || c == 'y')
@@ -252,10 +252,10 @@ public:
                 Log(Warn,
                     "Unsupported channel %c in \"%s\" for converting to "
                     "monochromatic bitmap.",
-                    c, channelStr);
+                    c, channel_str);
                 Throw("Unsupported channel %c in \"%s\" for converting to "
                       "monochromatic bitmap.",
-                      c, channelStr);
+                      c, channel_str);
             }
             channels.emplace_back(channel);
         }

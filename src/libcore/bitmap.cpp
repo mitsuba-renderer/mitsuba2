@@ -364,7 +364,7 @@ ref<Bitmap> Bitmap::resample(const Vector2u &res, const ReconstructionFilter *rf
     return result;
 }
 
-int Bitmap::getBytesPerComponent() const {
+int Bitmap::get_bytes_per_component() const {
     switch (m_component_format) {
         case Struct::Type::UInt8:
         case Struct::Type::Int8:
@@ -400,7 +400,7 @@ int Bitmap::getBytesPerComponent() const {
     }
 }
 
-ref<Bitmap> Bitmap::extractChannels(const PixelFormat fmt, const std::vector<int> &channels) const {
+ref<Bitmap> Bitmap::extract_channels(const PixelFormat fmt, const std::vector<int> &channels) const {
     size_t channelCount = channel_count();
 
     for (size_t i = 0; i < channels.size(); ++i)
@@ -417,7 +417,7 @@ ref<Bitmap> Bitmap::extractChannels(const PixelFormat fmt, const std::vector<int
     //result->m_struct   = m_struct;
     result->m_metadata = m_metadata;
 
-    size_t componentSize = getBytesPerComponent();
+    size_t componentSize = get_bytes_per_component();
     size_t stride        = channelCount * componentSize;
     size_t pixelCount    = (size_t) m_size.x() * (size_t) m_size.y();
 
