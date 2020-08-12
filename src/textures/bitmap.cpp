@@ -126,24 +126,18 @@ public:
         m_bitmap = new Bitmap(file_path);
         Bitmap::PixelFormat pixel_format = m_bitmap->pixel_format();
 
-
         m_channel = props.string("channel", "");
         if (!m_channel.empty()) {
             /* Create a texture from a certain channel of an image */
-            
-
             Bitmap::PixelFormat new_fmt;
             std::vector<int> channels = find_channels(m_channel, new_fmt);
             m_bitmap = m_bitmap->extract_channels(new_fmt, channels);
-
 
             Log(Debug,
                 "BitmapTexture: extracted channel \"%s\" out of PixelFormat.%d to create "
                 "a new bitmap with pixel format PixelFormat.%d.",
                 m_channel, pixel_format, new_fmt);
         }
-
-
 
         /* Convert to linear RGB float bitmap, will be converted
            into spectral profile coefficients below (in place) */
