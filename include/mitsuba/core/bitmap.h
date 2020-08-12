@@ -240,7 +240,7 @@ public:
     Bitmap(Bitmap &&bitmap);
 
 
-    int getBytesPerComponent() const;
+    int get_bytes_per_component() const;
 
 
     /// Return the pixel format of this bitmap
