@@ -239,9 +239,8 @@ public:
     /// Move constructor
     Bitmap(Bitmap &&bitmap);
 
-
+    // Returns number of bytes per pixel channel
     int get_bytes_per_component() const;
-
 
     /// Return the pixel format of this bitmap
     PixelFormat pixel_format() const { return m_pixel_format; }
