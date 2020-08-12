@@ -388,7 +388,7 @@ public:
      * \brief Extract several color channels of a multi-channel
      * bitmap and return them as a bitmap with the given pixel format
      */
-    ref<Bitmap> Bitmap::extractChannels(PixelFormat fmt, const std::vector<int> &channels) const;
+    ref<Bitmap> Bitmap::extract_channels(PixelFormat fmt, const std::vector<int> &channels) const;
 
 
     /**
