@@ -234,7 +234,7 @@ public:
      * Parse the channel string into a vector of channels and a new pixel format based on the new number of channels
      * e.g.: r => [0] or rb => [0,2] or bg => [2,1] 
      */
-    static std::vector<int> findChannels(const std::string channelStr, Bitmap::PixelFormat& new_fmt) {
+    static std::vector<int> find_channels(const std::string channel_str, Bitmap::PixelFormat& new_fmt) {
 
         std::vector<int> channels;
         for (std::string::size_type i = 0; i < channelStr.size(); ++i) {
