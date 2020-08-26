@@ -2,19 +2,21 @@
 
 Here are Docker files for running Mitsuba 2 either CPU only, or also with GPU support.
 
-**Attention!** For GPU and CUDA/OptiX to work, you need to have new Nvidia drivers with builtin OptiX libraries, and also updated Docker and Nvidia Docker that provide proper mounting of OptiX libraries. You do **not** need to install OptiX SDK, it is **not** necessary for Mitsuba 2! Only the updated Nvidia drivers and Docker are needed.
+**Attention!** For GPU and CUDA/OptiX to work, you need to have new Nvidia drivers with builtin OptiX libraries, and also updated Docker and Nvidia Docker that provide proper mounting of OptiX libraries. You do **not** need to install OptiX SDK, it is **not** necessary for new versions of Mitsuba 2! Only the updated Nvidia drivers and Docker are needed.
 
 ## Building the images
 
 Building the CPU only version:
 
 ```
+cd /path/to/mitsuba2/resources/docker
 docker build -t mitsuba2:cpu -f linux-cpu.Dockerfile .
 ```
 
 Building the CPU/GPU version:
 
 ```
+cd /path/to/mitsuba2/resources/docker
 docker build -t mitsuba2:gpu -f linux-gpu.Dockerfile .
 ```
 
@@ -38,11 +40,13 @@ cd /path/to/mitsuba2
 docker run --runtime=nvidia --gpus all -it -p 45678:8888 -v $(pwd):/mitsuba2 -u $(id -u):$(id -g) mitsuba2:gpu bash
 ```
 
-This will do the same as above, and also mount all available GPUs to the container.
+This will do the same as above, and also mount all available GPUs to the container. You can try running `nvidia-smi` inside the container to verify the GPUs have been mounted correctly.
 
 ## Compiling Mitsuba 2
 
-Works the same as described in Mitsuba 2 documentation:
+Works the same as described in Mitsuba 2 documentation.
+
+Note: Do not forget to modify `mitsuba.conf` if you want to add GPU variants.
 
 ```
 cd /mitsuba2
@@ -57,7 +61,7 @@ ninja
 ```
 cd /mitsuba2
 source setpath.sh
-mitsuba2 --help
+mitsuba --help
 ```
 
 ## Running Jupyter
