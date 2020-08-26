@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y \
     python3-pip
 
 # Install basic Python tools
-RUN pip3 install jupyterlab numpy matplotlib ipywidgets
+RUN pip3 install jupyterlab numpy matplotlib ipywidgets pytest
 
 # create /.local so that Python and Jupyter are happy
 RUN mkdir /.local && chmod a+rwx /.local
