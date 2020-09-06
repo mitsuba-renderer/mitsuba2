@@ -4,11 +4,6 @@
 #include <mitsuba/core/bbox.h>
 #include <mitsuba/core/fresolver.h>
 
-#define show(x) std::cout <<"\033[1m\033[34m"<< "Camera Reading: " << x <<"\033[0m"<<  std::endl;
-#define shwo(x) std::cout <<"\033[1m\033[34m"<< "Camera Reading: " << x <<"\033[0m"<<  std::endl;
-#define show2(x, y) std::cout <<"\033[1m\033[34m"<< x << y <<"\033[0m"<<  std::endl;
-
-
 // Alembic Includes
 #include <Alembic/Abc/All.h>
 #include <Alembic/AbcGeom/All.h>
@@ -41,6 +36,10 @@ Alembic loader for perspective pinhole camera (:monosp:`perspective_abc`)
    - |transform|
    - Specifies an optional camera-to-world transformation.
      (Default: none (i.e. camera space = world space))
+ * - convert_to_z_up
+   - |bool|
+   - Optionally convert camera so up vector is +Z (Mitsuba default). Useful if camera was exported
+   - from software that is Y-up. For example, Maya or Houdini. (Default: |false|)
 
 This plugin brings support for reading cameras from Alembic file.
 It reads position and orientation data as well as field of view and near/far clipping planes.
@@ -81,7 +80,7 @@ public:
             fail("file not found");
 
         m_shape_name = props.string("shape_name", "");
-        const bool convert_to_z_up = props.bool_("convert_to_z_up", true);
+        const bool convert_to_z_up = props.bool_("convert_to_z_up", false);
         m_use_shape_name = false;
 
         if (!m_shape_name.empty())
@@ -98,6 +97,7 @@ public:
         ICamera camera;
         find_camera_recursively(archive_top, sample_index, alembic_transform, camera);
 
+        // fail if camera was not found in file
         if (!camera.valid()){
             std::string error_msg = "did not found camera in file";
             if (m_use_shape_name)
