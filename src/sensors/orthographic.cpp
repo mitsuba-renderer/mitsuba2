@@ -61,8 +61,7 @@ template <typename Float, typename Spectrum>
 class OrthographicCamera final : public ProjectiveCamera<Float, Spectrum> {
 public:
     MTS_IMPORT_BASE(ProjectiveCamera, m_world_transform, m_needs_sample_3, m_film, m_sampler,
-                    m_resolution, m_shutter_open, m_shutter_open_time, m_aspect, m_near_clip,
-                    m_far_clip)
+                    m_resolution, m_shutter_open, m_shutter_open_time, m_near_clip, m_far_clip)
     MTS_IMPORT_TYPES()
 
     // =============================================================
@@ -73,33 +72,10 @@ public:
         update_camera_transforms();
     }
 
-    // TODO duplicate code with ThinLens
     void update_camera_transforms() {
-        ScalarVector2f film_size = ScalarVector2f(m_film->size()),
-                       crop_size = ScalarVector2f(m_film->crop_size()),
-                       rel_size  = crop_size / film_size;
-
-        ScalarPoint2f crop_offset = ScalarPoint2f(m_film->crop_offset()),
-                      rel_offset  = crop_offset / film_size;
-
-        /**
-         * These do the following (in reverse order):
-         *
-         * 1. Create transform from camera space to [-1,1]x[-1,1]x[0,1] clip
-         *    coordinates (not taking account of the aspect ratio yet)
-         *
-         * 2+3. Translate and scale to shift the clip coordinates into the
-         *    range from zero to one, and take the aspect ratio into account.
-         *
-         * 4+5. Translate and scale the coordinates once more to account
-         *     for a cropping window (if there is any)
-         */
-        m_camera_to_sample =
-            ScalarTransform4f::scale(ScalarVector3f(1.f / rel_size.x(), 1.f / rel_size.y(), 1.f)) *
-            ScalarTransform4f::translate(ScalarVector3f(-rel_offset.x(), -rel_offset.y(), 0.f)) *
-            ScalarTransform4f::scale(ScalarVector3f(-0.5f, -0.5f * m_aspect, 1.f)) *
-            ScalarTransform4f::translate(ScalarVector3f(-1.f, -1.f / m_aspect, 0.f)) *
-            ScalarTransform4f::orthographic(m_near_clip, m_far_clip);
+        m_camera_to_sample = orthographic_projection(
+            m_film->size(), m_film->crop_size(), m_film->crop_offset(),
+            m_near_clip, m_far_clip);
 
         m_sample_to_camera = m_camera_to_sample.inverse();
 
@@ -180,12 +156,6 @@ public:
         return m_world_transform->translation_bounds();
     }
 
-    void set_crop_window(const ScalarVector2i &crop_size,
-                         const ScalarPoint2i &crop_offset) override {
-        Base::set_crop_window(crop_size, crop_offset);
-        update_camera_transforms();
-    }
-
     //! @}
     // =============================================================
 
@@ -211,7 +181,6 @@ public:
             << "  resolution = " << m_resolution << "," << std::endl
             << "  shutter_open = " << m_shutter_open << "," << std::endl
             << "  shutter_open_time = " << m_shutter_open_time << "," << std::endl
-            << "  aspect = " << m_aspect << "," << std::endl
             << "  world_transform = " << indent(m_world_transform)  << std::endl
             << "]";
         return oss.str();
