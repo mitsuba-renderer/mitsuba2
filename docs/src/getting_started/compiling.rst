@@ -32,13 +32,13 @@ To fetch all dependencies and Clang, enter the following commands on Ubuntu:
 .. code-block:: bash
 
     # Install recent versions build tools, including Clang and libc++ (Clang's C++ library)
-    sudo apt install clang-9 libc++-9-dev libc++abi-9-dev cmake ninja-build
+    sudo apt install -y clang-9 libc++-9-dev libc++abi-9-dev cmake ninja-build
 
     # Install libraries for image I/O and the graphical user interface
-    sudo apt install libz-dev libpng-dev libjpeg-dev libxrandr-dev libxinerama-dev libxcursor-dev
+    sudo apt install -y libz-dev libpng-dev libjpeg-dev libxrandr-dev libxinerama-dev libxcursor-dev
 
     # Install required Python packages
-    sudo apt install python3-dev python3-distutils python3-setuptools
+    sudo apt install -y python3-dev python3-distutils python3-setuptools
 
 Additional packages are required to run the included test suite or to generate HTML
 documentation (see :ref:`Developer guide <sec-devguide>`). If those are interesting to you, also
@@ -47,10 +47,10 @@ enter the following commands:
 .. code-block:: bash
 
     # For running tests
-    sudo apt install python3-pytest python3-pytest-xdist python3-numpy
+    sudo apt install -y python3-pytest python3-pytest-xdist python3-numpy
 
     # For generating the documentation
-    sudo apt install python3-sphinx python3-guzzle-sphinx-theme python3-sphinxcontrib.bibtex
+    sudo apt install -y python3-sphinx python3-guzzle-sphinx-theme python3-sphinxcontrib.bibtex
 
 Next, ensure that two environment variables :monosp:`CC` and
 :monosp:`CXX` are exported. You can either run these two commands manually
