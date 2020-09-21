@@ -32,7 +32,6 @@ foreach (MTS_VARIANT ${MTS_VARIANTS})
     shape_v.cpp
     srgb_v.cpp
     texture_v.cpp
-    # volume_v.cpp
   )
 
   target_compile_definitions(${TARGET_NAME}-obj PRIVATE
