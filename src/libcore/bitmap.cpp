@@ -156,6 +156,18 @@ void Bitmap::set_premultiplied_alpha(bool value) {
     }
 }
 
+void Bitmap::overwrite_channel(size_t channel, float value) {
+    if (component_format() != Struct::Type::Float32)
+        Throw("Not supported: overwrite_channel() with component_format() != Float32");
+
+    auto *target = (float *) m_data.get();
+    size_t cn    = channel_count();
+    for (size_t i = 0; i < pixel_count(); ++i) {
+        target[channel] = value;
+        target += cn;
+    }
+}
+
 void Bitmap::clear() {
     memset(m_data.get(), 0, buffer_size());
 }

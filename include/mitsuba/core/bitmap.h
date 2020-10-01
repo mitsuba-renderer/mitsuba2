@@ -312,6 +312,9 @@ public:
     /// Set the a \ref Properties object containing the image metadata
     void set_metadata(const Properties &metadata) { m_metadata = metadata; }
 
+    /// Overwrites the desired channel with the given value.
+    void overwrite_channel(size_t channel, float value);
+
     /// Clear the bitmap to zero
     void clear();
 
