@@ -36,7 +36,7 @@
     url = https://github.com/mitsuba-renderer/embree
 [submodule "ext/enoki"]
 	path = ext/enoki
-	url = https://github.com/wjakob/enoki
+	url = git@github.com:wjakob/enoki.git
 [submodule "ext/ittnotify"]
 	path = ext/ittnotify
 	url = https://github.com/intel/IntelSEAPI
