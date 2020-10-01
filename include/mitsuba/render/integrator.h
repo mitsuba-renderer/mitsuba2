@@ -51,19 +51,44 @@ public:
      */
     virtual void cancel() = 0;
 
+    /**
+     * Indicates whether \ref cancel() or a timeout have occured. Should be
+     * checked regularly in the integrator's main loop so that timeouts are
+     * enforced accurately.
+     *
+     * Note that accurate timeouts rely on \ref m_render_timer, which needs
+     * to be reset at the beginning of the rendering phase.
+     */
+    bool should_stop() const {
+        return m_stop || (m_timeout > 0.f &&
+                          m_render_timer.value() > 1000.f * m_timeout);
+    }
+
     void set_graphviz_output(const fs::path &value) {
         m_graphviz_output = value;
-    }
 
     MTS_DECLARE_CLASS()
 protected:
     /// Create an integrator
-    Integrator(const Properties & /*props*/) {}
+    Integrator(const Properties & props);
 
     /// Virtual destructor
     virtual ~Integrator() { }
 
 protected:
+    /// Integrators should stop all work when this flag is set to true.
+    bool m_stop;
+
+    /**
+     * \brief Maximum amount of time to spend rendering (excluding scene parsing).
+     *
+     * Specified in seconds. A negative values indicates no timeout.
+     */
+    float m_timeout;
+
+    /// Timer used to enforce the timeout.
+    Timer m_render_timer;
+    
     fs::path m_graphviz_output;
 };
 
@@ -77,7 +102,7 @@ protected:
 template <typename Float, typename Spectrum>
 class MTS_EXPORT_RENDER SamplingIntegrator : public Integrator<Float, Spectrum> {
 public:
-    MTS_IMPORT_BASE(Integrator)
+    MTS_IMPORT_BASE(Integrator, should_stop, m_stop, m_timeout, m_render_timer)
     MTS_IMPORT_TYPES(Scene, Sensor, Film, ImageBlock, Medium, Sampler)
 
     /**
@@ -140,19 +165,6 @@ public:
     bool render(Scene *scene, Sensor *sensor) override;
     void cancel() override;
 
-    /**
-     * Indicates whether \ref cancel() or a timeout have occured. Should be
-     * checked regularly in the integrator's main loop so that timeouts are
-     * enforced accurately.
-     *
-     * Note that accurate timeouts rely on \ref m_render_timer, which needs
-     * to be reset at the beginning of the rendering phase.
-     */
-    bool should_stop() const {
-        return m_stop || (m_timeout > 0.f &&
-                          m_render_timer.value() > 1000.f * m_timeout);
-    }
-
     //! @}
     // =========================================================================
 
@@ -179,8 +191,6 @@ protected:
                        Mask active = true) const;
 
 protected:
-    /// Integrators should stop all work when this flag is set to true.
-    bool m_stop;
 
     /// Size of (square) image blocks to render per core.
     uint32_t m_block_size;
@@ -192,16 +202,6 @@ protected:
      * If set to (size_t) -1, all the work is done in a single pass (default).
      */
     uint32_t m_samples_per_pass;
-
-    /**
-     * \brief Maximum amount of time to spend rendering (excluding scene parsing).
-     *
-     * Specified in seconds. A negative values indicates no timeout.
-     */
-    float m_timeout;
-
-    /// Timer used to enforce the timeout.
-    Timer m_render_timer;
 
     /// Flag for disabling direct visibility of emitters
     bool m_hide_emitters;
@@ -229,6 +229,92 @@ protected:
     int m_max_depth;
     int m_rr_depth;
 };
+
+
+/**
+ * Base class for integrators that start paths from the light source, as opposed
+ * to sensor-based integrators.
+ */
+template <typename Float, typename Spectrum>
+class MTS_EXPORT_RENDER LightTracerIntegrator : public Integrator<Float, Spectrum> {
+public:
+    MTS_IMPORT_BASE(Integrator, should_stop, m_stop, m_timeout, m_render_timer)
+    MTS_IMPORT_TYPES(Scene, Sensor, Film, BSDF, ImageBlock, Sampler, EmitterPtr)
+    using RadianceSample3f = int; // TODO: this type no longer exists
+
+    explicit LightTracerIntegrator(const Properties &props);
+    virtual ~LightTracerIntegrator();
+
+    /// Perform the main rendering job
+    bool render(Scene *scene, Sensor *sensor) override;
+    void cancel() override;
+
+    /**
+     * Samples an emitter in the scene and connects it directly to the sensor,
+     * writing the emitted radiance to the given image block.
+     */
+    virtual Spectrum sample_visible_emitters(Scene *scene, const Sensor *sensor,
+                                             Sampler *sampler,
+                                             ImageBlock *block,
+                                             Mask active = true) const;
+    /**
+     * Samples a ray from a random emitter in the scene.
+     */
+    virtual std::pair<Ray3f, Spectrum>
+    prepare_ray(const Scene *scene, const Sensor *sensor, Sampler *sampler,
+                Mask active = true) const = 0;
+
+    /**
+     * Intersects the given ray with the scene and recursively trace using
+     * BSDF sampling. The given `throughput` should account for emitted
+     * radiance from the sampled light source, wavelengths sampling weights,
+     * etc. At each interaction, we attempt connecting to the sensor and add
+     * throughput to the given `block`.
+     *
+     * Note: this will *not* account for directly visible emitters, since
+     * they require a direct connection from the emitter to the sensor. See
+     * \ref sample_visible_emitters.
+     *
+     * Returns (radiance, alpha)
+     */
+    virtual std::pair<Spectrum, Float>
+    trace_light_ray(Ray3f ray, const Scene *scene, const Sensor *sensor,
+                    Sampler *sampler, SurfaceInteraction3f &si,
+                    Spectrum throughput, int depth, ImageBlock *block,
+                    Mask active = true) const = 0;
+
+    /**
+     * From the given surface interaction, attempt connecting to the sensor
+     */
+    virtual Spectrum connect_sensor(const Scene *scene, const Sensor *sensor,
+                                    Sampler *sampler, const SurfaceInteraction3f &si,
+                                    const BSDF *bsdf, const Spectrum &weight,
+                                    ImageBlock *block,
+                                    Mask active = true) const = 0;
+
+    /**
+     * Overwrites the accumulated per-pixel normalization weights with a
+     * constant weight computed from the number of overall accumulated samples.
+     *
+     * \return The new normalization weight.
+     */
+    Float normalize_block(ImageBlock *block, size_t total_samples) const;
+    Float normalize_film(Film *film, size_t total_samples) const;
+
+    MTS_DECLARE_CLASS()
+
+protected:
+    /**
+     * Longest visualized path depth (\c -1 = infinite).
+     * A value of \c 1 will visualize only directly visible light sources.
+     * \c 2 will lead to single-bounce (direct-only) illumination, and so on.
+     */
+    int m_max_depth;
+
+    /// Depth to begin using russian roulette
+    int m_rr_depth;
+};
+
 
 MTS_EXTERN_CLASS_RENDER(Integrator)
 MTS_EXTERN_CLASS_RENDER(SamplingIntegrator)

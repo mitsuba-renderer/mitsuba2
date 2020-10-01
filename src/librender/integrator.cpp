@@ -2,6 +2,8 @@
 #include <mutex>
 
 #include <enoki/morton.h>
+#include <mitsuba/core/bitmap.h>
+#include <mitsuba/core/fwd.h>
 #include <mitsuba/core/profiler.h>
 #include <mitsuba/core/progress.h>
 #include <mitsuba/core/spectrum.h>
@@ -16,9 +18,15 @@
 #include <mitsuba/render/spiral.h>
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_for.h>
-#include <mutex>
 
 NAMESPACE_BEGIN(mitsuba)
+
+// -----------------------------------------------------------------------------
+
+MTS_VARIANT Integrator<Float, Spectrum>::Integrator(const Properties & props)
+    : m_stop(false) {
+    m_timeout = props.float_("timeout", -1.f);
+}
 
 // -----------------------------------------------------------------------------
 
@@ -34,7 +42,6 @@ MTS_VARIANT SamplingIntegrator<Float, Spectrum>::SamplingIntegrator(const Proper
     }
 
     m_samples_per_pass = (uint32_t) props.size_("samples_per_pass", (size_t) -1);
-    m_timeout = props.float_("timeout", -1.f);
 
     /// Disable direct visibility of emitters if needed
     m_hide_emitters = props.bool_("hide_emitters", false);
@@ -342,11 +349,193 @@ MTS_VARIANT MonteCarloIntegrator<Float, Spectrum>::MonteCarloIntegrator(const Pr
 
 MTS_VARIANT MonteCarloIntegrator<Float, Spectrum>::~MonteCarloIntegrator() { }
 
+// -----------------------------------------------------------------------------
+
+MTS_VARIANT LightTracerIntegrator<Float, Spectrum>::LightTracerIntegrator(const Properties &props)
+    : Base(props) {
+    // TODO: consider moving those parameters to the base class.
+    m_rr_depth = props.int_("rr_depth", 5);
+    if (m_rr_depth <= 0)
+        Throw("\"rr_depth\" must be set to a value greater than zero!");
+
+    m_max_depth = props.int_("max_depth", -1);
+    if (m_max_depth < 0 && m_max_depth != -1)
+        Throw("\"max_depth\" must be set to -1 (infinite) or a value >= 0");
+}
+
+MTS_VARIANT LightTracerIntegrator<Float, Spectrum>::~LightTracerIntegrator() { }
+
+MTS_VARIANT bool LightTracerIntegrator<Float, Spectrum>::render(Scene *scene, Sensor *sensor) {
+    static_assert(std::is_scalar_v<Float>); // TODO: support other modes
+    ScopedPhase sp(ProfilerPhase::Render);
+    m_stop = false;
+    m_render_timer.reset();
+    Film *film = sensor->film();
+
+    if (scene->emitters().empty()) {
+        Log(Warn, "Scene does not contain any emitter, returning black image.");
+        normalize_film(film, 1);
+        return true;
+    }
+
+    ThreadEnvironment env;
+    tbb::spin_mutex mutex;
+    ref<ProgressReporter> progress = new ProgressReporter("Rendering");
+
+    size_t n_cores = util::core_count();
+    /* Multiply sample count by pixel count to obtain a similar scale
+     * to the standard path tracer. */
+    size_t total_samples =
+        sensor->sampler()->sample_count() * hprod(film->size());
+    // TODO: handle different modes
+    size_t iteration_count = total_samples;
+    // size_t iteration_count = IsVectorized
+    //                              ? std::rint(total_samples / (Float) PacketSize)
+    //                              : total_samples;
+    size_t grain_count = std::max(
+        (size_t) 1, (size_t) std::rint(iteration_count / Float(n_cores * 2)));
+
+    // Insert default channels and set up the film
+    std::vector<std::string> channels = { "X", "Y", "Z", "A", "W" };
+    film->prepare(channels);
+    bool has_aovs = false;
+    if (has_aovs)
+        Throw("Not supported yet: AOVs in LightTracerIntegrator");
+
+    Log(Info, "Starting render job (%ix%i, %i sample%s, %i core%s)",
+        film->crop_size().x(), film->crop_size().y(), total_samples,
+        total_samples == 1 ? "" : "s", n_cores, n_cores == 1 ? "" : "s");
+    if (m_timeout > 0.0f)
+        Log(Info, "Timeout specified: %.2f seconds.", m_timeout);
+
+    size_t total_samples_done = 0;
+    tbb::parallel_for(
+        tbb::blocked_range<size_t>(0, iteration_count, grain_count),
+        [&](const tbb::blocked_range<size_t> &range) {
+            ScopedSetThreadEnvironment set_env(env);
+
+            // Thread-specific accumulators.
+            // Enable warning, border and normalization for the image block.
+            ref<ImageBlock> block = new ImageBlock(
+                film->size(), channels.size(), film->reconstruction_filter(),
+                /* warn_negative */ !has_aovs,
+                /* warn_invalid */ true, /* border */ true,
+                /* normalize */ true);
+            size_t samples_done = 0;
+
+            // Ensure that sample generation is fully deterministic.
+            ref<Sampler> sampler = sensor->sampler()->clone();
+            size_t seed          = (size_t) range.begin();
+            sampler->seed(seed);
+
+            for (auto i = range.begin(); i != range.end() && !should_stop();
+                 ++i) {
+                // Account for visible emitters
+                sample_visible_emitters(scene, sensor, sampler, block);
+
+                // Primary & further bounces illumination
+                auto [ray, throughput] = prepare_ray(scene, sensor, sampler);
+
+                // TODO(!): how to create a correct initial si?
+                SurfaceInteraction3f si;
+                trace_light_ray(ray, scene, sensor, sampler, si, throughput, /*depth*/ 0, block);
+
+                // TODO: support other modes
+                samples_done += 1;
+                // samples_done += (enoki::is_array_v<Value> ? PacketSize : 1);
+                if (samples_done > 10000) {
+                    tbb::spin_mutex::scoped_lock lock(mutex);
+                    total_samples_done += samples_done;
+                    samples_done = 0;
+                    progress->update(total_samples_done /
+                                     (Float) total_samples);
+                    // notify(block->bitmap());
+                }
+            }
+
+            /* locked */ {
+                tbb::spin_mutex::scoped_lock lock(mutex);
+                total_samples_done += samples_done;
+
+                film->put(block);
+            }
+        });
+
+    // Apply proper normalization.
+    auto new_weight = normalize_film(film, total_samples_done);
+    Log(Info, "Processed %d samples, normalization weight: %f",
+        total_samples_done, new_weight);
+
+    return !m_stop;
+}
+
+MTS_VARIANT void LightTracerIntegrator<Float, Spectrum>::cancel() {
+    m_stop = true;
+}
+
+MTS_VARIANT Spectrum
+LightTracerIntegrator<Float, Spectrum>::sample_visible_emitters(
+    Scene *scene, const Sensor *sensor, Sampler *sampler, ImageBlock *block,
+    Mask active) const {
+
+    Float time = sensor->shutter_open();
+    if (sensor->shutter_open_time() > 0)
+        time += sampler->next_1d(active) * sensor->shutter_open_time();
+
+    Float idx_sample = sampler->next_1d(active);
+    auto [emitter_idx, emitter_weight] =
+        scene->sample_emitter(idx_sample, active);
+    EmitterPtr emitter = enoki::gather<EmitterPtr>(scene->emitters().data(),
+                                                   emitter_idx, active);
+
+    Point2f emitter_sample = sampler->next_2d(active);
+    auto [ps, pos_weight] =
+        emitter->sample_position(time, emitter_sample, active);
+
+    Float wavelength_sample = sampler->next_1d(active);
+    auto [wavelengths, wav_weight] =
+        emitter->sample_wavelengths(wavelength_sample, active);
+
+    SurfaceInteraction3f si(ps, wavelengths);
+    si.shape = emitter->shape();
+
+    Spectrum weight = emitter_weight * pos_weight * wav_weight;
+
+    // No BSDF passed (should not evaluate it since there's no scattering)
+    return connect_sensor(scene, sensor, sampler, si, nullptr, weight, block, active);
+}
+
+MTS_VARIANT Float LightTracerIntegrator<Float, Spectrum>::normalize_block(
+    ImageBlock *block, size_t total_samples) const {
+    Float new_weight = total_samples / Float(hprod(block->size()));
+
+    // Overwrite the weight channel
+    auto &data         = block->data();
+    size_t border      = block->border_size();
+    size_t pixel_count = (block->width() + border) * (block->height() + border);
+    size_t weight_channel = 4;
+    Assert(block->channel_count() == 5);
+    Assert(data.size() == block->channel_count() * pixel_count);
+    enoki::scatter(data, new_weight,
+                   block->channel_count() * enoki::arange<UInt64>(pixel_count) +
+                       weight_channel);
+    return new_weight;
+}
+
+MTS_VARIANT Float LightTracerIntegrator<Float, Spectrum>::normalize_film(
+    Film *film, size_t total_samples) const {
+    Float new_weight = total_samples / Float(hprod(film->size()));
+    film->bitmap()->overwrite_channel(4, new_weight);
+    return new_weight;
+}
+
 MTS_IMPLEMENT_CLASS_VARIANT(Integrator, Object, "integrator")
 MTS_IMPLEMENT_CLASS_VARIANT(SamplingIntegrator, Integrator)
 MTS_IMPLEMENT_CLASS_VARIANT(MonteCarloIntegrator, SamplingIntegrator)
+MTS_IMPLEMENT_CLASS_VARIANT(LightTracerIntegrator, Integrator)
 
 MTS_INSTANTIATE_CLASS(Integrator)
 MTS_INSTANTIATE_CLASS(SamplingIntegrator)
 MTS_INSTANTIATE_CLASS(MonteCarloIntegrator)
+MTS_INSTANTIATE_CLASS(LightTracerIntegrator)
 NAMESPACE_END(mitsuba)
