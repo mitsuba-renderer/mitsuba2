@@ -121,6 +121,48 @@ public:
                      const Point2f &sample,
                      Mask active = true) const;
 
+    /**
+     * \brief Independently of the scene, sample a position on the endpoint.
+     *
+     * This is entirely independent of transport phenomena, and samples
+     * uniformly over the surface area.
+     *
+     * For infinite area lights, the returned point is placed on a bounding
+     * sphere around the scene. However, since this light is emitted in parallel
+     * rays from infinitely far, it should be interpreted as a direction.
+     * This case can be detected with \ref Emitter::is_environment.
+     *
+     * The default implementation throws an exception.
+     *
+     * \param sample
+     *     A uniformly distributed 2D point on the domain <tt>[0,1]^2</tt>
+     *
+     * \return
+     *     A \ref PositionSample instance describing the generated sample
+     *     along with a spectral importance weight.
+     */
+    virtual std::pair<PositionSample3f, Float>
+    sample_position(Float time, const Point2f &sample,
+                    Mask active = true) const;
+
+    /**
+     * \brief Importance sample a set of wavelengths proportional to the
+     * sensitivity/emission spectrum.
+     * Any discrepancies between ideal and actual sampled profile are absorbed
+     * into a spectral importance weight that is returned along with the ray.
+     *
+     * \param sample
+     *     A uniformly distributed 1D value that is used to sample the spectral
+     *     dimension of the emission profile.
+     *
+     * \return
+     *    The set of sampled wavelengths and (potentially spectrally varying)
+     *    importance weights. The latter account for the difference between the
+     *    profile and the actual used sampling density function.
+     */
+    virtual std::pair<Spectrum, Spectrum>
+    sample_wavelengths(Float sample, Mask active = true) const;
+
     //! @}
     // =============================================================
 

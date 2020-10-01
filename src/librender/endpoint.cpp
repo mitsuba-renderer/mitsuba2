@@ -53,6 +53,18 @@ Endpoint<Float, Spectrum>::sample_direction(const Interaction3f & /*it*/,
     NotImplementedError("sample_direction");
 }
 
+MTS_VARIANT
+std::pair<typename Endpoint<Float, Spectrum>::PositionSample3f, Float>
+Endpoint<Float, Spectrum>::sample_position(Float /*time*/, const Point2f &/*sample*/,
+                                           Mask /*active*/) const {
+    NotImplementedError("sample_position");
+}
+
+MTS_VARIANT std::pair<Spectrum, Spectrum>
+Endpoint<Float, Spectrum>::sample_wavelengths(Float /*sample*/, Mask /*active*/) const {
+    NotImplementedError("sample_wavelengths");
+}
+
 MTS_VARIANT Float Endpoint<Float, Spectrum>::pdf_direction(const Interaction3f & /*it*/,
                                                            const DirectionSample3f & /*ds*/,
                                                            Mask /*active*/) const {
