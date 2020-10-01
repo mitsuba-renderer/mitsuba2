@@ -201,6 +201,20 @@ Scene<Float, Spectrum>::ray_test(const Ray3f &ray, uint32_t hit_flags, Mask acti
         return ray_test_cpu(ray, hit_flags, active);
 }
 
+MTS_VARIANT std::tuple<typename Scene<Float, Spectrum>::Ray3f, Spectrum,
+                       const typename Scene<Float, Spectrum>::EmitterPtr>
+Scene<Float, Spectrum>::sample_emitter_ray(Float /*time*/, Float /*sample1*/,
+                                           const Point2f & /*sample2*/,
+                                           const Point2f & /*sample3*/,
+                                           Mask /*active*/) const {
+    NotImplementedError("sample_emitter_ray");
+}
+
+MTS_VARIANT std::pair<typename Scene<Float, Spectrum>::UInt32, Float>
+Scene<Float, Spectrum>::sample_emitter(Float /*index_sample*/, Mask /*active*/) {
+    NotImplementedError("sample_emitter");
+}
+
 MTS_VARIANT std::pair<typename Scene<Float, Spectrum>::DirectionSample3f, Spectrum>
 Scene<Float, Spectrum>::sample_emitter_direction(const Interaction3f &ref, const Point2f &sample_,
                                                  bool test_visibility, Mask active) const {
