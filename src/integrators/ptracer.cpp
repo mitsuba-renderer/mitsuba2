@@ -11,7 +11,6 @@
 #include <mitsuba/render/integrator.h>
 #include <mitsuba/render/records.h>
 #include <mitsuba/render/sampler.h>
-#include <tbb/tbb.h>
 
 #include <fstream>
 
@@ -82,11 +81,11 @@ public:
 
             // Russian Roulette
             if (depth > m_rr_depth) {
-                Float q = enoki::min(enoki::hmax(throughput) * eta * eta, 0.95f);
+                Float q = ek::min(ek::hmax(throughput) * eta * eta, 0.95f);
                 active &= sampler->next_1d(active) < q;
-                throughput *= enoki::rcp(q);
+                throughput *= ek::rcp(q);
             }
-            if (enoki::none(active) || (uint32_t) depth >= (uint32_t) m_max_depth)
+            if (ek::none(active) || (uint32_t) depth >= (uint32_t) m_max_depth)
                 break;
 
             // Connect to sensor and splat if successful.
@@ -113,7 +112,7 @@ public:
             eta *= bs.eta;
 
             active &= any(neq(throughput, 0.f));
-            if (enoki::none_or<false>(active))
+            if (ek::none_or<false>(active))
                 break;
 
             // Intersect the BSDF ray against scene geometry (next vertex).
@@ -135,7 +134,7 @@ public:
 
         active &= (ds.pdf > 0.f) && any(neq(sensor_val, 0.f));
         Spectrum result = 0.f;
-        if (enoki::none_or<false>(active))
+        if (ek::none_or<false>(active))
             return result;
         ds.uv[!active] = 0.f;
 
@@ -173,7 +172,7 @@ public:
         // Check that sensor is visible from current position (shadow ray).
         auto sensor_ray = si.spawn_ray_to(ds.p);
         active &= !scene->ray_test(sensor_ray, active);
-        if (enoki::none_or<false>(active))
+        if (ek::none_or<false>(active))
             return result;
 
         /* Foreshortening term and BSDF value for that direction (for surface interactions)
@@ -181,14 +180,14 @@ public:
          * with a shape (marked by convention by bsdf == nullptr). */
         Spectrum surface_weight = 1.f;
         auto on_surface         = active && neq(si.shape, nullptr);
-        if (enoki::any_or<true>(on_surface)) {
+        if (ek::any_or<true>(on_surface)) {
             auto local_d = si.to_local(sensor_ray.d);
             // Clamp negative cosines -> zero value if behind the surface
             surface_weight[on_surface && eq(bsdf, nullptr)] *=
-                enoki::max(0.f, Frame3f::cos_theta(local_d));
+                ek::max(0.f, Frame3f::cos_theta(local_d));
 
             on_surface &= neq(bsdf, nullptr);
-            if (enoki::any_or<true>(on_surface)) {
+            if (ek::any_or<true>(on_surface)) {
                 BSDFContext ctx(TransportMode::Importance);
                 // Using geometric normals
                 Float wi_dot_geo_n = dot(si.n, si.to_world(si.wi)),
@@ -198,11 +197,11 @@ public:
                              (wo_dot_geo_n * Frame3f::cos_theta(local_d) > 0.f);
 
                 // Adjoint BSDF for shading normals -- [Veach, p. 155]
-                auto correction = enoki::select(
+                auto correction = ek::select(
                     valid,
-                    enoki::abs((Frame3f::cos_theta(si.wi) * wo_dot_geo_n) /
+                    ek::abs((Frame3f::cos_theta(si.wi) * wo_dot_geo_n) /
                                (Frame3f::cos_theta(local_d) * wi_dot_geo_n)),
-                    enoki::zero<Float>());
+                    ek::zero<Float>());
                 surface_weight[on_surface] *= correction * bsdf->eval(ctx, si, local_d, active);
             }
         }
