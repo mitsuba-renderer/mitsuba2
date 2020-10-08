@@ -86,6 +86,34 @@ public:
     // =============================================================
 
     /**
+     * \brief Sample one emitter in the scene.
+     * If possible, it is sampled proportional to its radiance.
+     *
+     * \param sample
+     *    A uniformly distributed number in [0, 1).
+     *
+     * \return
+     *    The index of the chosen emitter along with the sampling weight (equal
+     *    to the inverse PDF).
+     */
+    std::pair<UInt32, Float> sample_emitter(Float index_sample,
+                                            Mask active = true) const;
+
+    /**
+     * \brief Sample one emitter in the scene and rescale the random sample for reuse.
+     * If possible, it is sampled proportional to its radiance.
+     *
+     * \param sample
+     *    A uniformly distributed number in [0, 1).
+     *
+     * \return
+     *    The index of the chosen emitter along with the sampling weight (equal
+     *    to the inverse PDF), and the rescaled random sample.
+     */
+    std::tuple<UInt32, Float, Float>
+    sample_emitter_reuse(Float index_sample, Mask active = true) const;
+
+    /**
      * \brief Importance sample a ray according to the emission profile
      * defined by the emitters in the scene.
      *
@@ -125,19 +153,6 @@ public:
                        const Point2f &sample3, Mask active = true) const;
 
     /**
-     * \brief Sample one emitter in the scene proportional to its radiance.
-     *
-     * \param sample
-     *    A uniformly distributed number in [0, 1).
-     *
-     * \return
-     *    The index of the chosen emitter along with the sampling weight (equal
-     *    to the inverse PDF).
-     */
-    std::pair<UInt32, Float> sample_emitter(Float index_sample,
-                                            Mask active = true);
-
-    /**
      * \brief Direct illumination sampling routine
      *
      * Given an arbitrary reference point in the scene, this method samples a
@@ -166,6 +181,12 @@ public:
                              const Point2f &sample,
                              bool test_visibility = true,
                              Mask active = true) const;
+
+    /**
+     * \brief Evaluate the probability density of the \ref
+     * sample_emitter() technique given a sampled emitter index.
+     */
+    Float pdf_emitter(UInt32 index, Mask active = true) const;
 
     /**
      * \brief Evaluate the probability density of the  \ref

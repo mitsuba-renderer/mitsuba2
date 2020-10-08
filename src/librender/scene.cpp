@@ -203,16 +203,85 @@ Scene<Float, Spectrum>::ray_test(const Ray3f &ray, uint32_t hit_flags, Mask acti
 
 MTS_VARIANT std::tuple<typename Scene<Float, Spectrum>::Ray3f, Spectrum,
                        const typename Scene<Float, Spectrum>::EmitterPtr>
-Scene<Float, Spectrum>::sample_emitter_ray(Float /*time*/, Float /*sample1*/,
-                                           const Point2f & /*sample2*/,
-                                           const Point2f & /*sample3*/,
-                                           Mask /*active*/) const {
-    NotImplementedError("sample_emitter_ray");
+Scene<Float, Spectrum>::sample_emitter_ray(Float time, Float sample1,
+                                           const Point2f &sample2,
+                                           const Point2f &sample3,
+                                           Mask active) const {
+    MTS_MASKED_FUNCTION(ProfilerPhase::SampleEmitterRay, active);
+    using EmitterPtr = ek::replace_scalar_t<Float, Emitter*>;
+
+    if (unlikely(m_emitters.empty()))
+        return std::make_tuple(Ray3f(), Spectrum(0.f), EmitterPtr(nullptr));
+
+    // Randomly pick an emitter according to the precomputed emitter distribution
+    auto [index, emitter_weight, sample_re] = sample_emitter_reuse(sample1, active);
+    sample1 = sample_re;
+    EmitterPtr emitter = ek::gather<EmitterPtr>(m_emitters.data(), index, active);
+
+    // Wavelengths weight includes emitted radiance.
+    // TODO: update if wavelength sampling is changed
+#if 0
+    auto [wavelengths, wav_weight] =
+        emitter->sample_wavelengths(sample1, active);
+    auto [ray, ray_weight] =
+        emitter->sample_ray(time, wavelengths, sample2, sample3, active);
+    // Account for the discrete probability of sampling this emitter.
+    ray_weight *= wav_weight * emitter_weight;
+#else
+    auto [ray, ray_weight] =
+        emitter->sample_ray(time, sample1, sample2, sample3, active);
+#endif
+
+    return std::make_tuple(ray, ray_weight, emitter);
 }
 
 MTS_VARIANT std::pair<typename Scene<Float, Spectrum>::UInt32, Float>
-Scene<Float, Spectrum>::sample_emitter(Float /*index_sample*/, Mask /*active*/) {
-    NotImplementedError("sample_emitter");
+Scene<Float, Spectrum>::sample_emitter(Float index_sample, Mask active) const {
+    MTS_MASKED_FUNCTION(ProfilerPhase::SampleEmitter, active);
+
+    size_t emitters_size = m_emitters.size();
+    // Fast paths if there is less than two emitters
+    if (unlikely(emitters_size == 0))
+        return { UInt32(-1), 0.f };
+    if (emitters_size == 1)
+        return { 0, 1 };
+
+    // Randomly pick an emitter
+#if 0
+    auto [index, emitter_pdf] = m_emitter_distr.sample_pmf(index_sample);
+    return { index, ek::rcp(emitter_pdf) };
+#else
+    UInt32 index = ek::min(UInt32(index_sample * (ScalarFloat) emitters_size),
+                           (uint32_t) emitters_size - 1);
+    // pdf = 1 / emitters_size  =>  sampling_weight = emitters_size
+    return { index, emitters_size };
+#endif
+}
+
+MTS_VARIANT std::tuple<typename Scene<Float, Spectrum>::UInt32, Float, Float>
+Scene<Float, Spectrum>::sample_emitter_reuse(Float index_sample,
+                                             Mask active) const {
+    MTS_MASKED_FUNCTION(ProfilerPhase::SampleEmitter, active);
+
+    size_t emitters_size = m_emitters.size();
+    // Fast paths if there is less than two emitters
+    if (unlikely(emitters_size == 0))
+        return { UInt32(-1), 0.f, index_sample };
+    if (emitters_size == 1)
+        return { 0, 1, index_sample };
+
+#if 0
+    // Randomly pick an emitter
+    auto [index, emitter_pdf, sample_re] = m_emitter_distr.sample_reuse_pmf(index_sample);
+    return { index, ek::rcp(emitter_pdf), sample_re };
+#else
+    UInt32 index = ek::min(UInt32(index_sample * (ScalarFloat) emitters_size),
+                           (uint32_t) emitters_size - 1);
+    // Rescale sample to lie in [0,1) again
+    index_sample = (index_sample - index / (ScalarFloat) emitters_size) * emitters_size;
+    // pdf = 1 / emitters_size  =>  sampling_weight = emitters_size
+    return { index, emitters_size, index_sample };
+#endif
 }
 
 MTS_VARIANT std::pair<typename Scene<Float, Spectrum>::DirectionSample3f, Spectrum>
@@ -225,26 +294,24 @@ Scene<Float, Spectrum>::sample_emitter_direction(const Interaction3f &ref, const
     Spectrum spec;
 
     size_t emitters_size = m_emitters.size();
-
     if (likely(emitters_size > 0)) {
-        ScalarFloat emitter_pdf = 1.f / emitters_size;
+        if (emitters_size == 1) {
+            // Fast path if there is only one emitter
+            std::tie(ds, spec) = m_emitters[0]->sample_direction(ref, sample, active);
+            ek::schedule(ds, spec);
+        } else {
+            // Randomly pick an emitter
+            auto [index, emitter_weight, sample_re] =
+                sample_emitter_reuse(sample.x(), active);
+            sample.x() = sample_re;
+            // Account for the discrete probability of sampling this emitter
+            ds.pdf *= ek::rcp(emitter_weight);
+            spec *= emitter_weight;
 
-        // Randomly pick an emitter
-        UInt32 index =
-            ek::min(UInt32(sample.x() * (ScalarFloat) emitters_size),
-                (uint32_t) emitters_size - 1);
-
-        // Rescale sample.x() to lie in [0,1) again
-        sample.x() = (sample.x() - index * emitter_pdf) * emitters_size;
-
-        EmitterPtr emitter = ek::gather<EmitterPtr>(m_emitters_ek, index, active);
-
-        // Sample a direction towards the emitter
-        std::tie(ds, spec) = emitter->sample_direction(ref, sample, active);
-
-        // Account for the discrete probability of sampling this emitter
-        ds.pdf *= emitter_pdf;
-        spec *= ek::rcp(emitter_pdf);
+            // Sample a direction towards the emitter
+            EmitterPtr emitter = ek::gather<EmitterPtr>(m_emitters_ek, index, active);
+            std::tie(ds, spec) = emitter->sample_direction(ref, sample, active);
+        }
 
         active &= ek::neq(ds.pdf, 0.f);
 
@@ -260,6 +327,14 @@ Scene<Float, Spectrum>::sample_emitter_direction(const Interaction3f &ref, const
     }
 
     return { ds, spec };
+}
+
+MTS_VARIANT Float
+Scene<Float, Spectrum>::pdf_emitter(UInt32 /*index*/, Mask /*active*/) const {
+    size_t emitters_size = m_emitters.size();
+    if (emitters_size == 0)
+        return 0.f;
+    return ek::rcp(emitters_size);
 }
 
 MTS_VARIANT Float
