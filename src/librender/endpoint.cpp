@@ -71,6 +71,16 @@ MTS_VARIANT Float Endpoint<Float, Spectrum>::pdf_direction(const Interaction3f &
     NotImplementedError("pdf_direction");
 }
 
+MTS_VARIANT Float Endpoint<Float, Spectrum>::pdf_position(
+    const PositionSample3f & /*ps*/, Mask /*active*/) const {
+    NotImplementedError("pdf_position");
+}
+
+MTS_VARIANT Spectrum Endpoint<Float, Spectrum>::pdf_wavelengths(
+    const Spectrum & /*wavelengths*/, Mask /*active*/) const {
+    NotImplementedError("pdf_wavelengths");
+}
+
 MTS_VARIANT Spectrum Endpoint<Float, Spectrum>::eval(const SurfaceInteraction3f & /*si*/,
                                                      Mask /*active*/) const {
     NotImplementedError("eval");

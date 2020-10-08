@@ -178,6 +178,29 @@ public:
                                 const DirectionSample3f &ds,
                                 Mask active = true) const;
 
+    /**
+     * \brief Evaluate the probability density of the position sampling
+     * method implemented by the \ref sample_position() method.
+     * In simple cases, this will equal (1 / area of the endpoint).
+     *
+     * \param ps
+     *    The sampled position record.
+     * \return
+     *    The corresponding sampling density (for each wavelength).
+     */
+    virtual Float pdf_position(const PositionSample3f &ps, Mask active = true) const;
+
+    /**
+     * \brief Evaluate the probability density of the wavelength sampling
+     * method implemented by the \ref sample_wavelengths() method.
+     *
+     * \param wavelengths
+     *    The sampled wavelengths.
+     * \return
+     *    The corresponding sampling density (for each wavelength).
+     */
+    virtual Spectrum pdf_wavelengths(const Spectrum &wavelengths, Mask active = true) const;
+
     //! @}
     // =============================================================
 
