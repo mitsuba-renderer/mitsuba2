@@ -361,6 +361,7 @@ class Adam(Optimizer):
             u = type(p)(u)
             ek.set_requires_gradient(u)
             self.params[k] = u
+        self.params.update()
 
     def _reset(self, key):
         """ Zero-initializes the internal state associated with a parameter """
