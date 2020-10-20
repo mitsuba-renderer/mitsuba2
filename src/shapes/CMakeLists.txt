@@ -14,8 +14,8 @@ add_plugin(shapegroup  shapegroup.cpp)
 add_plugin(instance    instance.cpp)
 
 if (MTS_ENABLE_EMBREE)
-    target_link_libraries(sphere   PRIVATE $<TARGET_FILE:embree>)
-    target_link_libraries(instance PRIVATE $<TARGET_FILE:embree>)
+    target_link_libraries(sphere   PRIVATE embree)
+    target_link_libraries(instance PRIVATE embree)
 endif()
 
 # Register the test directory
