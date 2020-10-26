@@ -480,21 +480,32 @@ LightTracerIntegrator<Float, Spectrum>::sample_visible_emitters(
     Scene *scene, const Sensor *sensor, Sampler *sampler, ImageBlock *block,
     Mask active) const {
 
+    // 1. Time sampling
     Float time = sensor->shutter_open();
     if (sensor->shutter_open_time() > 0)
         time += sampler->next_1d(active) * sensor->shutter_open_time();
 
+    // 2. Emitter sampling (select one emitter)
     Float idx_sample = sampler->next_1d(active);
     auto [emitter_idx, emitter_weight] =
         scene->sample_emitter(idx_sample, active);
     EmitterPtr emitter = enoki::gather<EmitterPtr>(scene->emitters().data(),
                                                    emitter_idx, active);
 
+    // 3. Emitter position sampling
     Point2f emitter_sample = sampler->next_2d(active);
     auto [ps, pos_weight] =
         emitter->sample_position(time, emitter_sample, active);
     SurfaceInteraction3f si(ps, ek::empty<Wavelength>());
 
+    // 4. Connect to the sensor.
+    // This will be done in `connect_sensor` as well, but we need a
+    // valid direction in case `sample_wavelengths` uses it.
+    // TODO(!): this is incorrect if the sensor is not at a single point.
+    auto sample_position = sensor->world_transform()->eval(time, active).translation();
+    si.wi = ek::normalize(sample_position - si.p);
+
+    // 5. Sample spectrum of the emitter (accounts for its radiance)
     Float wavelength_sample = sampler->next_1d(active);
     auto [wavelengths, wav_weight] =
         emitter->sample_wavelengths(si, wavelength_sample, active);
