@@ -491,13 +491,13 @@ LightTracerIntegrator<Float, Spectrum>::sample_visible_emitters(
     Point2f emitter_sample = sampler->next_2d(active);
     auto [ps, pos_weight] =
         emitter->sample_position(time, emitter_sample, active);
+    SurfaceInteraction3f si(ps, ek::empty<Wavelength>());
 
     Float wavelength_sample = sampler->next_1d(active);
     auto [wavelengths, wav_weight] =
-        emitter->sample_wavelengths(wavelength_sample, active);
-
-    SurfaceInteraction3f si(ps, wavelengths);
-    si.shape = emitter->shape();
+        emitter->sample_wavelengths(si, wavelength_sample, active);
+    si.wavelengths = wavelengths;
+    si.shape       = emitter->shape();
 
     Spectrum weight = emitter_weight * pos_weight * wav_weight;
 

@@ -64,7 +64,7 @@ public:
                      m_value * (MTS_WAVELENGTH_MAX - MTS_WAVELENGTH_MIN) };
         } else {
             ENOKI_MARK_USED(sample);
-            NotImplementedError("sample");
+            return { ek::empty<Wavelength>(), m_value };
         }
     }
 

@@ -151,6 +151,9 @@ public:
      * Any discrepancies between ideal and actual sampled profile are absorbed
      * into a spectral importance weight that is returned along with the ray.
      *
+     * \param si
+     *     Surface interaction, used to condition on the spatial dimensions
+     *     in case of a spatially-varying spectrum.
      * \param sample
      *     A uniformly distributed 1D value that is used to sample the spectral
      *     dimension of the emission profile.
@@ -160,8 +163,9 @@ public:
      *    importance weights. The latter account for the difference between the
      *    profile and the actual used sampling density function.
      */
-    virtual std::pair<Spectrum, Spectrum>
-    sample_wavelengths(Float sample, Mask active = true) const;
+    virtual std::pair<Wavelength, Spectrum>
+    sample_wavelengths(const SurfaceInteraction3f &si, Float sample,
+                       Mask active = true) const;
 
     //! @}
     // =============================================================

@@ -60,8 +60,10 @@ Endpoint<Float, Spectrum>::sample_position(Float /*time*/, const Point2f &/*samp
     NotImplementedError("sample_position");
 }
 
-MTS_VARIANT std::pair<Spectrum, Spectrum>
-Endpoint<Float, Spectrum>::sample_wavelengths(Float /*sample*/, Mask /*active*/) const {
+MTS_VARIANT std::pair<typename Endpoint<Float, Spectrum>::Wavelength, Spectrum>
+Endpoint<Float, Spectrum>::sample_wavelengths(
+    const SurfaceInteraction3f & /*si*/, Float /*sample*/,
+    Mask /*active*/) const {
     NotImplementedError("sample_wavelengths");
 }
 
