@@ -170,6 +170,25 @@ ImageBlock<Float, Spectrum>::put(const Point2f &pos_, const Float *value, Mask a
     return active;
 }
 
+MTS_VARIANT void
+ImageBlock<Float, Spectrum>::overwrite_channel(size_t channel,
+                                               ScalarFloat value) {
+    size_t pixel_count = (width() + m_border_size) * (height() + m_border_size);
+    Assert(m_data.size() == m_channel_count * pixel_count);
+
+    // TODO: any way to avoid this specialization?
+    if constexpr (ek::is_dynamic_v<Float>) {
+        auto indices = m_channel_count * ek::arange<UInt64>(pixel_count) + channel;
+        ek::scatter(m_data, value, indices);
+    } else {
+        ScalarFloat *target = m_data.data();
+        for (size_t i = 0; i < pixel_count; ++i) {
+            target[channel] = value;
+            target += m_channel_count;
+        }
+    }
+}
+
 MTS_VARIANT std::string ImageBlock<Float, Spectrum>::to_string() const {
     std::ostringstream oss;
     oss << "ImageBlock[" << std::endl

@@ -222,18 +222,17 @@ public:
 
         // Check if it is outside of the clip range
         DirectionSample3f ds;
-        ds.pdf          = 0.f;
-        Spectrum weight = 0.f;
+        ds.pdf = 0.f;
         active &= (ref_p.z() >= m_near_clip) && (ref_p.z() <= m_far_clip);
         if (ek::none(active))
-            return { ds, weight };
+            return { ds, ek::zero<Spectrum>() };
 
         auto screen_sample = m_camera_to_sample * ref_p;
         ds.uv              = Point2f(screen_sample.x(), screen_sample.y());
         active &= (ds.uv.x() >= 0) && (ds.uv.x() <= 1) && (ds.uv.y() >= 0) &&
                   (ds.uv.y() <= 1);
         if (ek::none(active))
-            return { ds, weight };
+            return { ds, ek::zero<Spectrum>() };
 
         ds.uv *= m_resolution;
 
@@ -302,7 +301,8 @@ public:
               d_omega = 1 / (A' * cos^3(theta))
         */
 
-        Float ct = Frame3f::cos_theta(d), inv_ct = ek::rcp(ct);
+        Float ct     = Frame3f::cos_theta(d),
+              inv_ct = ek::rcp(ct);
 
         // Compute the position on the plane at distance 1
         Point2f p(d.x() * inv_ct, d.y() * inv_ct);

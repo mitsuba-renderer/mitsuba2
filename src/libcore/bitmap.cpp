@@ -156,42 +156,6 @@ void Bitmap::set_premultiplied_alpha(bool value) {
     }
 }
 
-namespace detail {
-template <typename T>
-void overwrite_channel(size_t channel, uint8_t *data, size_t n, size_t stride,
-                       T value) {
-    T *target = (T *) data;
-    for (size_t i = 0; i < n; ++i) {
-        target[channel] = value;
-        target += stride;
-    }
-}
-} // end namespace detail
-
-void Bitmap::overwrite_channel(size_t channel, double value) {
-    switch (m_component_format) {
-        case Struct::Type::Float16:
-            detail::overwrite_channel<ek::half>(channel, m_data.get(),
-                                                pixel_count(), channel_count(),
-                                                (ek::half) value);
-            break;
-
-        case Struct::Type::Float32:
-            detail::overwrite_channel<float>(channel, m_data.get(),
-                                             pixel_count(), channel_count(),
-                                             (float) value);
-            break;
-
-        case Struct::Type::Float64:
-            detail::overwrite_channel<double>(
-                channel, m_data.get(), pixel_count(), channel_count(), value);
-            break;
-
-        default:
-            Throw("overwrite_channel(): Unsupported component type! (must be float16/32/64)");
-    }
-}
-
 void Bitmap::clear() {
     memset(m_data.get(), 0, buffer_size());
 }

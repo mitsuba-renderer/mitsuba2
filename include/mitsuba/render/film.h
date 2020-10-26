@@ -31,6 +31,9 @@ public:
     /// Develop the film and write the result to the previously specified filename
     virtual void develop() = 0;
 
+    /// Overwrite the weight channel to the given value
+    virtual void reweight(double weight) = 0;
+
     /**
      * \brief Develop the contents of a subregion of the film and store
      * it inside the given bitmap

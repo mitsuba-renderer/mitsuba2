@@ -298,7 +298,6 @@ public:
      *
      * \return The new normalization weight.
      */
-    Float normalize_block(ImageBlock *block, size_t total_samples) const;
     Float normalize_film(Film *film, size_t total_samples) const;
 
     MTS_DECLARE_CLASS()

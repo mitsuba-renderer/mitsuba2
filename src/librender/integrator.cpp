@@ -421,6 +421,7 @@ MTS_VARIANT bool LightTracerIntegrator<Float, Spectrum>::render(Scene *scene, Se
                 /* warn_negative */ !has_aovs,
                 /* warn_invalid */ true, /* border */ true,
                 /* normalize */ true);
+            block->clear();
             size_t samples_done = 0;
 
             // Ensure that sample generation is fully deterministic.
@@ -505,29 +506,13 @@ LightTracerIntegrator<Float, Spectrum>::sample_visible_emitters(
     return connect_sensor(scene, sensor, sampler, si, nullptr, weight, block, active);
 }
 
-MTS_VARIANT Float LightTracerIntegrator<Float, Spectrum>::normalize_block(
-    ImageBlock *block, size_t total_samples) const {
-    Float new_weight = total_samples / Float(hprod(block->size()));
-
-    // Overwrite the weight channel
-    auto &data         = block->data();
-    size_t border      = block->border_size();
-    size_t pixel_count = (block->width() + border) * (block->height() + border);
-    size_t weight_channel = 4;
-    Assert(block->channel_count() == 5);
-    Assert(data.size() == block->channel_count() * pixel_count);
-    enoki::scatter(data, new_weight,
-                   block->channel_count() * enoki::arange<UInt64>(pixel_count) +
-                       weight_channel);
-    return new_weight;
-}
-
 MTS_VARIANT Float LightTracerIntegrator<Float, Spectrum>::normalize_film(
     Film *film, size_t total_samples) const {
     double new_weight = total_samples / (double) hprod(film->size());
-    film->bitmap()->overwrite_channel(4, new_weight);
+    film->reweight(new_weight);
     return new_weight;
 }
+
 
 MTS_IMPLEMENT_CLASS_VARIANT(Integrator, Object, "integrator")
 MTS_IMPLEMENT_CLASS_VARIANT(SamplingIntegrator, Integrator)
