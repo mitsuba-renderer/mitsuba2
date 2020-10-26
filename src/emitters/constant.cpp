@@ -112,6 +112,8 @@ public:
     std::pair<PositionSample3f, Float>
     sample_position(Float time, const Point2f &sample,
                     Mask active) const override {
+        MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSamplePosition, active);
+
         /* Note that sampling a position from an infinitely distant light source
          * cannot really make sense. Instead, we return a position from a
          * virtual bounding sphere around the scene. */

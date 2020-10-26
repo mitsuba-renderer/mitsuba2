@@ -163,7 +163,9 @@ public:
     std::pair<PositionSample3f, Float>
     sample_position(Float time, const Point2f &sample,
                     Mask active) const override {
-        Assert(m_shape, "Can't sample from an area emitter without an associated Shape.");
+        MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSamplePosition, active);
+        Assert(m_shape, "Cannot sample from an area emitter without an associated Shape.");
+
         PositionSample3f ps = m_shape->sample_position(time, sample, active);
         Float weight        = ek::select(ps.pdf > 0.f, ek::rcp(ps.pdf), Float(0.f));
         ps.object           = this;

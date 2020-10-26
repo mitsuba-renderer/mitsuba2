@@ -47,6 +47,7 @@ enum class ProfilerPhase : int {
     EndpointEvaluate,           /* Endpoint::eval() and Endpoint::pdf() */
     EndpointSampleRay,          /* Endpoint::sample_ray() */
     EndpointSampleDirection,    /* Endpoint::sample_direction() */
+    EndpointSamplePosition,     /* Endpoint::sample_position() */
     TextureSample,              /* Texture::sample() */
     TextureEvaluate,            /* Texture::eval() and Texture::pdf() */
 
@@ -78,6 +79,7 @@ constexpr const char
         "Endpoint::eval(), pdf()",
         "Endpoint::sample_ray()",
         "Endpoint::sample_direction()",
+        "Endpoint::sample_position()",
         "Texture::sample()",
         "Texture::eval()"
     };
