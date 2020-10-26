@@ -524,7 +524,7 @@ MTS_VARIANT Float LightTracerIntegrator<Float, Spectrum>::normalize_block(
 
 MTS_VARIANT Float LightTracerIntegrator<Float, Spectrum>::normalize_film(
     Film *film, size_t total_samples) const {
-    Float new_weight = total_samples / Float(hprod(film->size()));
+    double new_weight = total_samples / (double) hprod(film->size());
     film->bitmap()->overwrite_channel(4, new_weight);
     return new_weight;
 }
