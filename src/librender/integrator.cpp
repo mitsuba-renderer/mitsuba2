@@ -372,7 +372,7 @@ MTS_VARIANT bool LightTracerIntegrator<Float, Spectrum>::render(Scene *scene, Se
     m_render_timer.reset();
     Film *film = sensor->film();
 
-    if (scene->emitters().empty()) {
+    if (unlikely(scene->emitters().empty())) {
         Log(Warn, "Scene does not contain any emitter, returning black image.");
         normalize_film(film, 1);
         return true;
@@ -426,20 +426,22 @@ MTS_VARIANT bool LightTracerIntegrator<Float, Spectrum>::render(Scene *scene, Se
 
             // Ensure that sample generation is fully deterministic.
             ref<Sampler> sampler = sensor->sampler()->clone();
-            size_t seed          = (size_t) range.begin();
+            // TODO: appropriate seeding in wavefront mode
+            size_t seed = (size_t) range.begin();
             sampler->seed(seed);
 
-            for (auto i = range.begin(); i != range.end() && !should_stop();
-                 ++i) {
-                // Account for visible emitters
-                sample_visible_emitters(scene, sensor, sampler, block);
+            for (auto i = range.begin(); i != range.end() && !should_stop(); ++i) {
+                if (likely(m_max_depth != 0)) {
+                    // Account for visible emitters
+                    sample_visible_emitters(scene, sensor, sampler, block);
+                }
 
                 // Primary & further bounces illumination
                 auto [ray, throughput] = prepare_ray(scene, sensor, sampler);
 
                 // TODO(!): how to create a correct initial si?
                 SurfaceInteraction3f si;
-                trace_light_ray(ray, scene, sensor, sampler, si, throughput, /*depth*/ 0, block);
+                trace_light_ray(ray, scene, sensor, sampler, si, throughput, /*depth*/ 1, block);
 
                 // TODO: support other modes
                 samples_done += 1;
@@ -448,9 +450,7 @@ MTS_VARIANT bool LightTracerIntegrator<Float, Spectrum>::render(Scene *scene, Se
                     tbb::spin_mutex::scoped_lock lock(mutex);
                     total_samples_done += samples_done;
                     samples_done = 0;
-                    progress->update(total_samples_done /
-                                     (Float) total_samples);
-                    // notify(block->bitmap());
+                    progress->update(total_samples_done / (ScalarFloat) total_samples);
                 }
             }
 

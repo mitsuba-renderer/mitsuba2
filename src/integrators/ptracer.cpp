@@ -72,7 +72,7 @@ public:
         if (m_max_depth != -1 && depth >= m_max_depth)
             return { throughput, 1.f };
         // First intersection
-        if (depth == 0)
+        if (depth == 1)
             si = scene->ray_intersect(ray, active);
 
         // Incrementally build light path using BSDF sampling.
