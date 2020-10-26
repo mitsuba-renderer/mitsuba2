@@ -85,7 +85,9 @@ public:
                 active &= sampler->next_1d(active) < q;
                 throughput *= ek::rcp(q);
             }
-            if (ek::none(active) || (uint32_t) depth >= (uint32_t) m_max_depth)
+
+            // TODO: JIT-friendly stop check
+            if ((uint32_t) depth >= (uint32_t) m_max_depth || ek::none(active))
                 break;
 
             // Connect to sensor and splat if successful.
@@ -179,9 +181,9 @@ public:
          * Note that foreshortening is only missing for directly visible emitters associated
          * with a shape (marked by convention by bsdf == nullptr). */
         Spectrum surface_weight = 1.f;
+        auto local_d            = si.to_local(sensor_ray.d);
         auto on_surface         = active && neq(si.shape, nullptr);
         if (ek::any_or<true>(on_surface)) {
-            auto local_d = si.to_local(sensor_ray.d);
             // Clamp negative cosines -> zero value if behind the surface
             surface_weight[on_surface && eq(bsdf, nullptr)] *=
                 ek::max(0.f, Frame3f::cos_theta(local_d));
@@ -204,6 +206,14 @@ public:
                     ek::zero<Float>());
                 surface_weight[on_surface] *= correction * bsdf->eval(ctx, si, local_d, active);
             }
+        }
+
+        // Even if the ray is not coming from a surface (no foreshortening),
+        // we still don't want light coming from behind the emitter.
+        auto on_infinite_emitter = active && eq(si.shape, nullptr) && eq(bsdf, nullptr);
+        if (ek::any_or<true>(on_infinite_emitter)) {
+            auto right_side = Frame3f::cos_theta(local_d) > 0.f;
+            surface_weight[on_infinite_emitter] = select(right_side, surface_weight, 0.f);
         }
 
         result = weight * sensor_val * surface_weight;

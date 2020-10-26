@@ -457,6 +457,7 @@ MTS_VARIANT bool LightTracerIntegrator<Float, Spectrum>::render(Scene *scene, Se
             /* locked */ {
                 tbb::spin_mutex::scoped_lock lock(mutex);
                 total_samples_done += samples_done;
+                progress->update(total_samples_done / (ScalarFloat) total_samples);
 
                 film->put(block);
             }

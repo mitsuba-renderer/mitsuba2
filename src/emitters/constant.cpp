@@ -65,21 +65,29 @@ public:
                                           Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleRay, active);
 
-        // 1. Sample spectrum
-        auto [wavelengths, weight] = m_radiance->sample_spectrum(
-            ek::zero<SurfaceInteraction3f>(),
-            math::sample_shifted<Wavelength>(wavelength_sample), active);
-
-        // 2. Sample spatial component
+        // 1. Sample spatial component
         Vector3f v0 = warp::square_to_uniform_sphere(sample2);
+        Point3f origin = m_bsphere.center + v0 * m_bsphere.radius;
 
-        // 3. Sample directional component
+        // 2. Sample directional component
         Vector3f v1 = warp::square_to_cosine_hemisphere(sample3);
+        Vector3f direction = Frame3f(-v0).to_world(v1);
 
-        return { Ray3f(m_bsphere.center + v0 * m_bsphere.radius,
-                       Frame3f(-v0).to_world(v1), time, wavelengths),
-                 unpolarized<Spectrum>(weight) *
-                     (4.f * ek::sqr(ek::Pi<Float> * m_bsphere.radius)) };
+        // 3. Sample spectrum
+        // TODO: how to best construct this `si`?
+        SurfaceInteraction3f si;
+        si.time = time;
+        si.p    = origin;
+        si.uv   = sample2;
+        si.wi   = v1;  // Points away from the "surface", in local coordinates
+        auto [wavelengths, weight] =
+            sample_wavelengths(si, wavelength_sample, active);
+
+        ScalarFloat inv_pdf = ek::rcp(
+            m_inv_surface_area * warp::square_to_cosine_hemisphere_pdf(v1));
+
+        return std::make_pair(Ray3f(origin, direction, time, wavelengths),
+                              unpolarized<Spectrum>(weight) * inv_pdf);
     }
 
     std::pair<DirectionSample3f, Spectrum>
@@ -130,11 +138,12 @@ public:
         return { ps, ek::select(ps.pdf > 0.f, ek::rcp(m_inv_surface_area), 0.f) };
     }
 
-    // std::pair<Spectrum, Spectrum>
-    // sample_wavelengths(Float sample, Mask active) const override {
-    //     // TODO: how to sample the spectrum without a position?
-    //     return m_radiance->sample_spectrum(si, math::sample_shifted<Wavelength>(sample), active);
-    // }
+    std::pair<Wavelength, Spectrum>
+    sample_wavelengths(const SurfaceInteraction3f &si, Float sample,
+                       Mask active) const override {
+        return m_radiance->sample_spectrum(
+            si, math::sample_shifted<Wavelength>(sample), active);
+    }
 
     Float pdf_direction(const Interaction3f &, const DirectionSample3f &ds,
                         Mask active) const override {
@@ -148,12 +157,6 @@ public:
         // Note that in principle, we should check that ps.p lies on the bsphere
         return ek::select(active, m_inv_surface_area, 0.f);
     }
-
-    // Spectrum pdf_wavelengths(const Spectrum &wavelengths,
-    //                          Mask active) const override {
-    //     // TODO: how to get pdf_spectrum without a position? Interface mismatch.
-    //     return m_radiance->pdf_spectrum(wavelengths, active);
-    // }
 
     /// This emitter does not occupy any particular region of space, return an invalid bounding box
     ScalarBoundingBox3f bbox() const override {
