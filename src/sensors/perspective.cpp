@@ -213,6 +213,44 @@ public:
         return { ray, wav_weight };
     }
 
+    std::pair<DirectionSample3f, Spectrum>
+    sample_direction(const Interaction3f &it, const Point2f & /*sample*/,
+                     Mask active) const override {
+        // Transform the reference point into the local coordinate system
+        auto trafo    = m_world_transform->eval(it.time, active);
+        Point3f ref_p = trafo.inverse().transform_affine(it.p);
+
+        // Check if it is outside of the clip range
+        DirectionSample3f ds;
+        ds.pdf          = 0.f;
+        Spectrum weight = 0.f;
+        active &= (ref_p.z() >= m_near_clip) && (ref_p.z() <= m_far_clip);
+        if (ek::none(active))
+            return { ds, weight };
+
+        auto screen_sample = m_camera_to_sample * ref_p;
+        ds.uv              = Point2f(screen_sample.x(), screen_sample.y());
+        active &= (ds.uv.x() >= 0) && (ds.uv.x() <= 1) && (ds.uv.y() >= 0) &&
+                  (ds.uv.y() <= 1);
+        if (ek::none(active))
+            return { ds, weight };
+
+        ds.uv *= m_resolution;
+
+        Vector3f local_d(ref_p);
+        Float dist     = ek::norm(local_d);
+        Float inv_dist = ek::rcp(dist);
+        local_d *= inv_dist;
+
+        ds.p    = trafo.transform_affine(Point3f(0.0f));
+        ds.d    = (ds.p - it.p) * inv_dist;
+        ds.dist = dist;
+        ds.n    = trafo * Vector3f(0.0f, 0.0f, 1.0f);
+        ds.pdf  = ek::select(active, Float(1.f), Float(0.f));
+
+        return { ds, Spectrum(importance(local_d) * inv_dist * inv_dist) };
+    }
+
     ScalarBoundingBox3f bbox() const override {
         return m_world_transform->translation_bounds();
     }
