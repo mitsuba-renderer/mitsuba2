@@ -851,6 +851,7 @@ MTS_VARIANT void Mesh<Float, Spectrum>::traverse(TraversalCallback *callback) {
 MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed(const std::vector<std::string> &keys) {
     if (keys.empty() || string::contains(keys, "vertex_positions_buf")) {
         if constexpr (is_cuda_array_v<Float>) {
+            m_vertex_positions_buf.managed();
             cuda_eval();
             cuda_sync();
         }
