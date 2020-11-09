@@ -396,9 +396,7 @@ Mesh<Float, Spectrum>::sample_position(Float time, const Point2f &sample_, Mask 
     return ps;
 }
 
-MTS_VARIANT
-
-typename Mesh<Float, Spectrum>::SurfaceInteraction3f
+MTS_VARIANT typename Mesh<Float, Spectrum>::SurfaceInteraction3f
 Mesh<Float, Spectrum>::eval_parameterization(const Point2f &uv,
                                              Mask active) const {
     if (!m_parameterization)
@@ -867,8 +865,9 @@ MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed(const std::vector<std
         if (m_parameterization)
             m_parameterization = nullptr;
 
-        if constexpr (is_cuda_array_v<Float>)
-            optix_prepare_geometry();
+#if defined(MTS_ENABLE_OPTIX)
+        optix_prepare_geometry();
+#endif
 
         Base::parameters_changed();
     }
