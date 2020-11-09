@@ -23,7 +23,7 @@ NAMESPACE_BEGIN(mitsuba)
 
 size_t __global_thread_count = 0;
 static ThreadLocal<Thread> *self = nullptr;
-static std::atomic<uint32_t> thread_ctr { 0 };
+static std::atomic<uint32_t> thread_ctr { 1 };
 #if defined(__LINUX__) || defined(__OSX__)
 static pthread_key_t this_thread_id;
 #elif defined(__WINDOWS__)
