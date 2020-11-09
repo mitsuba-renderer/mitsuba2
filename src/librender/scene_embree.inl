@@ -49,6 +49,7 @@ Scene<Float, Spectrum>::ray_intersect_preliminary_cpu(const Ray3f &ray, Mask act
         rtcInitIntersectContext(&context);
 
         PreliminaryIntersection3f pi = zero<PreliminaryIntersection3f>();
+        pi.t = math::Infinity<Float>;
 
         if constexpr (!is_array_v<Float>) {
             RTCRayHit rh;
@@ -125,7 +126,6 @@ Scene<Float, Spectrum>::ray_intersect_preliminary_cpu(const Ray3f &ray, Mask act
                 Mask hit_not_inst = hit &&  eq(inst_index, RTC_INVALID_GEOMETRY_ID);
                 Mask hit_inst     = hit && neq(inst_index, RTC_INVALID_GEOMETRY_ID);
 
-                PreliminaryIntersection3f pi = zero<PreliminaryIntersection3f>();
                 pi.t = select(hit, t, math::Infinity<Float>);
 
                 // Set si.instance and si.shape
@@ -248,7 +248,7 @@ Scene<Float, Spectrum>::ray_intersect_cpu(const Ray3f &ray, HitComputeFlags flag
                 pi.shape_index = shape_index;
                 pi.prim_uv = Point2f(load<Float>(rh.hit.u), load<Float>(rh.hit.v));
 
-                si = pi.compute_surface_interaction(ray, flags, active);
+                si = pi.compute_surface_interaction(ray, flags, hit);
             } else {
                 si.wavelengths = ray.wavelengths;
                 si.time = ray.time;
