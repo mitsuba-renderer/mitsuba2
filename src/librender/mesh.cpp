@@ -867,6 +867,9 @@ MTS_VARIANT void Mesh<Float, Spectrum>::parameters_changed(const std::vector<std
         if (m_parameterization)
             m_parameterization = nullptr;
 
+        if constexpr (is_cuda_array_v<Float>)
+            optix_prepare_geometry();
+
         Base::parameters_changed();
     }
 }
