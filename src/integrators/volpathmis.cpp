@@ -124,7 +124,7 @@ public:
         SurfaceInteraction3f si = zero<SurfaceInteraction3f>();
         si.t = math::Infinity<Float>;
 
-        Mask needs_intersection = true;
+        Mask needs_intersection = true, last_event_was_null = false;
         Interaction3f last_scatter_event = zero<Interaction3f>();
         last_scatter_event.t = math::Infinity<Float>;
         for (int bounce = 0;; ++bounce) {
@@ -133,12 +133,13 @@ public:
             // Russian roulette: try to keep path weights equal to one, while accounting for the
             // solid angle compression at refractive index boundaries. Stop with at least some
             // probability to avoid  getting stuck (e.g. due to total internal reflection)
-            // Spectrum mis_throughput = mis_weight(p_over_f);
-            // active &= any(neq(depolarize(mis_throughput), 0.f));
-            // Float q = min(hmax(depolarize(mis_throughput)) * sqr(eta), .95f);
-            // Mask perform_rr = (depth > (uint32_t) m_rr_depth);
-            // active &= !(sampler->next_1d(active) >= q && perform_rr);
-            // update_weights(p_over_f, detach(q), 1.0f, perform_rr);
+            Spectrum mis_throughput = mis_weight(p_over_f);
+            Float q = min(hmax(depolarize(mis_throughput)) * sqr(eta), .95f);
+            Mask perform_rr = active && !last_event_was_null && (depth > (uint32_t) m_rr_depth);
+            active &= !(sampler->next_1d(active) >= q && perform_rr);
+            update_weights(p_over_f, detach(q), 1.0f, channel, perform_rr);
+
+            last_event_was_null = false;
 
             Mask exceeded_max_depth = depth >= (uint32_t) m_max_depth;
             active &= !exceeded_max_depth;
@@ -190,10 +191,11 @@ public:
                 // Count this as a bounce
                 masked(depth, act_medium_scatter) += 1;
                 masked(last_scatter_event, act_medium_scatter) = mi;
+                Mask sample_emitters = mi.medium->use_emitter_sampling();
 
                 active &= depth < (uint32_t) m_max_depth;
                 act_medium_scatter &= active;
-                specular_chain = specular_chain && !act_medium_scatter;
+                specular_chain = specular_chain && !(act_medium_scatter && sample_emitters);
 
 
                 if (any_or<true>(act_null_scatter)) {
@@ -221,7 +223,6 @@ public:
                     auto phase = mi.medium->phase_function();
 
                     // --------------------- Emitter sampling ---------------------
-                    Mask sample_emitters = mi.medium->use_emitter_sampling();
                     valid_ray |= act_medium_scatter;
                     Mask active_e = act_medium_scatter && sample_emitters;
                     if (any_or<true>(active_e)) {
@@ -452,8 +453,10 @@ public:
         if constexpr (SpectralMis) {
             ENOKI_MARK_USED(channel);
             for (size_t i = 0; i < array_size_v<Spectrum>; ++i) {
-                UnpolarizedSpectrum ratio = p_over_f[i] * (p / f.coeff(i));
-                masked(p_over_f[i], active) = select(enoki::isfinite(ratio), ratio, 0.f);
+                UnpolarizedSpectrum ratio = p / f.coeff(i);
+                ratio = select(enoki::isfinite(ratio), ratio, 0.f);
+                ratio *= p_over_f[i];
+                masked(p_over_f[i], active) = select(neq(ratio, ratio), 0.f, ratio);
             }
         } else {
             // If we don't do spectral MIS: We need to use a specific channel of the spectrum "p" as the PDF
