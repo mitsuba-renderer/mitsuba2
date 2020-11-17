@@ -20938,9 +20938,9 @@ BB8_116:
 
 )
 {
-	.reg .pred 	%p<4>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%rs<5>;
-	.reg .f32 	%f<27>;
+	.reg .f32 	%f<28>;
 	.reg .b32 	%r<20>;
 	.reg .b64 	%rd<44>;
 
@@ -20995,38 +20995,40 @@ BB8_116:
 	ld.const.u64 	%rd25, [params+64];
 	cvta.to.global.u64 	%rd26, %rd25;
 	add.s64 	%rd27, %rd26, %rd5;
-	ld.global.f32 	%f8, [%rd27];
+	ld.global.f32 	%f9, [%rd27];
+	setp.eq.f32	%p1, %f9, 0f7F800000;
+	selp.f32	%f8, 0f7F7FFFFF, %f9, %p1;
 	ld.const.u64 	%rd2, [params+352];
-	setp.eq.s64	%p1, %rd2, 0;
+	setp.eq.s64	%p2, %rd2, 0;
 	ld.const.u64 	%rd28, [params];
 	cvta.to.global.u64 	%rd29, %rd28;
 	add.s64 	%rd30, %rd29, %rd1;
 	ld.global.u8 	%rs1, [%rd30];
-	@%p1 bra 	BB9_4;
+	@%p2 bra 	BB9_4;
 
-	setp.eq.s16	%p2, %rs1, 0;
-	@%p2 bra 	BB9_3;
+	setp.eq.s16	%p3, %rs1, 0;
+	@%p3 bra 	BB9_3;
 
 	ld.const.u64 	%rd31, [params+360];
 	mov.u32 	%r10, 4;
 	mov.u32 	%r12, 1;
 	mov.u32 	%r13, 0;
-	mov.f32 	%f17, 0f00000000;
+	mov.f32 	%f18, 0f00000000;
 	// inline asm
-	call _optix_trace_0, (%rd31, %f1, %f2, %f3, %f4, %f5, %f6, %f7, %f8, %f17, %r12, %r10, %r13, %r12, %r13);
+	call _optix_trace_0, (%rd31, %f1, %f2, %f3, %f4, %f5, %f6, %f7, %f8, %f18, %r12, %r10, %r13, %r12, %r13);
 	// inline asm
 	bra.uni 	BB9_7;
 
 BB9_4:
-	setp.eq.s16	%p3, %rs1, 0;
-	@%p3 bra 	BB9_6;
+	setp.eq.s16	%p4, %rs1, 0;
+	@%p4 bra 	BB9_6;
 
 	ld.const.u64 	%rd34, [params+360];
 	mov.u32 	%r17, 1;
 	mov.u32 	%r18, 0;
-	mov.f32 	%f26, 0f00000000;
+	mov.f32 	%f27, 0f00000000;
 	// inline asm
-	call _optix_trace_0, (%rd34, %f1, %f2, %f3, %f4, %f5, %f6, %f7, %f8, %f26, %r17, %r18, %r18, %r17, %r18);
+	call _optix_trace_0, (%rd34, %f1, %f2, %f3, %f4, %f5, %f6, %f7, %f8, %f27, %r17, %r18, %r18, %r17, %r18);
 	// inline asm
 	bra.uni 	BB9_7;
 
