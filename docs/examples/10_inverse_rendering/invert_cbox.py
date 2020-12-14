@@ -1,4 +1,4 @@
-# Simple inverse rendering example: render a cornell box reference image, then
+# Simple inverse rendering example: render a cornell box reference image,
 # then replace one of the scene parameters and try to recover it using
 # differentiable rendering and gradient-based optimization.
 
