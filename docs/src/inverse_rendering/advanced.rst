@@ -82,7 +82,7 @@ that we can now also write out the current environment image in each iteration.
         image = render(scene, optimizer=opt, unbiased=True, spp=1)
         write_bitmap('out_%03i.png' % it, image, crop_size)
         write_bitmap('envmap_%03i.png' % it, params['my_envmap.data'],
-                     (param_res[1], param_res[0]))
+                     (param_res[0], param_res[1]))
 
         # Objective: MSE between 'image' and 'image_ref'
         ob_val = ek.hsum(ek.sqr(image - image_ref)) / len(image)

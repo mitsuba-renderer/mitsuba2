@@ -1,4 +1,4 @@
-# Simple inverse rendering example: render a cornell box reference image, then
+# Advanced inverse rendering example: render a bunny reference image,
 # then replace one of the scene parameters and try to recover it using
 # differentiable rendering and gradient-based optimization.
 
@@ -46,7 +46,7 @@ for it in range(iterations):
     image = render(scene, optimizer=opt, unbiased=True, spp=1)
     write_bitmap('out_%03i.png' % it, image, crop_size)
     write_bitmap('envmap_%03i.png' % it, params['my_envmap.data'],
-                 (param_res[1], param_res[0]))
+                 (param_res[0], param_res[1]))
 
     # Objective: MSE between 'image' and 'image_ref'
     ob_val = ek.hsum(ek.sqr(image - image_ref)) / len(image)
