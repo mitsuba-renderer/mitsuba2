@@ -29,6 +29,12 @@ public:
     get_scattering_coefficients(const MediumInteraction3f &mi,
                                 Mask active = true) const = 0;
 
+    /// Returns the medium radiance evaluated
+    /// at a given MediumInteraction mi
+    virtual UnpolarizedSpectrum
+    get_radiance(const MediumInteraction3f &mi,
+                 Mask active = true) const = 0;
+
     /**
      * \brief Sample a free-flight distance in the medium.
      *

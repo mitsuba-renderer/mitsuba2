@@ -410,7 +410,7 @@ struct MediumInteraction : Interaction<Float_, Spectrum_> {
     /// Incident direction in the local shading frame
     Vector3f wi;
 
-    UnpolarizedSpectrum sigma_s, sigma_n, sigma_t, combined_extinction;
+    UnpolarizedSpectrum sigma_s, sigma_n, sigma_t, combined_extinction, radiance;
 
     /// mint used when sampling the given distance "t".
     Float mint;

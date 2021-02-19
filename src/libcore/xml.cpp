@@ -845,7 +845,7 @@ static std::pair<std::string, std::string> parse_xml(XMLSource &src, XMLParseCon
 
                     ref<Object> obj = detail::create_texture_from_spectrum(
                         name, const_value, wavelengths, values, ctx.variant,
-                        within_emitter,
+                        within_emitter || name == "radiance",
                         ctx.color_mode == ColorMode::Spectral,
                         ctx.color_mode == ColorMode::Monochromatic);
 
