@@ -787,7 +787,7 @@ static std::pair<std::string, std::string> parse_xml(XMLSource &src, XMLParseCon
                     if (!within_spectrum) {
                         std::string name = node.attribute("name").value();
                         ref<Object> obj = detail::create_texture_from_rgb(
-                            name, color, ctx.variant, within_emitter);
+                            name, color, ctx.variant, within_emitter || name == "radiance");
                         props.set_object(name, obj);
                     } else {
                         props.set_color("color", color);
