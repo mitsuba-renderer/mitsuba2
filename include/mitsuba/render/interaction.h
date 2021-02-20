@@ -437,7 +437,7 @@ struct MediumInteraction : Interaction<Float_, Spectrum_> {
     // =============================================================
 
     ENOKI_STRUCT(MediumInteraction, t, time, wavelengths, p, medium,
-                 sh_frame, wi, sigma_s, sigma_n, sigma_t,
+                 sh_frame, wi, sigma_s, sigma_n, sigma_t, radiance,
                  combined_extinction, mint)
 };
 
