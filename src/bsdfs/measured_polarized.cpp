@@ -271,7 +271,7 @@ public:
 
                 /* Invalid configurations such as transmission directions are encoded as NaNs.
                    Make sure these values don't end up in the interpolated value. */
-                ek::masked(value, ek::any(isnan(value(0,0)))) = 0.f;
+                ek::masked(value, ek::any(ek::isnan(value(0,0)))) = 0.f;
 
                 // Make sure intensity is non-negative
                 value(0,0) = ek::max(0.f, value(0,0));
