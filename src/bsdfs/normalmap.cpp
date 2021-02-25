@@ -156,6 +156,11 @@ public:
         return result;
     }
 
+    void traverse(TraversalCallback *callback) override {
+       callback->put_object("normalmap", m_normalmap.get());
+       callback->put_object("nested_bsdf", m_nested_bsdf.get());
+    }
+
     std::string to_string() const override {
         std::ostringstream oss;
         oss << "NormalMap[" << std::endl
