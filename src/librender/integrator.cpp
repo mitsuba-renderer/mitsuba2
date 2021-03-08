@@ -15,7 +15,6 @@
 #include <mitsuba/render/spiral.h>
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_for.h>
-#include <mutex>
 
 NAMESPACE_BEGIN(mitsuba)
 
