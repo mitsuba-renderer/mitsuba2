@@ -211,7 +211,7 @@ Scene<Float, Spectrum>::sample_emitter_ray(Float time, Float sample1,
     using EmitterPtr = ek::replace_scalar_t<Float, Emitter*>;
 
     if (unlikely(m_emitters.empty()))
-        return std::make_tuple(Ray3f(), Spectrum(0.f), EmitterPtr(nullptr));
+        return { Ray3f(), Spectrum(0.f), EmitterPtr(nullptr) };
 
     // Randomly pick an emitter according to the precomputed emitter distribution
     auto [index, emitter_weight, sample_re] = sample_emitter_reuse(sample1, active);
@@ -232,7 +232,7 @@ Scene<Float, Spectrum>::sample_emitter_ray(Float time, Float sample1,
         emitter->sample_ray(time, sample1, sample2, sample3, active);
 #endif
 
-    return std::make_tuple(ray, ray_weight, emitter);
+    return { ray, ray_weight, emitter };
 }
 
 MTS_VARIANT std::pair<typename Scene<Float, Spectrum>::UInt32, Float>
@@ -334,7 +334,7 @@ Scene<Float, Spectrum>::pdf_emitter(UInt32 /*index*/, Mask /*active*/) const {
     size_t emitters_size = m_emitters.size();
     if (emitters_size == 0)
         return 0.f;
-    return ek::rcp(emitters_size);
+    return 1.f / emitters_size;
 }
 
 MTS_VARIANT Float

@@ -122,6 +122,18 @@ public:
                      Mask active = true) const;
 
     /**
+     * \brief Evaluate the probability density of the \a direct sampling
+     * method implemented by the \ref sample_direction() method.
+     *
+     * \param ds
+     *    A direct sampling record, which specifies the query
+     *    location.
+     */
+    virtual Float pdf_direction(const Interaction3f &ref,
+                                const DirectionSample3f &ds,
+                                Mask active = true) const;
+
+    /**
      * \brief Independently of the scene, sample a position on the endpoint.
      *
      * This is entirely independent of transport phenomena, and samples
@@ -146,8 +158,21 @@ public:
                     Mask active = true) const;
 
     /**
+     * \brief Evaluate the probability density of the position sampling
+     * method implemented by the \ref sample_position() method.
+     * In simple cases, this will equal (1 / area of the endpoint).
+     *
+     * \param ps
+     *    The sampled position record.
+     * \return
+     *    The corresponding sampling density (for each wavelength).
+     */
+    virtual Float pdf_position(const PositionSample3f &ps, Mask active = true) const;
+
+    /**
      * \brief Importance sample a set of wavelengths proportional to the
      * sensitivity/emission spectrum.
+     *
      * Any discrepancies between ideal and actual sampled profile are absorbed
      * into a spectral importance weight that is returned along with the ray.
      *
@@ -166,33 +191,6 @@ public:
     virtual std::pair<Wavelength, Spectrum>
     sample_wavelengths(const SurfaceInteraction3f &si, Float sample,
                        Mask active = true) const;
-
-    //! @}
-    // =============================================================
-
-    /**
-     * \brief Evaluate the probability density of the \a direct sampling
-     * method implemented by the \ref sample_direction() method.
-     *
-     * \param ds
-     *    A direct sampling record, which specifies the query
-     *    location.
-     */
-    virtual Float pdf_direction(const Interaction3f &ref,
-                                const DirectionSample3f &ds,
-                                Mask active = true) const;
-
-    /**
-     * \brief Evaluate the probability density of the position sampling
-     * method implemented by the \ref sample_position() method.
-     * In simple cases, this will equal (1 / area of the endpoint).
-     *
-     * \param ps
-     *    The sampled position record.
-     * \return
-     *    The corresponding sampling density (for each wavelength).
-     */
-    virtual Float pdf_position(const PositionSample3f &ps, Mask active = true) const;
 
     /**
      * \brief Evaluate the probability density of the wavelength sampling

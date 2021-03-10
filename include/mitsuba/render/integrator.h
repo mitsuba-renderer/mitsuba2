@@ -240,7 +240,6 @@ class MTS_EXPORT_RENDER LightTracerIntegrator : public Integrator<Float, Spectru
 public:
     MTS_IMPORT_BASE(Integrator, should_stop, m_stop, m_timeout, m_render_timer)
     MTS_IMPORT_TYPES(Scene, Sensor, Film, BSDF, ImageBlock, Sampler, EmitterPtr)
-    using RadianceSample3f = int; // TODO: this type no longer exists
 
     explicit LightTracerIntegrator(const Properties &props);
     virtual ~LightTracerIntegrator();

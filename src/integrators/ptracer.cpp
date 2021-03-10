@@ -65,9 +65,6 @@ public:
         Float eta(1.f);
         BSDFContext ctx(TransportMode::Importance);
 
-        // TODO: support ray differentials
-        // ray.scale_differential(diff_scale_factor);
-
         /* ---------------------- Path construction ------------------------- */
         if (m_max_depth != -1 && depth >= m_max_depth)
             return { throughput, 1.f };
