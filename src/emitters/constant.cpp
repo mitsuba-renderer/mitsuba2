@@ -94,13 +94,17 @@ public:
     sample_direction(const Interaction3f &it, const Point2f &sample, Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleDirection, active);
 
+        // Needed when the reference point is on the sensor, which is not part of the bbox
+        BoundingSphere3f bsphere = m_bsphere;
+        bsphere.expand(it.p);
+
         Vector3f d = warp::square_to_uniform_sphere(sample);
-        Float dist = 2.f * m_bsphere.radius;
+        Float dist = 2.f * bsphere.radius;
 
         DirectionSample3f ds;
         ds.p      = it.p + d * dist;
         ds.n      = -d;
-        ds.uv     = Point2f(0.f);
+        ds.uv     = sample;
         ds.time   = it.time;
         ds.pdf    = warp::square_to_uniform_sphere_pdf(d);
         ds.delta  = false;
@@ -117,27 +121,6 @@ public:
         };
     }
 
-    std::pair<PositionSample3f, Float>
-    sample_position(Float time, const Point2f &sample,
-                    Mask active) const override {
-        MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSamplePosition, active);
-
-        /* Note that sampling a position from an infinitely distant light source
-         * cannot really make sense. Instead, we return a position from a
-         * virtual bounding sphere around the scene. */
-        Vector3f d = warp::square_to_uniform_sphere(sample);
-
-        PositionSample3f ps;
-        ps.p      = m_bsphere.center + d * m_bsphere.radius;
-        ps.n      = -d;
-        ps.uv     = sample;
-        ps.time   = time;
-        ps.pdf    = ek::select(active, m_inv_surface_area, 0.f);
-        ps.delta  = false;
-        ps.object = this;
-        return { ps, ek::select(ps.pdf > 0.f, ek::rcp(m_inv_surface_area), 0.f) };
-    }
-
     std::pair<Wavelength, Spectrum>
     sample_wavelengths(const SurfaceInteraction3f &si, Float sample,
                        Mask active) const override {
@@ -150,12 +133,6 @@ public:
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointEvaluate, active);
 
         return warp::square_to_uniform_sphere_pdf(ds.d);
-    }
-
-    Float pdf_position(const PositionSample3f & /*ps*/,
-                       Mask active) const override {
-        // Note that in principle, we should check that ps.p lies on the bsphere
-        return ek::select(active, m_inv_surface_area, 0.f);
     }
 
     /// This emitter does not occupy any particular region of space, return an invalid bounding box

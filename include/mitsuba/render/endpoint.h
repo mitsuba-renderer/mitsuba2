@@ -139,11 +139,6 @@ public:
      * This is entirely independent of transport phenomena, and samples
      * uniformly over the surface area.
      *
-     * For infinite area lights, the returned point is placed on a bounding
-     * sphere around the scene. However, since this light is emitted in parallel
-     * rays from infinitely far, it should be interpreted as a direction.
-     * This case can be detected with \ref Emitter::is_environment.
-     *
      * The default implementation throws an exception.
      *
      * \param sample

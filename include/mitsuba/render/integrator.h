@@ -285,8 +285,9 @@ public:
     /**
      * From the given surface interaction, attempt connecting to the sensor
      */
-    virtual Spectrum connect_sensor(const Scene *scene, const Sensor *sensor,
-                                    Sampler *sampler, const SurfaceInteraction3f &si,
+    virtual Spectrum connect_sensor(const Scene *scene,
+                                    const SurfaceInteraction3f &si,
+                                    const DirectionSample3f &sensor_df,
                                     const BSDF *bsdf, const Spectrum &weight,
                                     ImageBlock *block,
                                     Mask active = true) const = 0;

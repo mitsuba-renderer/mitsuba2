@@ -206,6 +206,10 @@ public:
     sample_direction(const Interaction3f &it, const Point2f &sample, Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleDirection, active);
 
+        // Needed when the reference point is on the sensor, which is not part of the bbox
+        BoundingSphere3f bsphere = m_bsphere;
+        bsphere.expand(it.p);
+
         auto [uv, pdf] = m_warp.sample(sample, nullptr, active);
 
         Float theta = uv.y() * ek::Pi<Float>,
@@ -214,7 +218,7 @@ public:
         Vector3f d = ek::sphdir(theta, phi);
         d = Vector3f(d.y(), d.z(), -d.x());
 
-        Float dist = 2.f * m_bsphere.radius;
+        Float dist = 2.f * bsphere.radius;
 
         Float inv_sin_theta =
             ek::safe_rsqrt(ek::max(ek::sqr(d.x()) + ek::sqr(d.z()), ek::sqr(ek::Epsilon<Float>)));
@@ -227,8 +231,7 @@ public:
         ds.uv     = uv;
         ds.time   = it.time;
         ds.pdf    = ek::select(pdf > 0.f,
-                            pdf * inv_sin_theta *
-                                (1.f / (2.f * ek::sqr(ek::Pi<ScalarFloat>))),
+                            pdf * inv_sin_theta * (1.f / (2.f * ek::sqr(ek::Pi<ScalarFloat>))),
                             0.f);
         ds.delta  = false;
         ds.emitter = this;
@@ -237,29 +240,6 @@ public:
 
         auto weight = unpolarized<Spectrum>(eval_spectrum(uv, it.wavelengths, active)) / ds.pdf;
         return { ds, ek::select(ds.pdf > 0.f, weight, 0.f) };
-    }
-
-    /**
-     * Note that sampling a position from an infinitely distant light source
-     * cannot really make sense. Instead, we return a position from the
-     * virtual bounding sphere around the scene.
-     */
-    std::pair<PositionSample3f, Float>
-    sample_position(Float time, const Point2f &sample,
-                    Mask active) const override {
-        MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSamplePosition, active);
-
-        Vector3f d = warp::square_to_uniform_sphere(sample);
-        PositionSample3f ps;
-        ps.p      = m_bsphere.center + d * m_bsphere.radius;
-        ps.n      = -d;
-        ps.uv     = sample;
-        ps.time   = time;
-        ps.pdf    = ek::select(active, m_inv_surface_area, Float(0.f));
-        ps.delta  = false;
-        ps.object = this;
-        return { ps, ek::select(ps.pdf > 0.f, ek::rcp(m_inv_surface_area),
-                                Float(0.f)) };
     }
 
     std::pair<Wavelength, Spectrum>

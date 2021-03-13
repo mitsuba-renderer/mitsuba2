@@ -88,8 +88,10 @@ public:
                 break;
 
             // Connect to sensor and splat if successful.
-            connect_sensor(scene, sensor, sampler, si, si.bsdf(ray), throughput,
-                           block, active);
+            auto [sensor_ds, sensor_weight] =
+                sensor->sample_direction(si, sampler->next_2d(), active);
+            connect_sensor(scene, si, sensor_ds, si.bsdf(ray),
+                           throughput * sensor_weight, block, active);
 
             /* ----------------------- BSDF sampling ------------------------ */
             // Sample BSDF * cos(theta).
@@ -123,19 +125,14 @@ public:
         return { throughput, 1.f };
     }
 
-    Spectrum connect_sensor(const Scene *scene, const Sensor *sensor,
-                            Sampler *sampler, const SurfaceInteraction3f &si,
+    Spectrum connect_sensor(const Scene *scene, const SurfaceInteraction3f &si,
+                            const DirectionSample3f &sensor_ds,
                             const BSDF *bsdf, const Spectrum &weight,
                             ImageBlock *block, Mask active) const override {
-        /* Query sensor for a direction connecting to `si.p`. This also gives
-           us UVs on the sensor (for splatting). */
-        auto [ds, sensor_val] = sensor->sample_direction(si, sampler->next_2d(), active);
-
-        active &= (ds.pdf > 0.f) && any(neq(sensor_val, 0.f));
+        active &= (sensor_ds.pdf > 0.f) && any(neq(weight, 0.f));
         Spectrum result = 0.f;
         if (ek::none_or<false>(active))
             return result;
-        ds.uv[!active] = 0.f;
 
 #if defined(MTS_DEBUG_PTRACER_PATHS)
         size_t i  = 0;
@@ -169,7 +166,7 @@ public:
 #endif
 
         // Check that sensor is visible from current position (shadow ray).
-        auto sensor_ray = si.spawn_ray_to(ds.p);
+        auto sensor_ray = si.spawn_ray_to(sensor_ds.p);
         active &= !scene->ray_test(sensor_ray, active);
         if (ek::none_or<false>(active))
             return result;
@@ -213,12 +210,11 @@ public:
             surface_weight[on_infinite_emitter] = select(right_side, surface_weight, 0.f);
         }
 
-        result = weight * sensor_val * surface_weight;
+        result = weight * surface_weight;
 
         // Splatting
-        if (block != nullptr) {
-            block->put(ds.uv, si.wavelengths, result, Float(1.f), active);
-        }
+        Point2f splat_uv = ek::select(active, sensor_ds.uv, 0.f);
+        block->put(splat_uv, si.wavelengths, result, Float(1.f), active);
 
         return result;
     }

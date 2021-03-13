@@ -432,7 +432,7 @@ MTS_VARIANT bool LightTracerIntegrator<Float, Spectrum>::render(Scene *scene, Se
 
             for (auto i = range.begin(); i != range.end() && !should_stop(); ++i) {
                 if (likely(m_max_depth != 0)) {
-                    // Account for visible emitters
+                    // Account for emitters directly visible from the sensor
                     sample_visible_emitters(scene, sensor, sampler, block);
                 }
 
@@ -488,23 +488,43 @@ LightTracerIntegrator<Float, Spectrum>::sample_visible_emitters(
 
     // 2. Emitter sampling (select one emitter)
     Float idx_sample = sampler->next_1d(active);
-    auto [emitter_idx, emitter_weight] =
+    auto [emitter_idx, emitter_idx_weight] =
         scene->sample_emitter(idx_sample, active);
     EmitterPtr emitter = enoki::gather<EmitterPtr>(scene->emitters().data(),
                                                    emitter_idx, active);
 
     // 3. Emitter position sampling
+    Spectrum emitter_weight;
+    SurfaceInteraction3f si;
     Point2f emitter_sample = sampler->next_2d(active);
-    auto [ps, pos_weight] =
-        emitter->sample_position(time, emitter_sample, active);
-    SurfaceInteraction3f si(ps, ek::empty<Wavelength>());
+    if (emitter->is_environment()) {
+        /* We are sampling a direction toward an envmap emitter starting
+         * from the center of the scene. This is because the sensor is
+         * not part of the scene's bounding box, which could cause issues. */
+        Interaction3f ref_it(0.f, time, ek::empty<Wavelength>(),
+                             sensor->world_transform()->eval(time).translation());
+        auto [ds, dir_weight] = emitter->sample_direction(ref_it, emitter_sample, active);
+        /* Note: `dir_weight` already includes the emitter radiance, but that will
+         * be accounted for again when sampling the wavelength below. Instead,
+         * we recompute just the factor due to the PDF. */
+        emitter_weight = ek::select(ds.pdf > 0.f, 1.f / ds.pdf, 0.f);
+        // Convert to the area measure
+        emitter_weight *= ds.dist * ds.dist;
 
-    // 4. Connect to the sensor.
-    // This will be done in `connect_sensor` as well, but we need a
-    // valid direction in case `sample_wavelengths` uses it.
-    // TODO(!): this is incorrect if the sensor is not at a single point.
-    auto sample_position = sensor->world_transform()->eval(time, active).translation();
-    si.wi = ek::normalize(sample_position - si.p);
+        si = SurfaceInteraction3f(ds, ref_it.wavelengths);
+    } else {
+        auto [ps, pos_weight] =
+            emitter->sample_position(time, emitter_sample, active);
+        emitter_weight = pos_weight;
+        si = SurfaceInteraction3f(ps, ek::empty<Wavelength>());
+    }
+
+    /* 4. Connect to the sensor.
+       Query sensor for a direction connecting to `si.p`. This also gives
+        us UVs on the sensor (for splatting).
+       The resulting direction points from si.p (on the emitter) toward the sensor. */
+    auto [sensor_ds, sensor_weight] = sensor->sample_direction(si, sampler->next_2d(), active);
+    si.wi = sensor_ds.d;
 
     // 5. Sample spectrum of the emitter (accounts for its radiance)
     Float wavelength_sample = sampler->next_1d(active);
@@ -513,10 +533,10 @@ LightTracerIntegrator<Float, Spectrum>::sample_visible_emitters(
     si.wavelengths = wavelengths;
     si.shape       = emitter->shape();
 
-    Spectrum weight = emitter_weight * pos_weight * wav_weight;
+    Spectrum weight = emitter_idx_weight * emitter_weight * wav_weight * sensor_weight;
 
     // No BSDF passed (should not evaluate it since there's no scattering)
-    return connect_sensor(scene, sensor, sampler, si, nullptr, weight, block, active);
+    return connect_sensor(scene, si, sensor_ds, nullptr, weight, block, active);
 }
 
 MTS_VARIANT Float LightTracerIntegrator<Float, Spectrum>::normalize_film(
