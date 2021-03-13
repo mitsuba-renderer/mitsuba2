@@ -169,7 +169,7 @@ public:
 
         // 2. Emitter sampling (select one emitter)
         Float idx_sample = sampler->next_1d(active);
-        auto [emitter_idx, emitter_idx_weight] =
+        auto [emitter_idx, emitter_idx_weight, _] =
             scene->sample_emitter(idx_sample, active);
         EmitterPtr emitter = enoki::gather<EmitterPtr>(scene->emitters().data(),
                                                     emitter_idx, active);

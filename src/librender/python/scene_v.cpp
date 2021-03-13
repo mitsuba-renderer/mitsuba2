@@ -65,8 +65,6 @@ MTS_PY_EXPORT(Scene) {
 #endif
         .def("sample_emitter",
             &Scene::sample_emitter, "sample"_a, "active"_a = true)
-        .def("sample_emitter_reuse",
-            &Scene::sample_emitter_reuse, "sample"_a, "active"_a = true)
         .def("sample_emitter_direction",
             &Scene::sample_emitter_direction,
             "ref"_a, "sample"_a, "test_visibility"_a = true, "active"_a = true)
