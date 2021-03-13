@@ -278,8 +278,7 @@ public:
      */
     virtual std::pair<Spectrum, Float>
     trace_light_ray(Ray3f ray, const Scene *scene, const Sensor *sensor,
-                    Sampler *sampler, SurfaceInteraction3f &si,
-                    Spectrum throughput, int depth, ImageBlock *block,
+                    Sampler *sampler, Spectrum throughput, ImageBlock *block,
                     Mask active = true) const = 0;
 
     /**

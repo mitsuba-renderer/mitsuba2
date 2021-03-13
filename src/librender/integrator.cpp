@@ -438,11 +438,7 @@ MTS_VARIANT bool LightTracerIntegrator<Float, Spectrum>::render(Scene *scene, Se
 
                 // Primary & further bounces illumination
                 auto [ray, throughput] = prepare_ray(scene, sensor, sampler);
-
-                // TODO(!): how to create a correct initial si?
-                SurfaceInteraction3f si = ek::zero<SurfaceInteraction3f>();
-                si.t = ek::Infinity<Float>;
-                trace_light_ray(ray, scene, sensor, sampler, si, throughput, /*depth*/ 1, block);
+                trace_light_ray(ray, scene, sensor, sampler, throughput, block);
 
                 // TODO: support other modes
                 samples_done += 1;

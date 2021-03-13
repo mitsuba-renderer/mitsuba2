@@ -58,22 +58,18 @@ public:
 
     std::pair<Spectrum, Float>
     trace_light_ray(Ray3f ray, const Scene *scene, const Sensor *sensor,
-                    Sampler *sampler, SurfaceInteraction3f &si,
-                    Spectrum throughput, int depth, ImageBlock *block,
-                    Mask active) const override {
+                    Sampler *sampler, Spectrum throughput,
+                    ImageBlock *block, Mask active) const override {
         // Tracks radiance scaling due to index of refraction changes
         Float eta(1.f);
         BSDFContext ctx(TransportMode::Importance);
 
         /* ---------------------- Path construction ------------------------- */
-        if (m_max_depth != -1 && depth >= m_max_depth)
-            return { throughput, 1.f };
-        // First intersection
-        if (depth == 1)
-            si = scene->ray_intersect(ray, active);
+        // First intersection from the emitter to the scene
+        SurfaceInteraction3f si = scene->ray_intersect(ray, active);
 
         // Incrementally build light path using BSDF sampling.
-        for (;; ++depth) {
+        for (int depth = 1;; ++depth) {
             active &= si.is_valid();
 
             // Russian Roulette
