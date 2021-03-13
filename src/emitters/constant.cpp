@@ -47,9 +47,15 @@ public:
     }
 
     void set_scene(const Scene *scene) override {
-        m_bsphere = scene->bbox().bounding_sphere();
-        m_bsphere.radius = ek::max(math::RayEpsilon<Float>,
-                               m_bsphere.radius * (1.f + math::RayEpsilon<Float>));
+        if (scene->bbox().valid()) {
+            m_bsphere = scene->bbox().bounding_sphere();
+            m_bsphere.radius =
+                ek::max(math::RayEpsilon<Float>,
+                        m_bsphere.radius * (1.f + math::RayEpsilon<Float>) );
+        } else {
+            m_bsphere.center = 0.f;
+            m_bsphere.radius = math::RayEpsilon<Float>;
+        }
         m_inv_surface_area =
             ek::rcp(4.f * ek::Pi<ScalarFloat> * m_bsphere.radius * m_bsphere.radius);
     }

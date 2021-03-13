@@ -129,9 +129,15 @@ public:
     }
 
     void set_scene(const Scene *scene) override {
-        m_bsphere = scene->bbox().bounding_sphere();
-        m_bsphere.radius = ek::max(math::RayEpsilon<Float>,
-                               m_bsphere.radius * (1.f + math::RayEpsilon<Float>));
+        if (scene->bbox().valid()) {
+            m_bsphere = scene->bbox().bounding_sphere();
+            m_bsphere.radius =
+                ek::max(math::RayEpsilon<Float>,
+                        m_bsphere.radius * (1.f + math::RayEpsilon<Float>) );
+        } else {
+            m_bsphere.center = 0.f;
+            m_bsphere.radius = math::RayEpsilon<Float>;
+        }
     }
 
     Spectrum eval(const SurfaceInteraction3f &si, Mask active) const override {
