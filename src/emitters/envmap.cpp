@@ -70,8 +70,7 @@ public:
     EnvironmentMapEmitter(const Properties &props) : Base(props) {
         /* Until `set_scene` is called, we have no information
            about the scene and default to the unit bounding sphere. */
-        m_bsphere          = ScalarBoundingSphere3f(ScalarPoint3f(0.f), 1.f);
-        m_inv_surface_area = ek::rcp(4.f * ek::Pi<ScalarFloat>);
+        m_bsphere = ScalarBoundingSphere3f(ScalarPoint3f(0.f), 1.f);
 
         FileResolver *fs = Thread::thread()->file_resolver();
         fs::path file_path = fs->resolve(props.string("filename"));
@@ -131,12 +130,8 @@ public:
 
     void set_scene(const Scene *scene) override {
         m_bsphere = scene->bbox().bounding_sphere();
-        // m_bsphere.radius = ek::max(math::RayEpsilon<Float>,
-        //                        m_bsphere.radius * (1.f + math::RayEpsilon<Float>));
-        m_bsphere.radius = ek::max(math::RayEpsilon<Float>, m_bsphere.radius * 1.5f);
-        // m_bsphere.radius = ek::max(math::RayEpsilon<Float>, m_bsphere.radius * 2.f);
-        m_inv_surface_area = ek::rcp(4.f * ek::Pi<ScalarFloat> *
-                                     m_bsphere.radius * m_bsphere.radius);
+        m_bsphere.radius = ek::max(math::RayEpsilon<Float>,
+                               m_bsphere.radius * (1.f + math::RayEpsilon<Float>));
     }
 
     Spectrum eval(const SurfaceInteraction3f &si, Mask active) const override {
@@ -398,7 +393,6 @@ protected:
     Warp m_warp;
     ref<Texture> m_d65;
     ScalarFloat m_scale;
-    ScalarFloat m_inv_surface_area;
 };
 
 MTS_IMPLEMENT_CLASS_VARIANT(EnvironmentMapEmitter, Emitter)
