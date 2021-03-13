@@ -208,7 +208,6 @@ Scene<Float, Spectrum>::sample_emitter_ray(Float time, Float sample1,
                                            const Point2f &sample3,
                                            Mask active) const {
     MTS_MASKED_FUNCTION(ProfilerPhase::SampleEmitterRay, active);
-    using EmitterPtr = ek::replace_scalar_t<Float, Emitter*>;
 
     if (unlikely(m_emitters.empty()))
         return { Ray3f(), Spectrum(0.f), EmitterPtr(nullptr) };
@@ -216,7 +215,7 @@ Scene<Float, Spectrum>::sample_emitter_ray(Float time, Float sample1,
     // Randomly pick an emitter according to the precomputed emitter distribution
     auto [index, emitter_weight, sample_re] = sample_emitter(sample1, active);
     sample1 = sample_re;
-    EmitterPtr emitter = ek::gather<EmitterPtr>(m_emitters.data(), index, active);
+    EmitterPtr emitter = ek::gather<EmitterPtr>(m_emitters_ek, index, active);
 
     // Note that the sampling weight includes emitted radiance.
     auto [ray, ray_weight] =

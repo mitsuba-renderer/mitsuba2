@@ -238,7 +238,7 @@ public:
         auto direction_sample  = sampler->next_2d(active);
         auto position_sample   = sampler->next_2d(active);
         // Sample one ray from an emitter in the scene.
-        auto [ray, ray_weight, unused] = scene->sample_emitter_ray(
+        auto [ray, ray_weight, emitter] = scene->sample_emitter_ray(
             time, wavelength_sample, direction_sample, position_sample, active);
         return std::make_pair(ray, ray_weight);
     }
