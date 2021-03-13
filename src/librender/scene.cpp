@@ -263,13 +263,14 @@ Scene<Float, Spectrum>::sample_emitter_direction(const Interaction3f &ref, const
             // Randomly pick an emitter
             auto [index, emitter_weight, sample_re] = sample_emitter(sample.x(), active);
             sample.x() = sample_re;
-            // Account for the discrete probability of sampling this emitter
-            ds.pdf *= ek::rcp(emitter_weight);
-            spec *= emitter_weight;
 
             // Sample a direction towards the emitter
             EmitterPtr emitter = ek::gather<EmitterPtr>(m_emitters_ek, index, active);
             std::tie(ds, spec) = emitter->sample_direction(ref, sample, active);
+
+            // Account for the discrete probability of sampling this emitter
+            ds.pdf *= pdf_emitter(index, active);
+            spec *= emitter_weight;
         }
 
         active &= ek::neq(ds.pdf, 0.f);
