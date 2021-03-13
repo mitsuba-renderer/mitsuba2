@@ -168,7 +168,6 @@ public:
 
         PositionSample3f ps = m_shape->sample_position(time, sample, active);
         Float weight        = ek::select(ps.pdf > 0.f, ek::rcp(ps.pdf), Float(0.f));
-        ps.object           = this;
         return { ps, weight };
     }
 

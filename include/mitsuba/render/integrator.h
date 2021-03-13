@@ -66,6 +66,7 @@ public:
 
     void set_graphviz_output(const fs::path &value) {
         m_graphviz_output = value;
+    }
 
     MTS_DECLARE_CLASS()
 protected:
@@ -88,7 +89,7 @@ protected:
 
     /// Timer used to enforce the timeout.
     Timer m_render_timer;
-    
+
     fs::path m_graphviz_output;
 };
 
