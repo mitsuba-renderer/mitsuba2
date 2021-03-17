@@ -39,7 +39,7 @@ public:
         /* Until `set_scene` is called, we have no information
            about the scene and default to the unit bounding sphere. */
         m_bsphere = ScalarBoundingSphere3f(ScalarPoint3f(0.f), 1.f);
-        m_inv_surface_area = ek::rcp(4.f * ek::Pi<ScalarFloat> * 1.f);
+        m_surface_area = 4.f * ek::Pi<ScalarFloat> * 1.f;
 
         m_radiance = props.texture<Texture>("radiance", Texture::D65(1.f));
         m_flags = +EmitterFlags::Infinite;
@@ -56,8 +56,8 @@ public:
             m_bsphere.center = 0.f;
             m_bsphere.radius = math::RayEpsilon<Float>;
         }
-        m_inv_surface_area =
-            ek::rcp(4.f * ek::Pi<ScalarFloat> * m_bsphere.radius * m_bsphere.radius);
+        m_surface_area =
+            4.f * ek::Pi<ScalarFloat> * m_bsphere.radius * m_bsphere.radius;
     }
 
     Spectrum eval(const SurfaceInteraction3f &si, Mask active) const override {
@@ -82,15 +82,17 @@ public:
         // 3. Sample spectrum
         // TODO: how to best construct this `si`?
         SurfaceInteraction3f si;
+        si.t    = 0.f;
         si.time = time;
         si.p    = origin;
         si.uv   = sample2;
-        si.wi   = v1;  // Points away from the "surface", in local coordinates
+        si.wi   = direction;  // Points toward the scene
         auto [wavelengths, weight] =
             sample_wavelengths(si, wavelength_sample, active);
 
-        ScalarFloat inv_pdf = ek::rcp(
-            m_inv_surface_area * warp::square_to_cosine_hemisphere_pdf(v1));
+        /* Note: removed a 1/cos_theta term compared to `square_to_cosine_hemisphere`
+         * because we are not sampling from a surface here. */
+        ScalarFloat inv_pdf = m_surface_area * ek::Pi<ScalarFloat>;
 
         return std::make_pair(Ray3f(origin, direction, time, wavelengths),
                               unpolarized<Spectrum>(weight) * inv_pdf);
@@ -164,8 +166,8 @@ protected:
     ref<Texture> m_radiance;
     ScalarBoundingSphere3f m_bsphere;
 
-    /// Inverse surface area of the bounding sphere
-    ScalarFloat m_inv_surface_area;
+    /// Surface area of the bounding sphere
+    ScalarFloat m_surface_area;
 };
 
 MTS_IMPLEMENT_CLASS_VARIANT(ConstantBackgroundEmitter, Emitter)

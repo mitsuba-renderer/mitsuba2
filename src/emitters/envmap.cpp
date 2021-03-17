@@ -161,7 +161,7 @@ public:
                                           Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleRay, active);
 
-        // 1. Sample spatial component (ray origin)
+        // 1. Sample spatial component
         Point2f offset = warp::square_to_uniform_disk_concentric(sample2);
 
         // 2. Sample directional component
@@ -174,7 +174,7 @@ public:
         Vector3f d          = ek::sphdir(theta, phi);
         d                   = Vector3f(d.y(), d.z(), -d.x());
         Float inv_sin_theta = ek::safe_rsqrt(ek::sqr(d.x()) + ek::sqr(d.z()));
-        pdf *= inv_sin_theta * ek::InvTwoPi<ScalarFloat>;
+        pdf *= inv_sin_theta * ek::InvTwoPi<ScalarFloat> * ek::InvPi<ScalarFloat>;
 
         Vector3f d_global = m_world_transform->eval(time, active).transform_affine(d);
 
@@ -214,7 +214,7 @@ public:
         auto [uv, pdf] = m_warp.sample(sample, nullptr, active);
 
         Float theta = uv.y() * ek::Pi<Float>,
-              phi = uv.x() * (2.f * ek::Pi<Float>);
+              phi = uv.x() * ek::TwoPi<ScalarFloat>;
 
         Vector3f d = ek::sphdir(theta, phi);
         d = Vector3f(d.y(), d.z(), -d.x());

@@ -374,7 +374,7 @@ public:
 
         /* Foreshortening term and BSDF value for that direction (for surface interactions)
          * Note that foreshortening is only missing for directly visible emitters associated
-         * with a shape (marked by convention by bsdf == nullptr). */
+         * with a shape (marked by convention by bsdf != nullptr). */
         Spectrum surface_weight = 1.f;
         auto local_d            = si.to_local(sensor_ray.d);
         auto on_surface         = active && neq(si.shape, nullptr);
