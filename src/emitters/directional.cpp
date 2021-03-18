@@ -89,24 +89,34 @@ public:
                                           Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleRay, active);
 
-        // 1. Sample spectrum
-        auto [wavelengths, weight] =
-            sample_wavelength<Float, Spectrum>(wavelength_sample);
-
-        // 2. Sample spatial component
-        const Transform4f &trafo = m_world_transform->eval(time, active);
+        // 1. Sample spatial component
         Point2f offset =
             warp::square_to_uniform_disk_concentric(spatial_sample);
+
+        // 2. "Sample" directional component (fixed, no actual sampling required)
+        const Transform4f &trafo = m_world_transform->eval(time, active);
+        Vector3f d_global = trafo.transform_affine(Vector3f{ 0.f, 0.f, 1.f });
+
         Vector3f perp_offset =
             trafo.transform_affine(Vector3f{ offset.x(), offset.y(), 0.f });
+        Point3f origin =
+            m_bsphere.center + (perp_offset - d_global) * m_bsphere.radius;
 
-        // 3. Set ray direction
-        Vector3f d = trafo.transform_affine(Vector3f{ 0.f, 0.f, 1.f });
+        // 3. Sample spectral component
+        // TODO: how to best construct this `si`?
+        SurfaceInteraction3f si;
+        si.t    = 0.f;
+        si.time = time;
+        si.p    = origin;
+        si.uv   = spatial_sample;
+        si.wi   = d_global;  // Points toward the scene
+        auto [wavelengths, wav_weight] =
+            sample_wavelengths(si, wavelength_sample, active);
 
-        return { Ray3f(m_bsphere.center + (perp_offset - d) * m_bsphere.radius,
-                       d, time, wavelengths),
-                 unpolarized<Spectrum>(weight) *
-                     (ek::Pi<Float> * ek::sqr(m_bsphere.radius)) };
+        Spectrum weight =
+            wav_weight * ek::Pi<Float> * ek::sqr(m_bsphere.radius);
+
+        return { Ray3f(origin, d_global, time, wavelengths), weight };
     }
 
     std::pair<DirectionSample3f, Spectrum>
@@ -146,6 +156,13 @@ public:
                         const DirectionSample3f & /*ds*/,
                         Mask /*active*/) const override {
         return 0.f;
+    }
+
+    std::pair<Wavelength, Spectrum>
+    sample_wavelengths(const SurfaceInteraction3f &si, Float sample,
+                       Mask active) const override {
+        return m_irradiance->sample_spectrum(
+            si, math::sample_shifted<Wavelength>(sample), active);
     }
 
     ScalarBoundingBox3f bbox() const override {

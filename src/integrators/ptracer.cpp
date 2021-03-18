@@ -172,13 +172,13 @@ public:
         auto [emitter_idx, emitter_idx_weight, _] =
             scene->sample_emitter(idx_sample, active);
         EmitterPtr emitter = enoki::gather<EmitterPtr>(scene->emitters().data(),
-                                                    emitter_idx, active);
+                                                       emitter_idx, active);
 
         // 3. Emitter position sampling
         Spectrum emitter_weight;
         SurfaceInteraction3f si;
         Point2f emitter_sample = sampler->next_2d(active);
-        if (emitter->is_environment()) {
+        if (has_flag(emitter->flags(), EmitterFlags::Infinite)) {
             /* We are sampling a direction toward an envmap emitter starting
             * from the center of the scene. This is because the sensor is
             * not part of the scene's bounding box, which could cause issues. */
