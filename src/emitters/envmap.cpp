@@ -243,21 +243,6 @@ public:
         return { ds, ek::select(ds.pdf > 0.f, weight, 0.f) };
     }
 
-    std::pair<Wavelength, Spectrum>
-    sample_wavelengths(const SurfaceInteraction3f &si_, Float sample,
-                       Mask active) const override {
-        SurfaceInteraction3f si(si_);
-        // TODO: consider sampling directly from the envmap spectrum at location.
-        auto value = eval(si, active);
-        auto [wav, weight] = m_d65->sample_spectrum(
-            si, math::sample_shifted<Spectrum>(sample), active);
-        si.wavelengths = wav;
-        // `eval` already accounts for the D65 value
-        weight /= m_d65->eval(si, active);
-
-        return { wav, value * weight };
-    }
-
     Float pdf_direction(const Interaction3f &it, const DirectionSample3f &ds,
                         Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointEvaluate, active);
@@ -274,6 +259,21 @@ public:
         Float inv_sin_theta =
             ek::safe_rsqrt(ek::max(ek::sqr(d.x()) + ek::sqr(d.z()), ek::sqr(ek::Epsilon<Float>)));
         return m_warp.eval(uv) * inv_sin_theta * (1.f / (2.f * ek::sqr(ek::Pi<Float>)));
+    }
+
+    std::pair<Wavelength, Spectrum>
+    sample_wavelengths(const SurfaceInteraction3f &si_, Float sample,
+                       Mask active) const override {
+        SurfaceInteraction3f si(si_);
+        // TODO: consider sampling directly from the envmap spectrum at location.
+        auto [wav, weight] = m_d65->sample_spectrum(
+            si, math::sample_shifted<Spectrum>(sample), active);
+        si.wavelengths = wav;
+        // `eval` already accounts for the D65 value
+        auto value = eval(si, active);
+        weight /= m_d65->eval(si, active);
+
+        return { wav, value * weight };
     }
 
     ScalarBoundingBox3f bbox() const override {

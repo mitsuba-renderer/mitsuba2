@@ -129,18 +129,18 @@ public:
         };
     }
 
-    std::pair<Wavelength, Spectrum>
-    sample_wavelengths(const SurfaceInteraction3f &si, Float sample,
-                       Mask active) const override {
-        return m_radiance->sample_spectrum(
-            si, math::sample_shifted<Wavelength>(sample), active);
-    }
-
     Float pdf_direction(const Interaction3f &, const DirectionSample3f &ds,
                         Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointEvaluate, active);
 
         return warp::square_to_uniform_sphere_pdf(ds.d);
+    }
+
+    std::pair<Wavelength, Spectrum>
+    sample_wavelengths(const SurfaceInteraction3f &si, Float sample,
+                       Mask active) const override {
+        return m_radiance->sample_spectrum(
+            si, math::sample_shifted<Wavelength>(sample), active);
     }
 
     /// This emitter does not occupy any particular region of space, return an invalid bounding box
