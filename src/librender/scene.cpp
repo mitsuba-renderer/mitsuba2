@@ -233,7 +233,7 @@ Scene<Float, Spectrum>::sample_emitter(Float index_sample, Mask active) const {
     if (unlikely(emitters_size == 0))
         return { UInt32(-1), 0.f, index_sample };
     if (emitters_size == 1)
-        return { 0, 1, index_sample };
+        return { UInt32(0 * index_sample), 1, index_sample };
 
     UInt32 index = ek::min(UInt32(index_sample * (ScalarFloat) emitters_size),
                            (uint32_t) emitters_size - 1);

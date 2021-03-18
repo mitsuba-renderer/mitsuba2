@@ -171,9 +171,9 @@ ImageBlock<Float, Spectrum>::put(const Point2f &pos_, const Float *value, Mask a
 }
 
 MTS_VARIANT void
-ImageBlock<Float, Spectrum>::overwrite_channel(size_t channel,
-                                               ScalarFloat value) {
-    size_t pixel_count = (width() + m_border_size) * (height() + m_border_size);
+ImageBlock<Float, Spectrum>::overwrite_channel(size_t channel, ScalarFloat value) {
+    // Include the border on each side
+    size_t pixel_count = ek::hprod(m_size + m_border_size);
     Assert(m_data.size() == m_channel_count * pixel_count);
 
     // TODO: any way to avoid this specialization?

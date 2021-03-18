@@ -113,7 +113,7 @@ public:
             ThreadEnvironment env;
             tbb::spin_mutex mutex;
             ref<ProgressReporter> progress = new ProgressReporter("Rendering");
-            size_t update_threshold = total_samples / 20;
+            size_t update_threshold = std::max(grain_count / 10, 10000lu);
 
             tbb::parallel_for(
                 tbb::blocked_range<size_t>(0, total_samples, grain_count),
@@ -166,7 +166,7 @@ public:
             Log(Info, "Starting render job (%ix%i, %i sample%s,%s)",
                 film_size.x(), film_size.y(),
                 total_samples, total_samples == 1 ? "" : "s",
-                n_passes > 1 ? tfm::format(" %d passes,", n_passes) : "");
+                n_passes > 1 ? tfm::format(" %d passes", n_passes) : "");
 
             ref<Sampler> sampler = sensor->sampler();
             // Implicitly, the sampler expects samples per pixel per pass.
@@ -192,6 +192,8 @@ public:
                 // Primary & further bounces illumination
                 auto [ray, throughput] = prepare_ray(scene, sensor, sampler);
                 trace_light_ray(ray, scene, sensor, sampler, throughput, block);
+
+                total_samples_done += samples_per_pass;
             }
 
             film->put(block);
@@ -199,8 +201,6 @@ public:
 
         // Apply proper normalization.
         double new_weight = normalize_film(film, total_samples_done);
-        // // TODO
-        // double new_weight = 1.;
         Log(Info, "Processed %d samples, normalization weight: %f",
             total_samples_done, new_weight);
 
@@ -233,23 +233,23 @@ public:
         auto [emitter_idx, emitter_idx_weight, _] =
             scene->sample_emitter(idx_sample, active);
         EmitterPtr emitter =
-            enoki::gather<EmitterPtr>(scene->emitters_ek(), emitter_idx, active);
+            ek::gather<EmitterPtr>(scene->emitters_ek(), emitter_idx, active);
 
         // 3. Emitter position sampling
         Spectrum emitter_weight = ek::zero<Spectrum>();
         SurfaceInteraction3f si = ek::zero<SurfaceInteraction3f>();
         Point2f emitter_sample  = sampler->next_2d(active);
         Mask is_infinite = has_flag(emitter->flags(), EmitterFlags::Infinite);
-        if (ek::any_or<true>(is_infinite)) {
+        Mask active_e = active && is_infinite;
+        if (ek::any_or<true>(active_e)) {
             /* We are sampling a direction toward an envmap emitter starting
              * from the center of the scene. This is because the sensor is
              * not part of the scene's bounding box, which could cause issues.
              */
-            Mask active_e = active && is_infinite;
             Interaction3f ref_it(0.f, time, ek::zero<Wavelength>(),
                                  sensor->world_transform()->eval(time).translation());
             auto [ds, dir_weight] =
-                emitter->sample_direction(ref_it, emitter_sample, active);
+                emitter->sample_direction(ref_it, emitter_sample, active_e);
             /* Note: `dir_weight` already includes the emitter radiance, but
              * that will be accounted for again when sampling the wavelength
              * below. Instead, we recompute just the factor due to the PDF.
@@ -261,8 +261,8 @@ public:
             si[active_e] = SurfaceInteraction3f(ds, ref_it.wavelengths);
         }
 
-        if (ek::any_or<true>(!is_infinite)) {
-            Mask active_e = active && !is_infinite;
+        active_e = active && !is_infinite;
+        if (ek::any_or<true>(active_e)) {
             auto [ps, pos_weight] =
                 emitter->sample_position(time, emitter_sample, active_e);
             emitter_weight[active_e] = pos_weight;
@@ -348,8 +348,7 @@ public:
                 throughput *= ek::rcp(q);
             }
 
-            // TODO: JIT-friendly stop check
-            if ((uint32_t) depth >= (uint32_t) m_max_depth || ek::none(active))
+            if ((uint32_t) depth >= (uint32_t) m_max_depth || ek::none_or<false>(active))
                 break;
 
             // Connect to sensor and splat if successful.

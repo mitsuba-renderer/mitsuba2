@@ -53,7 +53,8 @@ on the order of the machine epsilon (:math:`6\cdot 10^{-8}`) in single precision
 template <typename Float, typename Spectrum>
 class IndependentSampler final : public PCG32Sampler<Float, Spectrum> {
 public:
-    MTS_IMPORT_BASE(PCG32Sampler, m_sample_count, m_base_seed, m_rng, seed, seeded)
+    MTS_IMPORT_BASE(PCG32Sampler, m_sample_count, m_base_seed, m_rng, seed,
+                    seeded, m_samples_per_wavefront, m_wavefront_size)
     MTS_IMPORT_TYPES()
 
     IndependentSampler(const Properties &props = Properties()) : Base(props) {
@@ -88,7 +89,10 @@ public:
     std::string to_string() const override {
         std::ostringstream oss;
         oss << "IndependentSampler[" << std::endl
+            << "  base_seed = " << m_base_seed << std::endl
             << "  sample_count = " << m_sample_count << std::endl
+            << "  samples_per_wavefront = " << m_samples_per_wavefront << std::endl
+            << "  wavefront_size = " << m_wavefront_size << std::endl
             << "]";
         return oss.str();
     }
