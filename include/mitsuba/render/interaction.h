@@ -163,7 +163,17 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
     explicit SurfaceInteraction(const PositionSample3f &ps,
                                 const Wavelength &wavelengths)
         : Base(0.f, ps.time, wavelengths, ps.p), uv(ps.uv), n(ps.n),
-          sh_frame(Frame3f(ps.n)) { }
+          sh_frame(Frame3f(ps.n)) {
+
+        if constexpr (ek::is_jit_array_v<Float>) {
+            uv       = ek::zero<Point2f>();
+            n        = ek::zero<Normal3f>();
+            sh_frame = ek::zero<Frame3f>();
+            dp_du = dp_dv = dn_du = dn_dv = wi = ek::zero<Vector3f>();
+            duv_dx = duv_dy = ek::zero<Vector2f>();
+            prim_index      = ek::zero<Index>();
+        }
+    }
 
     /// Initialize local shading frame using Gram-schmidt orthogonalization
     void initialize_sh_frame() {

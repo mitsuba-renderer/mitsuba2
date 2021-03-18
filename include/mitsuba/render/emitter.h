@@ -61,7 +61,7 @@ constexpr auto has_flag(UInt32 flags, EmitterFlags f)            { return ek::ne
 template <typename Float, typename Spectrum>
 class MTS_EXPORT_RENDER Emitter : public Endpoint<Float, Spectrum> {
 public:
-    MTS_IMPORT_BASE(Endpoint)
+    MTS_IMPORT_BASE(Endpoint, m_shape)
 
     /// Is this an environment map light emitter?
     bool is_environment() const {

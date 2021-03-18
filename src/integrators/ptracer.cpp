@@ -67,19 +67,21 @@ public:
             return true;
         }
 
+        size_t samples_per_pixel = sensor->sampler()->sample_count();
+        size_t samples_per_pass_per_pixel =
+            (m_samples_per_pass == (size_t) -1)
+                ? samples_per_pixel
+                : std::min((size_t) m_samples_per_pass, samples_per_pixel);
+        if ((samples_per_pixel % samples_per_pass_per_pixel) != 0)
+            Throw("sample_count (%d) must be a multiple of samples_per_pass (%d).",
+                  samples_per_pixel, samples_per_pass_per_pixel);
+
         /* Multiply sample count by pixel count to obtain a similar scale
          * to the standard path tracer. */
-        size_t total_samples =
-            sensor->sampler()->sample_count() * hprod(film_size);
-        size_t samples_per_pass =
-            (m_samples_per_pass == (size_t) -1) ? total_samples
-                                                : std::min((size_t) m_samples_per_pass,
-                                                           total_samples);
-        if ((total_samples % samples_per_pass) != 0)
-            Throw("sample_count (%d) must be a multiple of samples_per_pass (%d).",
-                  total_samples, samples_per_pass);
-
-        size_t n_passes = (total_samples + samples_per_pass - 1) / samples_per_pass;
+        size_t samples_per_pass = samples_per_pass_per_pixel * hprod(film_size);
+        size_t n_passes =
+            (samples_per_pixel * hprod(film_size) + samples_per_pass - 1) / samples_per_pass;
+        size_t total_samples = samples_per_pass * n_passes;
 
         std::vector<std::string> channels = aov_names();
         bool has_aovs = !channels.empty();
@@ -161,13 +163,50 @@ public:
                 });
         } else {
             // Wavefront rendering
-            Throw("not implemented yet");
+            Log(Info, "Starting render job (%ix%i, %i sample%s,%s)",
+                film_size.x(), film_size.y(),
+                total_samples, total_samples == 1 ? "" : "s",
+                n_passes > 1 ? tfm::format(" %d passes,", n_passes) : "");
+
+            ref<Sampler> sampler = sensor->sampler();
+            // Implicitly, the sampler expects samples per pixel per pass.
+            sampler->set_samples_per_wavefront((uint32_t) samples_per_pass_per_pixel);
+
+            ScalarUInt32 wavefront_size = (uint32_t) samples_per_pass;
+            if (sampler->wavefront_size() != wavefront_size)
+                sampler->seed(0, wavefront_size);
+
+            ref<ImageBlock> block = new ImageBlock(
+                film_size, channels.size(), film->reconstruction_filter(),
+                /* warn_negative */ !has_aovs && std::is_scalar_v<Float>,
+                /* warn_invalid */ true, /* border */ true,
+                /* normalize */ true);
+            block->clear();
+
+            for (size_t i = 0; i < n_passes; i++) {
+                if (likely(m_max_depth != 0) && !m_hide_emitters) {
+                    // Account for emitters directly visible from the sensor
+                    sample_visible_emitters(scene, sensor, sampler, block);
+                }
+
+                // Primary & further bounces illumination
+                auto [ray, throughput] = prepare_ray(scene, sensor, sampler);
+                trace_light_ray(ray, scene, sensor, sampler, throughput, block);
+            }
+
+            film->put(block);
         }
 
         // Apply proper normalization.
         double new_weight = normalize_film(film, total_samples_done);
+        // // TODO
+        // double new_weight = 1.;
         Log(Info, "Processed %d samples, normalization weight: %f",
             total_samples_done, new_weight);
+
+        if (!m_stop)
+            Log(Info, "Rendering finished. (took %s)",
+                util::time_string((float) m_render_timer.value(), true));
 
         return !m_stop;
     }
@@ -193,13 +232,13 @@ public:
         Float idx_sample = sampler->next_1d(active);
         auto [emitter_idx, emitter_idx_weight, _] =
             scene->sample_emitter(idx_sample, active);
-        EmitterPtr emitter = enoki::gather<EmitterPtr>(scene->emitters().data(),
-                                                       emitter_idx, active);
+        EmitterPtr emitter =
+            enoki::gather<EmitterPtr>(scene->emitters_ek(), emitter_idx, active);
 
         // 3. Emitter position sampling
-        Spectrum emitter_weight;
-        SurfaceInteraction3f si;
-        Point2f emitter_sample = sampler->next_2d(active);
+        Spectrum emitter_weight = ek::zero<Spectrum>();
+        SurfaceInteraction3f si = ek::zero<SurfaceInteraction3f>();
+        Point2f emitter_sample  = sampler->next_2d(active);
         Mask is_infinite = has_flag(emitter->flags(), EmitterFlags::Infinite);
         if (ek::any_or<true>(is_infinite)) {
             /* We are sampling a direction toward an envmap emitter starting
@@ -207,7 +246,7 @@ public:
              * not part of the scene's bounding box, which could cause issues.
              */
             Mask active_e = active && is_infinite;
-            Interaction3f ref_it(0.f, time, ek::empty<Wavelength>(),
+            Interaction3f ref_it(0.f, time, ek::zero<Wavelength>(),
                                  sensor->world_transform()->eval(time).translation());
             auto [ds, dir_weight] =
                 emitter->sample_direction(ref_it, emitter_sample, active);

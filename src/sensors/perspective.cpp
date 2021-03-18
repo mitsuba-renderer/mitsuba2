@@ -221,17 +221,17 @@ public:
         Point3f ref_p = trafo.inverse().transform_affine(it.p);
 
         // Check if it is outside of the clip range
-        DirectionSample3f ds;
+        DirectionSample3f ds = ek::zero<DirectionSample3f>();
         ds.pdf = 0.f;
         active &= (ref_p.z() >= m_near_clip) && (ref_p.z() <= m_far_clip);
-        if (ek::none(active))
+        if (ek::none_or<false>(active))
             return { ds, ek::zero<Spectrum>() };
 
         auto screen_sample = m_camera_to_sample * ref_p;
         ds.uv              = Point2f(screen_sample.x(), screen_sample.y());
         active &= (ds.uv.x() >= 0) && (ds.uv.x() <= 1) && (ds.uv.y() >= 0) &&
                   (ds.uv.y() <= 1);
-        if (ek::none(active))
+        if (ek::none_or<false>(active))
             return { ds, ek::zero<Spectrum>() };
 
         ds.uv *= m_resolution;
