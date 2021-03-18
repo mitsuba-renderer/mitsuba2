@@ -35,12 +35,16 @@ NAMESPACE_BEGIN(mitsuba)
 template <typename Float, typename Spectrum>
 class ParticleTracerIntegrator : public Integrator<Float, Spectrum> {
 public:
-    MTS_IMPORT_BASE(Integrator, should_stop, m_stop, m_timeout, m_render_timer)
+    MTS_IMPORT_BASE(Integrator, should_stop, aov_names, m_stop, m_timeout, m_render_timer)
     MTS_IMPORT_TYPES(Scene, Sensor, Film, Sampler, ImageBlock, Emitter,
                      EmitterPtr, BSDF, BSDFPtr)
 
     ParticleTracerIntegrator(const Properties &props) : Base(props) {
-         // TODO: consider moving those parameters to the base class.
+        // TODO: consider moving those parameters to the base class.
+
+        m_samples_per_pass = (uint32_t) props.size_("samples_per_pass", (size_t) -1);
+        m_hide_emitters = props.bool_("hide_emitters", false);
+
         m_rr_depth = props.int_("rr_depth", 5);
         if (m_rr_depth <= 0)
             Throw("\"rr_depth\" must be set to a value greater than zero!");
@@ -52,14 +56,10 @@ public:
 
     /// Perform the main rendering job
     bool render(Scene *scene, Sensor *sensor) override  {
-        if (!std::is_scalar_v<Float>) {
-            // TODO: support other modes
-            Throw("not tested yet");
-        }
         ScopedPhase sp(ProfilerPhase::Render);
         m_stop = false;
-        m_render_timer.reset();
         Film *film = sensor->film();
+        ScalarVector2i film_size = film->crop_size();
 
         if (unlikely(scene->emitters().empty())) {
             Log(Warn, "Scene does not contain any emitter, returning black image.");
@@ -67,91 +67,105 @@ public:
             return true;
         }
 
-        ThreadEnvironment env;
-        tbb::spin_mutex mutex;
-        ref<ProgressReporter> progress = new ProgressReporter("Rendering");
-
-        size_t n_cores = util::core_count();
         /* Multiply sample count by pixel count to obtain a similar scale
-        * to the standard path tracer. */
+         * to the standard path tracer. */
         size_t total_samples =
-            sensor->sampler()->sample_count() * hprod(film->size());
-        // TODO: handle different modes
-        size_t iteration_count = total_samples;
-        // size_t iteration_count = IsVectorized
-        //                              ? std::rint(total_samples / (Float) PacketSize)
-        //                              : total_samples;
-        size_t grain_count =
-            std::max((size_t) 1, (size_t) std::rint(iteration_count /
-                                                    ScalarFloat(n_cores * 2)));
+            sensor->sampler()->sample_count() * hprod(film_size);
+        size_t samples_per_pass =
+            (m_samples_per_pass == (size_t) -1) ? total_samples
+                                                : std::min((size_t) m_samples_per_pass,
+                                                           total_samples);
+        if ((total_samples % samples_per_pass) != 0)
+            Throw("sample_count (%d) must be a multiple of samples_per_pass (%d).",
+                  total_samples, samples_per_pass);
 
-        // Insert default channels and set up the film
-        std::vector<std::string> channels = { "X", "Y", "Z", "A", "W" };
-        film->prepare(channels);
-        bool has_aovs = false;
+        size_t n_passes = (total_samples + samples_per_pass - 1) / samples_per_pass;
+
+        std::vector<std::string> channels = aov_names();
+        bool has_aovs = !channels.empty();
         if (has_aovs)
             Throw("Not supported yet: AOVs in LightTracerIntegrator");
-
-        Log(Info, "Starting render job (%ix%i, %i sample%s, %i core%s)",
-            film->crop_size().x(), film->crop_size().y(), total_samples,
-            total_samples == 1 ? "" : "s", n_cores, n_cores == 1 ? "" : "s");
-        if (m_timeout > 0.0f)
-            Log(Info, "Timeout specified: %.2f seconds.", m_timeout);
+        // Insert default channels and set up the film
+        for (size_t i = 0; i < 5; ++i)
+            channels.insert(channels.begin() + i, std::string(1, "XYZAW"[i]));
+        film->prepare(channels);
 
         size_t total_samples_done = 0;
-        tbb::parallel_for(
-            tbb::blocked_range<size_t>(0, iteration_count, grain_count),
-            [&](const tbb::blocked_range<size_t> &range) {
-                ScopedSetThreadEnvironment set_env(env);
+        m_render_timer.reset();
+        if constexpr (!ek::is_jit_array_v<Float>) {
+            size_t n_threads = __global_thread_count;
 
-                // Thread-specific accumulators.
-                // Enable warning, border and normalization for the image block.
-                ref<ImageBlock> block = new ImageBlock(
-                    film->size(), channels.size(), film->reconstruction_filter(),
-                    /* warn_negative */ !has_aovs,
-                    /* warn_invalid */ true, /* border */ true,
-                    /* normalize */ true);
-                block->clear();
-                size_t samples_done = 0;
+            Log(Info, "Starting render job (%ix%i, %i sample%s,%s %i thread%s)",
+                film_size.x(), film_size.y(),
+                total_samples, total_samples == 1 ? "" : "s",
+                n_passes > 1 ? tfm::format(" %d passes,", n_passes) : "",
+                n_threads, n_threads == 1 ? "" : "s");
+            if (m_timeout > 0.f)
+                Log(Info, "Timeout specified: %.2f seconds.", m_timeout);
 
-                // Ensure that sample generation is fully deterministic.
-                ref<Sampler> sampler = sensor->sampler()->clone();
-                // TODO: appropriate seeding in wavefront mode
-                size_t seed = (size_t) range.begin();
-                sampler->seed(seed);
+            // Split up all samples between threads
+            size_t grain_count = std::max(
+                (size_t) 1, (size_t) std::rint(samples_per_pass /
+                                               ScalarFloat(n_threads * 2)));
 
-                for (auto i = range.begin(); i != range.end() && !should_stop(); ++i) {
-                    if (likely(m_max_depth != 0)) {
-                        // Account for emitters directly visible from the sensor
-                        sample_visible_emitters(scene, sensor, sampler, block);
+            ThreadEnvironment env;
+            tbb::spin_mutex mutex;
+            ref<ProgressReporter> progress = new ProgressReporter("Rendering");
+            size_t update_threshold = total_samples / 20;
+
+            tbb::parallel_for(
+                tbb::blocked_range<size_t>(0, total_samples, grain_count),
+                [&](const tbb::blocked_range<size_t> &range) {
+                    ScopedSetThreadEnvironment set_env(env);
+
+                    ref<Sampler> sampler = sensor->sampler()->clone();
+                    ref<ImageBlock> block = new ImageBlock(
+                        film->size(), channels.size(), film->reconstruction_filter(),
+                        /* warn_negative */ !has_aovs,
+                        /* warn_invalid */ true, /* border */ true,
+                        /* normalize */ true);
+
+                    size_t samples_done = 0;
+                    block->clear();
+                    size_t seed = (size_t) range.begin();
+                    sampler->seed(seed);
+
+                    for (auto i = range.begin(); i != range.end() && !should_stop(); ++i) {
+                        if (likely(m_max_depth != 0) && !m_hide_emitters) {
+                            // Account for emitters directly visible from the sensor
+                            sample_visible_emitters(scene, sensor, sampler, block);
+                        }
+
+                        // Primary & further bounces illumination
+                        auto [ray, throughput] = prepare_ray(scene, sensor, sampler);
+                        trace_light_ray(ray, scene, sensor, sampler, throughput, block);
+
+                        // TODO: it is possible that there are more than 1 sample / it ?
+                        samples_done += 1;
+                        if (samples_done > update_threshold) {
+                            tbb::spin_mutex::scoped_lock lock(mutex);
+                            total_samples_done += samples_done;
+                            samples_done = 0;
+                            progress->update(total_samples_done / (ScalarFloat) total_samples);
+                        }
                     }
 
-                    // Primary & further bounces illumination
-                    auto [ray, throughput] = prepare_ray(scene, sensor, sampler);
-                    trace_light_ray(ray, scene, sensor, sampler, throughput, block);
-
-                    // TODO: support other modes
-                    samples_done += 1;
-                    // samples_done += (enoki::is_array_v<Value> ? PacketSize : 1);
-                    if (samples_done > 10000) {
+                    // When all samples are done for this range, commit to the film
+                    /* locked */ {
                         tbb::spin_mutex::scoped_lock lock(mutex);
                         total_samples_done += samples_done;
-                        samples_done = 0;
                         progress->update(total_samples_done / (ScalarFloat) total_samples);
+
+                        film->put(block);
                     }
-                }
-
-                /* locked */ {
-                    tbb::spin_mutex::scoped_lock lock(mutex);
-                    total_samples_done += samples_done;
-                    progress->update(total_samples_done / (ScalarFloat) total_samples);
-
-                    film->put(block);
-                }
-            });
+                });
+        } else {
+            // Wavefront rendering
+            Throw("not implemented yet");
+        }
 
         // Apply proper normalization.
-        auto new_weight = normalize_film(film, total_samples_done);
+        double new_weight = normalize_film(film, total_samples_done);
         Log(Info, "Processed %d samples, normalization weight: %f",
             total_samples_done, new_weight);
 
@@ -445,7 +459,7 @@ public:
      *
      * \return The new normalization weight.
      */
-    Float normalize_film(Film *film, size_t total_samples) const {
+    double normalize_film(Film *film, size_t total_samples) const {
         double new_weight = total_samples / (double) hprod(film->size());
         film->reweight(new_weight);
         return new_weight;
@@ -463,6 +477,17 @@ public:
     MTS_DECLARE_CLASS()
 
 protected:
+    /**
+     * \brief Number of samples to compute for each pass over the image blocks.
+     *
+     * Must be a multiple of the total sample count per pixel.
+     * If set to (size_t) -1, all the work is done in a single pass (default).
+     */
+    uint32_t m_samples_per_pass;
+
+    /// Flag for disabling direct visibility of emitters
+    bool m_hide_emitters;
+
     /**
      * Longest visualized path depth (\c -1 = infinite).
      * A value of \c 1 will visualize only directly visible light sources.

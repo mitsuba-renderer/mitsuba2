@@ -64,6 +64,13 @@ public:
                           m_render_timer.value() > 1000.f * m_timeout);
     }
 
+    /**
+     * For integrators that return one or more arbitrary output variables
+     * (AOVs), this function specifies a list of associated channel names. The
+     * default implementation simply returns an empty vector.
+     */
+    virtual std::vector<std::string> aov_names() const;
+
     void set_graphviz_output(const fs::path &value) {
         m_graphviz_output = value;
     }
@@ -103,7 +110,8 @@ protected:
 template <typename Float, typename Spectrum>
 class MTS_EXPORT_RENDER SamplingIntegrator : public Integrator<Float, Spectrum> {
 public:
-    MTS_IMPORT_BASE(Integrator, should_stop, m_stop, m_timeout, m_render_timer)
+    MTS_IMPORT_BASE(Integrator, should_stop, aov_names,
+                    m_stop, m_timeout, m_render_timer)
     MTS_IMPORT_TYPES(Scene, Sensor, Film, ImageBlock, Medium, Sampler)
 
     /**
@@ -151,13 +159,6 @@ public:
                                              const Medium *medium = nullptr,
                                              Float *aovs = nullptr,
                                              Mask active = true) const;
-
-    /**
-     * For integrators that return one or more arbitrary output variables
-     * (AOVs), this function specifies a list of associated channel names. The
-     * default implementation simply returns an empty vector.
-     */
-    virtual std::vector<std::string> aov_names() const;
 
     // =========================================================================
     //! @{ \name Integrator interface implementation

@@ -28,6 +28,10 @@ MTS_VARIANT Integrator<Float, Spectrum>::Integrator(const Properties & props)
     m_timeout = props.float_("timeout", -1.f);
 }
 
+MTS_VARIANT std::vector<std::string> Integrator<Float, Spectrum>::aov_names() const {
+    return { };
+}
+
 // -----------------------------------------------------------------------------
 
 MTS_VARIANT SamplingIntegrator<Float, Spectrum>::SamplingIntegrator(const Properties &props)
@@ -53,10 +57,6 @@ MTS_VARIANT void SamplingIntegrator<Float, Spectrum>::cancel() {
     m_stop = true;
 }
 
-MTS_VARIANT std::vector<std::string> SamplingIntegrator<Float, Spectrum>::aov_names() const {
-    return { };
-}
-
 MTS_VARIANT bool SamplingIntegrator<Float, Spectrum>::render(Scene *scene, Sensor *sensor) {
     ScopedPhase sp(ProfilerPhase::Render);
     m_stop = false;
@@ -75,7 +75,6 @@ MTS_VARIANT bool SamplingIntegrator<Float, Spectrum>::render(Scene *scene, Senso
 
     std::vector<std::string> channels = aov_names();
     bool has_aovs = !channels.empty();
-
     // Insert default channels and set up the film
     for (size_t i = 0; i < 5; ++i)
         channels.insert(channels.begin() + i, std::string(1, "XYZAW"[i]));
