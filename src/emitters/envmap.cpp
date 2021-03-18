@@ -207,10 +207,6 @@ public:
     sample_direction(const Interaction3f &it, const Point2f &sample, Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleDirection, active);
 
-        // Needed when the reference point is on the sensor, which is not part of the bbox
-        ScalarBoundingSphere3f bsphere = m_bsphere;
-        // bsphere.expand(it.p);  // TODO
-
         auto [uv, pdf] = m_warp.sample(sample, nullptr, active);
 
         Float theta = uv.y() * ek::Pi<Float>,
@@ -219,7 +215,10 @@ public:
         Vector3f d = ek::sphdir(theta, phi);
         d = Vector3f(d.y(), d.z(), -d.x());
 
-        Float dist = 2.f * bsphere.radius;
+        // Needed when the reference point is on the sensor, which is not part of the bbox
+        Float radius =
+            ek::max(m_bsphere.radius, ek::norm(it.p - m_bsphere.center));
+        Float dist = 2.f * radius;
 
         Float inv_sin_theta =
             ek::safe_rsqrt(ek::max(ek::sqr(d.x()) + ek::sqr(d.z()), ek::sqr(ek::Epsilon<Float>)));

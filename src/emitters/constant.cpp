@@ -102,12 +102,11 @@ public:
     sample_direction(const Interaction3f &it, const Point2f &sample, Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleDirection, active);
 
-        // Needed when the reference point is on the sensor, which is not part of the bbox
-        ScalarBoundingSphere3f bsphere = m_bsphere;
-        // bsphere.expand(it.p);  // TODO
-
         Vector3f d = warp::square_to_uniform_sphere(sample);
-        Float dist = 2.f * bsphere.radius;
+        // Needed when the reference point is on the sensor, which is not part of the bbox
+        Float radius =
+            ek::max(m_bsphere.radius, ek::norm(it.p - m_bsphere.center));
+        Float dist = 2.f * radius;
 
         DirectionSample3f ds;
         ds.p      = it.p + d * dist;
