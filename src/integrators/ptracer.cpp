@@ -1,5 +1,9 @@
 #include <random>
 
+// TODO: remove dependency on TBB
+#include <tbb/parallel_for.h>
+#include <tbb/spin_mutex.h>
+
 #include <enoki/morton.h>
 #include <mitsuba/core/fwd.h>
 #include <mitsuba/core/plugin.h>
@@ -48,7 +52,10 @@ public:
 
     /// Perform the main rendering job
     bool render(Scene *scene, Sensor *sensor) override  {
-        static_assert(std::is_scalar_v<Float>); // TODO: support other modes
+        if (!std::is_scalar_v<Float>) {
+            // TODO: support other modes
+            Throw("not tested yet");
+        }
         ScopedPhase sp(ProfilerPhase::Render);
         m_stop = false;
         m_render_timer.reset();
@@ -74,8 +81,9 @@ public:
         // size_t iteration_count = IsVectorized
         //                              ? std::rint(total_samples / (Float) PacketSize)
         //                              : total_samples;
-        size_t grain_count = std::max(
-            (size_t) 1, (size_t) std::rint(iteration_count / Float(n_cores * 2)));
+        size_t grain_count =
+            std::max((size_t) 1, (size_t) std::rint(iteration_count /
+                                                    ScalarFloat(n_cores * 2)));
 
         // Insert default channels and set up the film
         std::vector<std::string> channels = { "X", "Y", "Z", "A", "W" };
@@ -178,26 +186,34 @@ public:
         Spectrum emitter_weight;
         SurfaceInteraction3f si;
         Point2f emitter_sample = sampler->next_2d(active);
-        if (has_flag(emitter->flags(), EmitterFlags::Infinite)) {
+        Mask is_infinite = has_flag(emitter->flags(), EmitterFlags::Infinite);
+        if (ek::any_or<true>(is_infinite)) {
             /* We are sampling a direction toward an envmap emitter starting
-            * from the center of the scene. This is because the sensor is
-            * not part of the scene's bounding box, which could cause issues. */
+             * from the center of the scene. This is because the sensor is
+             * not part of the scene's bounding box, which could cause issues.
+             */
+            Mask active_e = active && is_infinite;
             Interaction3f ref_it(0.f, time, ek::empty<Wavelength>(),
-                                sensor->world_transform()->eval(time).translation());
-            auto [ds, dir_weight] = emitter->sample_direction(ref_it, emitter_sample, active);
-            /* Note: `dir_weight` already includes the emitter radiance, but that will
-            * be accounted for again when sampling the wavelength below. Instead,
-            * we recompute just the factor due to the PDF. */
-            emitter_weight = ek::select(ds.pdf > 0.f, 1.f / ds.pdf, 0.f);
-            // Convert to the area measure
-            emitter_weight *= ds.dist * ds.dist;
+                                 sensor->world_transform()->eval(time).translation());
+            auto [ds, dir_weight] =
+                emitter->sample_direction(ref_it, emitter_sample, active);
+            /* Note: `dir_weight` already includes the emitter radiance, but
+             * that will be accounted for again when sampling the wavelength
+             * below. Instead, we recompute just the factor due to the PDF.
+             * Also, convert to area measure.
+             */
+            emitter_weight[active_e] =
+                ek::select(ds.pdf > 0.f, 1.f / ds.pdf, 0.f) * ek::sqr(ds.dist);
 
-            si = SurfaceInteraction3f(ds, ref_it.wavelengths);
-        } else {
+            si[active_e] = SurfaceInteraction3f(ds, ref_it.wavelengths);
+        }
+
+        if (ek::any_or<true>(!is_infinite)) {
+            Mask active_e = active && !is_infinite;
             auto [ps, pos_weight] =
-                emitter->sample_position(time, emitter_sample, active);
-            emitter_weight = pos_weight;
-            si = SurfaceInteraction3f(ps, ek::empty<Wavelength>());
+                emitter->sample_position(time, emitter_sample, active_e);
+            emitter_weight[active_e] = pos_weight;
+            si[active_e] = SurfaceInteraction3f(ps, ek::empty<Wavelength>());
         }
 
         /* 4. Connect to the sensor.
@@ -328,7 +344,7 @@ public:
      */
     Spectrum connect_sensor(const Scene *scene, const SurfaceInteraction3f &si,
                             const DirectionSample3f &sensor_ds,
-                            const BSDF *bsdf, const Spectrum &weight,
+                            const BSDFPtr bsdf, const Spectrum &weight,
                             ImageBlock *block, Mask active) const {
         active &= (sensor_ds.pdf > 0.f) && any(neq(weight, 0.f));
         Spectrum result = 0.f;

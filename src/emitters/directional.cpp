@@ -125,8 +125,8 @@ public:
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleDirection, active);
 
         // Needed when the reference point is on the sensor, which is not part of the bbox
-        BoundingSphere3f bsphere = m_bsphere;
-        bsphere.expand(it.p);
+        ScalarBoundingSphere3f bsphere = m_bsphere;
+        // bsphere.expand(it.p);  // TODO
 
         Vector3f d = m_world_transform->eval(it.time, active)
                          .transform_affine(Vector3f{ 0.f, 0.f, 1.f });

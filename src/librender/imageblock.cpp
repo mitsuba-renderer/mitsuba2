@@ -178,8 +178,8 @@ ImageBlock<Float, Spectrum>::overwrite_channel(size_t channel,
 
     // TODO: any way to avoid this specialization?
     if constexpr (ek::is_dynamic_v<Float>) {
-        auto indices = m_channel_count * ek::arange<UInt64>(pixel_count) + channel;
-        ek::scatter(m_data, value, indices);
+        UInt64 indices = m_channel_count * ek::arange<UInt64>(pixel_count) + channel;
+        ek::scatter(m_data, Float(value), indices);
     } else {
         ScalarFloat *target = m_data.data();
         for (size_t i = 0; i < pixel_count; ++i) {

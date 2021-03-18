@@ -97,8 +97,11 @@ ENOKI_VCALL_TEMPLATE_BEGIN(mitsuba::Emitter)
     ENOKI_VCALL_METHOD(eval)
     ENOKI_VCALL_METHOD(sample_direction)
     ENOKI_VCALL_METHOD(pdf_direction)
+    ENOKI_VCALL_METHOD(sample_position)
+    ENOKI_VCALL_METHOD(sample_wavelengths)
     ENOKI_VCALL_METHOD(is_environment)
     ENOKI_VCALL_GETTER(flags, uint32_t)
+    ENOKI_VCALL_GETTER(shape, const typename Class::Shape *)
 ENOKI_VCALL_TEMPLATE_END(mitsuba::Emitter)
 
 //! @}

@@ -103,8 +103,8 @@ public:
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleDirection, active);
 
         // Needed when the reference point is on the sensor, which is not part of the bbox
-        BoundingSphere3f bsphere = m_bsphere;
-        bsphere.expand(it.p);
+        ScalarBoundingSphere3f bsphere = m_bsphere;
+        // bsphere.expand(it.p);  // TODO
 
         Vector3f d = warp::square_to_uniform_sphere(sample);
         Float dist = 2.f * bsphere.radius;
