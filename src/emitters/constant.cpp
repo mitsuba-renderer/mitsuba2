@@ -155,7 +155,7 @@ public:
         std::ostringstream oss;
         oss << "ConstantBackgroundEmitter[" << std::endl
             << "  radiance = " << string::indent(m_radiance) << "," << std::endl
-            << "  bsphere = " << m_bsphere << "," << std::endl
+            << "  bsphere = " << string::indent(m_bsphere) << std::endl
             << "]";
         return oss.str();
     }

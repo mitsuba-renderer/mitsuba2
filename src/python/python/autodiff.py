@@ -100,12 +100,18 @@ def write_bitmap(filename, data, resolution, write_async=True):
     import numpy as np
     from mitsuba.core import Bitmap, Struct
 
-    if type(data).__name__ == 'Tensor':
-        data = data.detach().cpu()
+    if isinstance(data, Bitmap):
+        bitmap = data
+        assert bitmap.size() == resolution, \
+               'Resolution mismatch: {} vs expected {}'.format(bitmap.size(), resolution)
+    else:
+        if type(data).__name__ == 'Tensor':
+            data = data.detach().cpu()
+        elif not isinstance(data, np.ndarray):
+            data = np.array(data.numpy())
+        data = data.reshape(resolution[1], resolution[0], -1)
+        bitmap = Bitmap(data)
 
-    data = np.array(data.numpy())
-    data = data.reshape(resolution[1], resolution[0], -1)
-    bitmap = Bitmap(data)
     if filename.endswith('.png') or \
        filename.endswith('.jpg') or \
        filename.endswith('.jpeg'):
