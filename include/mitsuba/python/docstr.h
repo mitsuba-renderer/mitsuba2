@@ -3013,6 +3013,8 @@ static const char *__doc_mitsuba_ImageBlock_channel_count = R"doc(Return the num
 
 static const char *__doc_mitsuba_ImageBlock_class = R"doc()doc";
 
+static const char *__doc_mitsuba_ImageBlock_overwrite_channel = R"doc(Overwrite entire channel with the given value.)doc";
+
 static const char *__doc_mitsuba_ImageBlock_clear = R"doc(Clear everything to zero.)doc";
 
 static const char *__doc_mitsuba_ImageBlock_data = R"doc(Return the underlying pixel buffer)doc";
@@ -4180,6 +4182,8 @@ static const char *__doc_mitsuba_MonteCarloIntegrator_class = R"doc()doc";
 static const char *__doc_mitsuba_MonteCarloIntegrator_m_max_depth = R"doc()doc";
 
 static const char *__doc_mitsuba_MonteCarloIntegrator_m_rr_depth = R"doc()doc";
+
+static const char *__doc_mitsuba_LightTracerIntegrator = R"doc()doc";  // TODO
 
 static const char *__doc_mitsuba_NamedReference = R"doc(Wrapper object used to represent named references to Object instances)doc";
 

@@ -97,6 +97,8 @@ MTS_PY_EXPORT(Scene) {
                     return py::cast(tmp);
                 if (auto tmp = dynamic_cast<SamplingIntegrator *>(o); tmp)
                     return py::cast(tmp);
+                if (auto tmp = dynamic_cast<LightTracerIntegrator *>(o); tmp)
+                    return py::cast(tmp);
                 return py::cast(o);
             },
             D(Scene, integrator))

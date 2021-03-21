@@ -96,14 +96,14 @@ MTS_PY_EXPORT(Integrator) {
             D(Integrator, render), "scene"_a, "sensor"_a)
         .def_method(Integrator, cancel);
 
-    auto integrator =
+    auto sampling_integrator =
         py::class_<SamplingIntegrator, PySamplingIntegrator, Integrator,
                     ref<SamplingIntegrator>>(m, "SamplingIntegrator", D(SamplingIntegrator))
             .def(py::init<const Properties&>())
             .def_method(SamplingIntegrator, aov_names)
             .def_method(SamplingIntegrator, should_stop);
 
-    integrator.def(
+    sampling_integrator.def(
         "sample",
         [](const SamplingIntegrator *integrator, const Scene *scene, Sampler *sampler,
            const RayDifferential3f &ray, const Medium *medium, Mask active) {
@@ -118,4 +118,13 @@ MTS_PY_EXPORT(Integrator) {
     MTS_PY_REGISTER_OBJECT("register_integrator", Integrator)
 
     MTS_PY_CLASS(MonteCarloIntegrator, SamplingIntegrator);
+
+    // TODO: use mdef for docstrings
+    MTS_PY_CLASS(LightTracerIntegrator, Integrator)
+        .def("sample_visible_emitters", &LightTracerIntegrator::sample_visible_emitters)
+        .def("prepare_ray", &LightTracerIntegrator::prepare_ray)
+        .def("trace_light_ray", &LightTracerIntegrator::trace_light_ray)
+        // .def("connect_sensor", &LightTracerIntegrator::connect_sensor)
+        .def("normalize_film", &LightTracerIntegrator::normalize_film)
+        ;
 }
