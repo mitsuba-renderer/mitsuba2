@@ -330,4 +330,5 @@ protected:
 MTS_EXTERN_CLASS_RENDER(Integrator)
 MTS_EXTERN_CLASS_RENDER(SamplingIntegrator)
 MTS_EXTERN_CLASS_RENDER(MonteCarloIntegrator)
+MTS_EXTERN_CLASS_RENDER(LightTracerIntegrator)
 NAMESPACE_END(mitsuba)
