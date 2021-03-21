@@ -15,6 +15,7 @@ template <typename Float, typename Spectrum> class ImageBlock;
 template <typename Float, typename Spectrum> class Integrator;
 template <typename Float, typename Spectrum> class SamplingIntegrator;
 template <typename Float, typename Spectrum> class MonteCarloIntegrator;
+template <typename Float, typename Spectrum> class LightTracerIntegrator;
 template <typename Float, typename Spectrum> class Medium;
 template <typename Float, typename Spectrum> class Mesh;
 template <typename Float, typename Spectrum> class MicrofacetDistribution;
@@ -77,6 +78,7 @@ template <typename Float_, typename Spectrum_> struct RenderAliases {
     using Integrator             = mitsuba::Integrator<FloatU, SpectrumU>;
     using SamplingIntegrator     = mitsuba::SamplingIntegrator<FloatU, SpectrumU>;
     using MonteCarloIntegrator   = mitsuba::MonteCarloIntegrator<FloatU, SpectrumU>;
+    using LightTracerIntegrator  = mitsuba::LightTracerIntegrator<FloatU, SpectrumU>;
     using BSDF                   = mitsuba::BSDF<FloatU, SpectrumU>;
     using Sensor                 = mitsuba::Sensor<FloatU, SpectrumU>;
     using ProjectiveCamera       = mitsuba::ProjectiveCamera<FloatU, SpectrumU>;
@@ -160,6 +162,7 @@ template <typename Float_, typename Spectrum_> struct RenderAliases {
     using Integrator             = typename RenderAliases::Integrator;                             \
     using SamplingIntegrator     = typename RenderAliases::SamplingIntegrator;                     \
     using MonteCarloIntegrator   = typename RenderAliases::MonteCarloIntegrator;                   \
+    using LightTracerIntegrator  = typename RenderAliases::LightTracerIntegrator;                  \
     using BSDF                   = typename RenderAliases::BSDF;                                   \
     using Sensor                 = typename RenderAliases::Sensor;                                 \
     using ProjectiveCamera       = typename RenderAliases::ProjectiveCamera;                       \

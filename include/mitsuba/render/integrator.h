@@ -233,6 +233,100 @@ protected:
 };
 
 
+/**
+ * Base class for integrators that start paths from the light source, as opposed
+ * to sensor-based integrators.
+ */
+template <typename Float, typename Spectrum>
+class MTS_EXPORT_RENDER LightTracerIntegrator : public Integrator<Float, Spectrum> {
+public:
+    MTS_IMPORT_BASE(Integrator, should_stop, m_stop, m_timeout, m_render_timer, aov_names)
+    MTS_IMPORT_TYPES(Scene, Sensor, Film, BSDF, BSDFPtr, ImageBlock, Sampler, EmitterPtr)
+
+    explicit LightTracerIntegrator(const Properties &props);
+    virtual ~LightTracerIntegrator();
+
+    /// Perform the main rendering job
+    bool render(Scene *scene, Sensor *sensor) override;
+    void cancel() override;
+
+    /**
+     * Samples an emitter in the scene and connects it directly to the sensor,
+     * writing the emitted radiance to the given image block.
+     */
+    virtual Spectrum sample_visible_emitters(Scene *scene, const Sensor *sensor,
+                                             Sampler *sampler,
+                                             ImageBlock *block,
+                                             Mask active = true) const;
+    /**
+     * Samples a ray from a random emitter in the scene.
+     */
+    virtual std::pair<Ray3f, Spectrum>
+    prepare_ray(const Scene *scene, const Sensor *sensor, Sampler *sampler,
+                Mask active = true) const = 0;
+
+    /**
+     * Intersects the given ray with the scene and recursively trace using
+     * BSDF sampling. The given `throughput` should account for emitted
+     * radiance from the sampled light source, wavelengths sampling weights,
+     * etc. At each interaction, we attempt connecting to the sensor and add
+     * throughput to the given `block`.
+     *
+     * Note: this will *not* account for directly visible emitters, since
+     * they require a direct connection from the emitter to the sensor. See
+     * \ref sample_visible_emitters.
+     *
+     * Returns (radiance, alpha)
+     */
+    virtual std::pair<Spectrum, Float>
+    trace_light_ray(Ray3f ray, const Scene *scene, const Sensor *sensor,
+                    Sampler *sampler, Spectrum throughput, ImageBlock *block,
+                    Mask active = true) const = 0;
+
+    /**
+     * From the given surface interaction, attempt connecting to the sensor
+     */
+    virtual Spectrum connect_sensor(const Scene *scene,
+                                    const SurfaceInteraction3f &si,
+                                    const DirectionSample3f &sensor_ds,
+                                    const BSDFPtr bsdf, const Spectrum &weight,
+                                    ImageBlock *block,
+                                    Mask active = true) const = 0;
+
+    /**
+     * Overwrites the accumulated per-pixel normalization weights with a
+     * constant weight computed from the number of overall accumulated samples.
+     *
+     * \return The new normalization weight.
+     */
+    double normalize_film(Film *film, size_t total_samples) const;
+
+    MTS_DECLARE_CLASS()
+
+protected:
+    /**
+     * \brief Number of samples to compute for each pass over the image blocks.
+     *
+     * Must be a multiple of the total sample count per pixel.
+     * If set to (size_t) -1, all the work is done in a single pass (default).
+     */
+    uint32_t m_samples_per_pass;
+
+    /// Flag for disabling direct visibility of emitters
+    bool m_hide_emitters;
+
+    /**
+     * Longest visualized path depth (\c -1 = infinite).
+     * A value of \c 1 will visualize only directly visible light sources.
+     * \c 2 will lead to single-bounce (direct-only) illumination, and so on.
+     */
+    int m_max_depth;
+
+    /// Depth to begin using russian roulette
+    int m_rr_depth;
+};
+
+
 MTS_EXTERN_CLASS_RENDER(Integrator)
 MTS_EXTERN_CLASS_RENDER(SamplingIntegrator)
 MTS_EXTERN_CLASS_RENDER(MonteCarloIntegrator)
