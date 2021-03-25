@@ -111,9 +111,7 @@ public:
 
             /* ----------------------- BSDF sampling ------------------------ */
             // Sample BSDF * cos(theta).
-            BSDFSample3f bs;
-            Spectrum bsdf_val;
-            std::tie(bs, bsdf_val) =
+            auto [bs, bsdf_val] =
                 si.bsdf(ray)->sample(ctx, si, sampler->next_1d(active),
                                      sampler->next_2d(active), active);
             // Using geometric normals (wo points to the camera)

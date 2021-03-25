@@ -70,35 +70,47 @@ def load_scene():
     return scene, scene.integrator(), scene.sensors()[0]
 
 def main():
+    from mitsuba.core import Float
     from mitsuba.python.util import traverse
     from mitsuba.python.autodiff import render, write_bitmap, Adam
 
     scene, integrator, sensor = load_scene()
 
     crop_size = sensor.film().crop_size()
-    integrator.render(scene, sensor)
-    write_bitmap('test.exr', sensor.film().bitmap(), crop_size)
 
     params = traverse(scene)
     params.keep([
-        'Sphere.bsdf.reflectance.value'
+        'Sphere.bsdf.reflectance.value',
+        # 'ConstantBackgroundEmitter.radiance.value',
     ])
-    opt = Adam(lr=.2, params=params)
+    opt = Adam(lr=1e-1, params=params)
+    opt.load()
+
+    # TODO: do we really need to enable these manually?
+    for _, v in params.items():
+        ek.enable_grad(v)
 
     # Load or create the reference image
-    image_ref = np.zeros(shape=(*crop_size, 3))
-    image_ref[..., :2] = 0.5
+    # TODO: actual ref image
+    image_ref = np.zeros(shape=(*crop_size, 3), dtype=np.float32)
+    image_ref[..., 1:] = 0.5
     write_bitmap('out_ref.exr', image_ref, crop_size)
+    image_ref = Float(image_ref.ravel())
 
     start_time = time.time()
     iterations = 100
     for it in range(iterations):
+        t0 = time.time()
         # Perform a differentiable rendering of the scene
-        image = render(scene, optimizer=opt, unbiased=True, spp=1)
-        write_bitmap('out_{:03d}.png'.format(it), image, crop_size)
+        # TODO: support unbiased=True
+        image = render(scene, optimizer=opt, unbiased=False, spp=8)
+        # image = render(scene, optimizer=opt, unbiased=True, spp=1)
+        write_bitmap('out_{:03d}.exr'.format(it), image, crop_size)
 
         # Objective: MSE between 'image' and 'image_ref'
-        loss = ek.hsum(ek.sqr(image - image_ref)) / len(image)
+        loss = ek.hsum_async(ek.sqr(image - image_ref)) / len(image)
+        # print(type(loss), type(image), type(image_ref))
+        # print('loss grads:', ek.grad_enabled(loss))
 
         # Back-propagate errors to input parameters
         ek.backward(loss)
@@ -106,8 +118,16 @@ def main():
         # Optimizer: take a gradient step
         opt.step()
 
-        # Compare iterate against ground-truth value
-        print('Iteration {:03d}: loss={:g}'.format(it, loss), end='\r')
+        # TODO: shouldn't need to do this (?)
+        opt.update()
+
+        # TODO: shouldn't need to do this (?)
+        ek.schedule(image, loss)
+        ek.eval()
+
+        elapsed_ms = 1000. * (time.time() - t0)
+        print('Iteration {:03d}: loss={:g} (took {:.0f}ms)'.format(
+            it, loss[0], elapsed_ms), end='\r')
 
 
     end_time = time.time()

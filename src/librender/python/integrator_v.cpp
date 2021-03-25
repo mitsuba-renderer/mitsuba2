@@ -121,10 +121,15 @@ MTS_PY_EXPORT(Integrator) {
 
     // TODO: use mdef for docstrings
     MTS_PY_CLASS(LightTracerIntegrator, Integrator)
-        .def("sample_visible_emitters", &LightTracerIntegrator::sample_visible_emitters)
-        .def("prepare_ray", &LightTracerIntegrator::prepare_ray)
-        .def("trace_light_ray", &LightTracerIntegrator::trace_light_ray)
+        .def("sample_visible_emitters", &LightTracerIntegrator::sample_visible_emitters,
+             "scene"_a, "sensor"_a, "sampler"_a, "block"_a, "active"_a = true)
+        .def("prepare_ray", &LightTracerIntegrator::prepare_ray,
+             "scene"_a, "sensor"_a, "sampler"_a, "active"_a = true)
+        .def("trace_light_ray", &LightTracerIntegrator::trace_light_ray,
+             "ray"_a, "scene"_a, "sensor"_a, "sampler"_a, "throughput"_a, "block"_a,
+             "active"_a = true)
         // .def("connect_sensor", &LightTracerIntegrator::connect_sensor)
-        .def("normalize_film", &LightTracerIntegrator::normalize_film)
+        .def("normalize_film", &LightTracerIntegrator::normalize_film,
+             "film"_a, "total_samples"_a)
         ;
 }

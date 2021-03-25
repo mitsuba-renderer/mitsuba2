@@ -4,7 +4,15 @@ from collections import defaultdict
 import enoki as ek
 
 
-def _render_helper(scene, spp=None, sensor_index=0):
+def _render_helper(scene, **kwargs):
+    from mitsuba.render import LightTracerIntegrator
+
+    if isinstance(scene.integrator(), LightTracerIntegrator):
+        return _render_helper_from_emitters(scene, **kwargs)
+    else:
+        return _render_helper_from_sensor(scene, **kwargs)
+
+def _render_helper_from_sensor(scene, spp=None, sensor_index=0):
     """
     Internally used function: render the specified Mitsuba scene and return a
     floating point array containing RGB values and AOVs, if applicable
@@ -88,6 +96,60 @@ def _render_helper(scene, spp=None, sensor_index=0):
 
     weight = ek.gather(Float, data, weight_idx)
     values = ek.gather(Float, data, values_idx)
+
+    return values / (weight + 1e-8)
+
+
+
+def _render_helper_from_emitters(scene, spp=None, sensor_index=0):
+    from mitsuba.core import Float, UInt32
+    from mitsuba.render import ImageBlock
+
+    integrator = scene.integrator()
+    sensor = scene.sensors()[sensor_index]
+    film = sensor.film()
+    sampler = sensor.sampler()
+    film_size = film.crop_size()
+
+    if spp is None:
+        spp = sampler.sample_count()
+    total_sample_count = ek.hprod(film_size) * spp
+    # TODO: seeding strategy
+    if sampler.wavefront_size() != total_sample_count:
+        sampler.seed(0, total_sample_count)
+
+    # Ensure we're using normalized splats
+    # TODO: support different color modes
+    rfilter = film.reconstruction_filter()
+    block = ImageBlock(size=film.crop_size(), channel_count=5,
+                       filter=rfilter,
+                       warn_negative=False, warn_invalid=True,
+                       border=False, normalize=True)
+    block.clear()
+
+    # Sample visible emitters (separate from the rays)
+    # TODO: re-enable this
+    # integrator.sample_visible_emitters(rs, block, active)
+
+    # Prepare `n` rays (starting at emitters)
+    ray, ray_weight = integrator.prepare_ray(scene, sensor, sampler)
+    # Trace rays and accumulate on image block
+    integrator.trace_light_ray(ray, scene, sensor, sampler, ray_weight, block)
+
+    # TODO: factor this out?
+    data = block.data()
+
+    # Note: we discard alpha channel
+    # TODO: do this more elegantly & faster
+    ch = block.channel_count()
+    i = ek.arange(UInt32, ek.hprod(block.size()) * (ch - 2))
+    i_removed = ek.arange(UInt32, len(i)) // (ch - 2)
+    values_idx = i + (2 * i_removed)
+
+    values = ek.gather(Float, data, values_idx)
+    # See \ref ParticleTracer::normalize_film
+    # block.overwrite_channel(4, 1. / spp)
+    weight = Float(float(spp))
 
     return values / (weight + 1e-8)
 
