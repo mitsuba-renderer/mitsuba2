@@ -192,5 +192,5 @@ protected:
 };
 
 MTS_IMPLEMENT_CLASS_VARIANT(DirectionalEmitter, Emitter)
-MTS_EXPORT_PLUGIN(DirectionalEmitter, "Distant emitter")
+MTS_EXPORT_PLUGIN(DirectionalEmitter, "Distant directional emitter")
 NAMESPACE_END(mitsuba)

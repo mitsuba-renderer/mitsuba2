@@ -5,6 +5,7 @@
 NAMESPACE_BEGIN(mitsuba)
 
 MTS_VARIANT Emitter<Float, Spectrum>::Emitter(const Properties &props) : Base(props) {
+    ek::set_attr(this, "flags", m_flags);
     ek::set_attr(this, "shape", m_shape);
 }
 MTS_VARIANT Emitter<Float, Spectrum>::~Emitter() { }

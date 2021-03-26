@@ -570,13 +570,14 @@ LightTracerIntegrator<Float, Spectrum>::sample_visible_emitters(
         auto [ds, dir_weight]  = emitter->sample_direction(
             ref_it, emitter_sample, active_e);
         /* Note: `dir_weight` already includes the emitter radiance, but
-            * that will be accounted for again when sampling the wavelength
-            * below. Instead, we recompute just the factor due to the PDF.
-            * Also, convert to area measure.
-            */
+         * that will be accounted for again when sampling the wavelength
+         * below. Instead, we recompute just the factor due to the PDF.
+         * Also, convert to area measure. */
         emitter_weight[active_e] =
             ek::select(ds.pdf > 0.f, 1.f / ds.pdf, 0.f) * ek::sqr(ds.dist);
 
+        // TODO(!): isn't it a problem that we throw away the sampled
+        // direction `ds.d` below? (in terms of sampling weight)
         si[active_e] = SurfaceInteraction3f(ds, ref_it.wavelengths);
     }
 
@@ -596,9 +597,9 @@ LightTracerIntegrator<Float, Spectrum>::sample_visible_emitters(
     }
 
     /* 4. Connect to the sensor.
-    Query sensor for a direction connecting to `si.p`. This also gives
-        us UVs on the sensor (for splatting).
-    The resulting direction points from si.p (on the emitter) toward the sensor. */
+     * Query sensor for a direction connecting to `si.p`. This also gives
+     * us UVs on the sensor (for splatting). The resulting direction points
+     * from si.p (on the emitter) toward the sensor. */
     auto [sensor_ds, sensor_weight] = sensor->sample_direction(si, sampler->next_2d(), active);
     si.wi = sensor_ds.d;
 
