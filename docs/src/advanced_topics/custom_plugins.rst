@@ -34,7 +34,7 @@ In this example, we will implement a simple diffuse BSDF in Python by extending
 the :code:`BSDF` base class. The code is very similar to the diffuse BSDF
 implemented in C++ (in :code:`src/bsdf/diffuse.cpp`).
 
-The BSDF class need to implement the following 3 methods: :code:`sample`,
+The BSDF class needs to implement the following 3 methods: :code:`sample`,
 :code:`eval` and :code:`pdf`:
 
 .. literalinclude:: ../../examples/04_diffuse_bsdf/diffuse_bsdf.py

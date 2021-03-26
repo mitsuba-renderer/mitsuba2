@@ -22,7 +22,7 @@ Arbitrary Output Variables integrator (:monosp:`aov`)
      respective output will be put into distinct images.
 
 
-This integrator returns one or more AOVs (Arbitraty Output Variables) describing the visible
+This integrator returns one or more AOVs (Arbitrary Output Variables) describing the visible
 surfaces.
 
 .. subfigstart::
