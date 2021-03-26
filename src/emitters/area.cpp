@@ -72,45 +72,37 @@ public:
                                           Mask active) const override {
         MTS_MASKED_FUNCTION(ProfilerPhase::EndpointSampleRay, active);
 
-        SurfaceInteraction3f si = ek::zero<SurfaceInteraction3f>();
-
+        SurfaceInteraction3f si;
         Float pdf = 1.f;
 
-        // 1. Two strategies to sample spatial component based on 'm_radiance'
+        // 1. Two strategies to sample the spatial component based on 'm_radiance'
         if (!m_radiance->is_spatially_varying()) {
-            PositionSample3f ps = m_shape->sample_position(time, sample2, active);
-
             // Radiance not spatially varying, use area-based sampling of shape
+            PositionSample3f ps = m_shape->sample_position(time, sample2, active);
             si = SurfaceInteraction3f(ps, ek::zero<Wavelength>());
             pdf = ps.pdf;
         } else {
-            // Ipmortance sample texture
+            // Importance sample texture
             std::tie(si.uv, pdf) = m_radiance->sample_position(sample2, active);
             active &= ek::neq(pdf, 0.f);
 
-            si = m_shape->eval_parameterization(Point2f(si.uv), +HitComputeFlags::All, active);
+            si = m_shape->eval_parameterization(Point2f(si.uv),
+                                                +HitComputeFlags::All, active);
             active &= si.is_valid();
-
             pdf /= ek::norm(ek::cross(si.dp_du, si.dp_dv));
         }
 
         // 2. Sample directional component
         Vector3f local = warp::square_to_cosine_hemisphere(sample3);
 
-        Wavelength wavelength;
-        Spectrum spec_weight;
+        // 3. Sample spectral component
+        auto [wavelength, wav_weight] = m_radiance->sample_spectrum(
+            si, math::sample_shifted<Wavelength>(wavelength_sample), active);
 
-        if constexpr (is_spectral_v<Spectrum>) {
-            std::tie(wavelength, spec_weight) = m_radiance->sample_spectrum(
-                si, math::sample_shifted<Wavelength>(wavelength_sample), active);
-        } else {
-            wavelength = ek::zero<Wavelength>();
-            spec_weight = m_radiance->eval(si, active);
-            ENOKI_MARK_USED(wavelength_sample);
-        }
+        Spectrum weight = ek::select(
+            active, wav_weight * ek::Pi<ScalarFloat> / pdf, 0.f);
 
-        return { Ray3f(si.p, si.to_world(local), time, wavelength),
-                 unpolarized<Spectrum>(spec_weight) * (ek::Pi<Float> / pdf) };
+        return { Ray3f(si.p, si.to_world(local), time, wavelength), weight };
     }
 
     std::pair<DirectionSample3f, Spectrum>
