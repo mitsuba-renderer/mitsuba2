@@ -100,13 +100,13 @@ MTS_PY_EXPORT(Bitmap) {
             "temp"_a = py::none(),
             D(Bitmap, resample)
         )
-        .def("resample", py::overload_cast<const Vector2u &, const ReconstructionFilter *,
+        .def("resample", py::overload_cast<const ScalarVector2u &, const ReconstructionFilter *,
             const std::pair<FilterBoundaryCondition, FilterBoundaryCondition> &,
-            const std::pair<Float, Float> &>(&Bitmap::resample, py::const_),
-            "res"_a, "rfilter"_a = py::none(),
+            const std::pair<ScalarFloat, ScalarFloat> &>(&Bitmap::resample, py::const_),
+            "res"_a, "rfilter"_a = nullptr,
             "bc"_a = std::make_pair(FilterBoundaryCondition::Clamp,
                                     FilterBoundaryCondition::Clamp),
-            "clamp"_a = std::make_pair(-ek::Infinity<Float>, ek::Infinity<Float>),
+            "clamp"_a = std::make_pair(-ek::Infinity<ScalarFloat>, ek::Infinity<ScalarFloat>),
             D(Bitmap, resample, 2)
         )
         .def("convert", py::overload_cast<Bitmap::PixelFormat, Struct::Type, bool, Bitmap::AlphaTransform>(

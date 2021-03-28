@@ -365,9 +365,10 @@ void Bitmap::resample(Bitmap *target, const ReconstructionFilter *rfilter,
     }
 }
 
-ref<Bitmap> Bitmap::resample(const Vector2u &res, const ReconstructionFilter *rfilter,
-                             const std::pair<FilterBoundaryCondition, FilterBoundaryCondition> &bc,
-                             const std::pair<Float, Float> &bound) const {
+ref<Bitmap> Bitmap::resample(
+    const ScalarVector2u &res, const ReconstructionFilter *rfilter,
+    const std::pair<FilterBoundaryCondition, FilterBoundaryCondition> &bc,
+    const std::pair<ScalarFloat, ScalarFloat> &bound) const {
     ref<Bitmap> result =
         new Bitmap(m_pixel_format, m_component_format, res, channel_count());
     result->m_struct = m_struct;

@@ -450,12 +450,14 @@ public:
      *     Filtered image pixels will be clamped to the following
      *     range. Default: -infinity..infinity (i.e. no clamping is used)
      */
-    ref<Bitmap> resample(const Vector2u &res,
-                         const ReconstructionFilter *rfilter = nullptr,
-                         const std::pair<FilterBoundaryCondition, FilterBoundaryCondition> &bc =
-                             { FilterBoundaryCondition::Clamp, FilterBoundaryCondition::Clamp },
-                         const std::pair<Float, Float> &bound =
-                             { -ek::Infinity<Float>, ek::Infinity<Float> }) const;
+    ref<Bitmap>
+    resample(const ScalarVector2u &res,
+             const ReconstructionFilter *rfilter = nullptr,
+             const std::pair<FilterBoundaryCondition, FilterBoundaryCondition>
+                 &bc = { FilterBoundaryCondition::Clamp,
+                         FilterBoundaryCondition::Clamp },
+             const std::pair<ScalarFloat, ScalarFloat> &bound = {
+                 -ek::Infinity<ScalarFloat>, ek::Infinity<ScalarFloat> }) const;
 
     /**
      * \brief Convert the bitmap into another pixel and/or component format
