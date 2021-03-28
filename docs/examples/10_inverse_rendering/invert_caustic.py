@@ -2,27 +2,38 @@
 # then replace one of the scene parameters and try to recover it using
 # differentiable rendering and gradient-based optimization.
 
+import os
+import time
+
 import enoki as ek
 import mitsuba
 import numpy as np
 
-import time
+
+SCENE_DIR = os.path.realpath(os.path.join(
+    os.path.dirname(__file__), '../../../resources/data/scenes/caustic-optimization'))
 
 def load_scene():
-    from mitsuba.core import ScalarTransform4f
+    from mitsuba.core import ScalarTransform4f, Thread, Bitmap
     from mitsuba.core.xml import load_dict
 
+    fr = Thread.thread().file_resolver()
+    fr.append(SCENE_DIR)
+
+    # TODO: remove this
+    some_texture = Bitmap(np.ones(shape=(1024, 1024), dtype=np.float32))
+
+    # Looking at the receiving plane, not looking through the lens
     sensor_to_world = ScalarTransform4f.look_at(
-        target=(0, 0, 0),
-        origin=(1, -5, 0),
+        target=(0, -20, 0),
+        origin=(0, -4.65, 0),
         up=(0, 0, 1)
     )
     sensor = {
         'type': 'perspective',
-        'near_clip': 0.1,
-        'far_clip': 100,
-        'fov_axis': 'smaller',
-        'fov': 60,
+        'near_clip': 1,
+        'far_clip': 1000,
+        'fov': 45,
         'to_world': sensor_to_world,
 
         'sampler': {
@@ -51,26 +62,105 @@ def load_scene():
         'type': 'scene',
         'sensor': sensor,
         'integrator': integrator,
-        'shape': {
-            'type': 'sphere',
-            'shape-bsdf': {
-                'type': 'diffuse',
-                'reflectance': {
-                    "type" : "rgb",
-                    "value" : [0.5, 0.7, 0.9]
-                },
-            }
+        # Glass BSDF
+        'simple-glass': {
+            'type': 'dielectric',
+            'id': 'simple-glass-bsdf',
+            'ext_ior': 'air',
+            'int_ior': 1.5,
+            'specular_reflectance': { 'type': 'spectrum', 'value': 0 },
         },
-        'emitter': {
-            'type': 'constant',
-            'radiance': 1.
-        }
+        'white-bsdf': {
+            'type': 'diffuse',
+            'id': 'white-bsdf',
+            # 'reflectance': { 'type': 'rgb', 'value': (1, 1, 1) },
+            'reflectance': {
+                'type': 'bitmap',
+                'bitmap': some_texture
+            },
+        },
+        'black-bsdf': {
+            'type': 'diffuse',
+            'id': 'black-bsdf',
+            'reflectance': { 'type': 'spectrum', 'value': 0 },
+        },
+
+        # Receiving plane
+        'receiving-plane': {
+            'type': 'obj',
+            'id': 'receiving-plane',
+            'filename': 'meshes/rectangle.obj',
+            'to_world': \
+                ScalarTransform4f.look_at(
+                    target=(0, 1, 0),
+                    origin=(0, -7, 0),
+                    up=(0, 0, 1)
+                ) \
+                * ScalarTransform4f.scale((5, 5, 5)),
+            'bsdf': {'type': 'ref', 'id': 'white-bsdf'},
+        },
+        # Glass slab, excluding the 'exit' face (added separately below)
+        'slab': {
+            'type': 'obj',
+            'id': 'slab',
+            'filename': 'meshes/slab.obj',
+            'to_world': ScalarTransform4f.rotate(axis=(1, 0, 0), angle=90),
+            'bsdf': {'type': 'ref', 'id': 'simple-glass'},
+        },
+        # Glass rectangle, to be optimized
+        'lens': {
+            'type': 'obj',
+            'id': 'lens',
+            'filename': 'meshes/rectangle-fine.obj',  # TODO: resolution
+            'to_world': ScalarTransform4f.rotate(axis=(1, 0, 0), angle=90),
+            'bsdf': {'type': 'ref', 'id': 'simple-glass'},
+        },
+
+        # Directional area emitter placed behind the glass slab
+        # TODO: try with a spotlight emitter
+        'focused-emitter-shape': {
+            'type': 'obj',
+            'filename': 'meshes/rectangle.obj',
+            'to_world': ScalarTransform4f.look_at(
+                target=(0, 0, 0),
+                origin=(0, 5, 0),
+                up=(0, 0, 1)
+            ),
+            'bsdf': {'type': 'ref', 'id': 'black-bsdf'},
+            'focused-emitter': {
+                'type':'directionalarea',
+                'radiance': {'type': 'spectrum', 'value': 0.8},
+            },
+        },
     }
     scene = load_dict(scene)
     return scene, scene.integrator(), scene.sensors()[0]
 
+def load_ref_image(resolution, output_dir):
+    from mitsuba.python.autodiff import write_bitmap
+
+    if False:
+        image_ref = np.zeros(shape=(*resolution, 3), dtype=np.float32)
+        image_ref[..., 1:] = 0.5
+    else:
+        from mitsuba.core import Bitmap
+
+        b = Bitmap(os.path.join(SCENE_DIR, 'references/wave-1024.exr'))
+        b = b.convert(Bitmap.PixelFormat.RGB, Bitmap.Float32, False)
+        if b.size() != resolution:
+            # TODO(!): how to avoid this mode change?
+            #          `Bitmap::resample` doesn't work without it.
+            bak = mitsuba.variant()
+            mitsuba.set_variant('scalar_rgb')
+            b = b.resample(resolution)
+            mitsuba.set_variant(bak)
+
+        image_ref = np.array(b)
+
+    write_bitmap(os.path.join(output_dir, 'out_ref.exr'), image_ref, resolution)
+    return mitsuba.core.Float(image_ref.ravel())
+
 def main():
-    from mitsuba.core import Float
     from mitsuba.python.util import traverse
     from mitsuba.python.autodiff import render, write_bitmap, Adam
 
@@ -80,7 +170,10 @@ def main():
 
     params = traverse(scene)
     params.keep([
-        'Sphere.bsdf.reflectance.value',
+        'receiving-plane.bsdf.reflectance.data',
+        # 'receiving-plane.bsdf.reflectance.value',
+        # 'lens.vertex_positions',
+        # 'Sphere.bsdf.reflectance.value',
         # 'ConstantBackgroundEmitter.radiance.value',
     ])
     opt = Adam(lr=1e-1, params=params)
@@ -92,10 +185,7 @@ def main():
 
     # Load or create the reference image
     # TODO: actual ref image
-    image_ref = np.zeros(shape=(*crop_size, 3), dtype=np.float32)
-    image_ref[..., 1:] = 0.5
-    write_bitmap('out_ref.exr', image_ref, crop_size)
-    image_ref = Float(image_ref.ravel())
+    image_ref = load_ref_image(crop_size, output_dir='.')
 
     start_time = time.time()
     iterations = 100
