@@ -93,10 +93,21 @@ public:
     BitmapTexture(const Properties &props) : Texture(props) {
         m_transform = props.transform("to_uv", ScalarTransform4f()).extract();
 
-        FileResolver* fs = Thread::thread()->file_resolver();
-        fs::path file_path = fs->resolve(props.string("filename"));
-        m_name = file_path.filename().string();
-        Log(Debug, "Loading bitmap texture from \"%s\" ..", m_name);
+        if (props.has_property("bitmap")) {
+            Log(Debug, "Loading bitmap texture from memory...");
+            // Note: ref-counted, so we don't have to worry about lifetime
+            ref<Object> other = props.object("bitmap");
+            Bitmap *b = dynamic_cast<Bitmap *>(other.get());
+            if (!b)
+                Throw("Property \"bitmap\" must be a Bitmap instance.");
+            m_bitmap = b;
+        } else {
+            FileResolver* fs = Thread::thread()->file_resolver();
+            fs::path file_path = fs->resolve(props.string("filename"));
+            m_name = file_path.filename().string();
+            Log(Debug, "Loading bitmap texture from \"%s\" ..", m_name);
+            m_bitmap = new Bitmap(file_path);
+        }
 
         std::string filter_type = props.string("filter_type", "bilinear");
         if (filter_type == "nearest")
@@ -118,7 +129,6 @@ public:
             Throw("Invalid wrap mode \"%s\", must be one of: \"repeat\", "
                   "\"mirror\", or \"clamp\"!", wrap_mode);
 
-        m_bitmap = new Bitmap(file_path);
 
         /* Convert to linear RGB float bitmap, will be converted
            into spectral profile coefficients below (in place) */
