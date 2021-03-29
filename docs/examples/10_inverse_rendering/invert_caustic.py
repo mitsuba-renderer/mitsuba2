@@ -20,9 +20,6 @@ def load_scene():
     fr = Thread.thread().file_resolver()
     fr.append(SCENE_DIR)
 
-    # TODO: remove this
-    some_texture = Bitmap(np.ones(shape=(1024, 1024), dtype=np.float32))
-
     # Looking at the receiving plane, not looking through the lens
     sensor_to_world = ScalarTransform4f.look_at(
         target=(0, -20, 0),
@@ -73,11 +70,7 @@ def load_scene():
         'white-bsdf': {
             'type': 'diffuse',
             'id': 'white-bsdf',
-            # 'reflectance': { 'type': 'rgb', 'value': (1, 1, 1) },
-            'reflectance': {
-                'type': 'bitmap',
-                'bitmap': some_texture
-            },
+            'reflectance': { 'type': 'rgb', 'value': (1, 1, 1) },
         },
         'black-bsdf': {
             'type': 'diffuse',
@@ -161,6 +154,9 @@ def load_ref_image(resolution, output_dir):
     return mitsuba.core.Float(image_ref.ravel())
 
 def main():
+    from mitsuba.core import Bitmap, Vector3f
+    from mitsuba.core.xml import load_dict
+    from mitsuba.render import SurfaceInteraction3f
     from mitsuba.python.util import traverse
     from mitsuba.python.autodiff import render, write_bitmap, Adam
 
@@ -168,44 +164,64 @@ def main():
 
     crop_size = sensor.film().crop_size()
 
-    params = traverse(scene)
-    params.keep([
-        'receiving-plane.bsdf.reflectance.data',
-        # 'receiving-plane.bsdf.reflectance.value',
-        # 'lens.vertex_positions',
-        # 'Sphere.bsdf.reflectance.value',
-        # 'ConstantBackgroundEmitter.radiance.value',
-    ])
-    opt = Adam(lr=1e-1, params=params)
-    opt.load()
+    # Heightmap (displacement texture) that will actually be optimized
+    texture_res = (1024, 1024)
+    heightmap_texture = load_dict({
+        'type': 'bitmap',
+        'id': 'heightmap_texture',
+        'bitmap': Bitmap(np.zeros(texture_res, dtype=np.float32)),
+        'raw': True,
+    }).expand()[0]
 
-    # TODO: do we really need to enable these manually?
-    for _, v in params.items():
-        ek.enable_grad(v)
+    params_scene = traverse(scene)
+    # We will always apply displacements along the original normals
+    positions_initial = ek.unravel(Vector3f, params_scene['lens.vertex_positions'])
+    normals_initial = ek.unravel(Vector3f, params_scene['lens.vertex_normals'])
+    lens_si = ek.zero(SurfaceInteraction3f, ek.width(positions_initial))
+    lens_si.uv = ek.unravel(type(lens_si.uv), params_scene['lens.vertex_texcoords'])
+
+    def apply_displacement(amplitude = 1.):
+        # Enforce reasonable range
+        # TODO: range based on scene scale (mm)
+        params['data'] = ek.clamp(params['data'], -0.5, 0.5)
+        ek.enable_grad(params['data'])
+
+        new_positions = (heightmap_texture.eval_1(lens_si) * normals_initial * amplitude
+                         + positions_initial)
+        params_scene['lens.vertex_positions'] = ek.ravel(new_positions)
+        params_scene.set_dirty('lens.vertex_positions')
+        params_scene.update()
+
+    # Actually optimized: the heightmap texture
+    params = traverse(heightmap_texture)
+    params.keep(['data'])
+    opt = Adam(lr=1e-3, params=params)
+    opt.load()
 
     # Load or create the reference image
     # TODO: actual ref image
     image_ref = load_ref_image(crop_size, output_dir='.')
 
     start_time = time.time()
-    iterations = 100
+    iterations = 1000
     for it in range(iterations):
         t0 = time.time()
+
+        apply_displacement()
+
         # Perform a differentiable rendering of the scene
         # TODO: support unbiased=True
         image = render(scene, optimizer=opt, unbiased=False, spp=8)
         # image = render(scene, optimizer=opt, unbiased=True, spp=1)
-        write_bitmap('out_{:03d}.exr'.format(it), image, crop_size)
+
+        if it % 50 == 0:
+            write_bitmap('out_{:03d}.exr'.format(it), image, crop_size)
 
         # Objective: MSE between 'image' and 'image_ref'
         loss = ek.hsum_async(ek.sqr(image - image_ref)) / len(image)
-        # print(type(loss), type(image), type(image_ref))
-        # print('loss grads:', ek.grad_enabled(loss))
 
-        # Back-propagate errors to input parameters
+        # Back-propagate errors to input parameters and take an optimizer step
         ek.backward(loss)
-
-        # Optimizer: take a gradient step
         opt.step()
 
         # TODO: shouldn't need to do this (?)
