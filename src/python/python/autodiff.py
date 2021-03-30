@@ -102,7 +102,7 @@ def _render_helper_from_sensor(scene, spp=None, sensor_index=0):
 
 
 def _render_helper_from_emitters(scene, spp=None, sensor_index=0):
-    from mitsuba.core import Float, UInt32
+    from mitsuba.core import Float, UInt32, Color3f, xyz_to_srgb
     from mitsuba.render import ImageBlock
 
     integrator = scene.integrator()
@@ -136,7 +136,7 @@ def _render_helper_from_emitters(scene, spp=None, sensor_index=0):
     # Trace rays and accumulate on image block
     integrator.trace_light_ray(ray, scene, sensor, sampler, ray_weight, block)
 
-    # TODO: factor this out?
+    # TODO: factor this code out to avoid repetition?
     data = block.data()
 
     # Note: we discard alpha channel
@@ -146,7 +146,10 @@ def _render_helper_from_emitters(scene, spp=None, sensor_index=0):
     i_removed = ek.arange(UInt32, len(i)) // (ch - 2)
     values_idx = i + (2 * i_removed)
 
-    values = ek.gather(Float, data, values_idx)
+    values_xyz = ek.gather(Float, data, values_idx)
+    values_rgb = xyz_to_srgb(ek.unravel(Color3f, values_xyz))
+    values = ek.ravel(values_rgb)
+
     # See \ref ParticleTracer::normalize_film
     # block.overwrite_channel(4, 1. / spp)
     weight = Float(float(spp))
