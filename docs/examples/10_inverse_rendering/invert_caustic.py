@@ -12,13 +12,64 @@ import numpy as np
 
 SCENE_DIR = os.path.realpath(os.path.join(
     os.path.dirname(__file__), '../../../resources/data/scenes/caustic-optimization'))
+CONFIGS = {
+    'wave': {
+        'emitter': 'gray',
+        'reference': os.path.join(SCENE_DIR, 'references/wave-1024.exr'),
+        'render_resolution': (512, 512),
+        'heightmap_resolution': (4096, 4096),
+        'spp': 8,
+        'max_iterations': 500,
+        'learning_rate': 5e-5,
+    },
+    'sunday': {
+        'emitter': 'bayer',
+        'reference': os.path.join(SCENE_DIR, 'references/sunday-512.exr'),
+        # 'render_resolution': (256, 256),
+        # 'heightmap_resolution': (1024, 1024),
+        # 'spp': 16,
+        'render_resolution': (512, 512),
+        'heightmap_resolution': (2048, 2048),
+        'spp': 32,
+        'max_iterations': 500,
+        'learning_rate': 2e-5,
+    },
+}
 
-def load_scene():
+
+def load_scene(config):
     from mitsuba.core import ScalarTransform4f, Thread, Bitmap
     from mitsuba.core.xml import load_dict
 
     fr = Thread.thread().file_resolver()
     fr.append(SCENE_DIR)
+
+    emitter = None
+    if config['emitter'] == 'gray':
+        emitter = {
+            'type':'directionalarea',
+            'radiance': {'type': 'spectrum', 'value': 0.8},
+        }
+    elif config['emitter'] == 'bayer':
+        bayer = np.zeros(shape=(32, 32, 3))
+        bayer[::2, ::2, 2] = 2
+        bayer[::2, 1::2, 1] = 2
+        # bayer[1::2, ::2, 1] = 1  # Avoid too much green
+        bayer[1::2, 1::2, 0] = 2
+
+        bayer = Bitmap(bayer.astype(np.float32), pixel_format=Bitmap.PixelFormat.RGB)
+        # bayer.write('emitter.exr')
+        emitter = {
+            'type':'directionalarea',
+            'radiance': {
+                'type': 'bitmap',
+                'bitmap': bayer,
+                'raw': True,
+                'filter_type': 'nearest'
+            },
+        }
+    # TODO: suppport spotlight emitter type
+    assert emitter is not None
 
     # Looking at the receiving plane, not looking through the lens
     sensor_to_world = ScalarTransform4f.look_at(
@@ -26,6 +77,7 @@ def load_scene():
         origin=(0, -4.65, 0),
         up=(0, 0, 1)
     )
+    resx, resy = config['render_resolution']
     sensor = {
         'type': 'perspective',
         'near_clip': 1,
@@ -39,8 +91,8 @@ def load_scene():
         },
         'film': {
             'type': 'hdrfilm',
-            'width': 256,
-            'height': 256,
+            'width': resx,
+            'height': resy,
             'pixel_format': 'rgb',
             'rfilter': {
                 # Important: reconstruction filter with a footprint
@@ -104,13 +156,12 @@ def load_scene():
         'lens': {
             'type': 'obj',
             'id': 'lens',
-            'filename': 'meshes/rectangle-fine.obj',  # TODO: resolution
+            'filename': 'meshes/rectangle-ultra.obj',
             'to_world': ScalarTransform4f.rotate(axis=(1, 0, 0), angle=90),
             'bsdf': {'type': 'ref', 'id': 'simple-glass'},
         },
 
         # Directional area emitter placed behind the glass slab
-        # TODO: try with a spotlight emitter
         'focused-emitter-shape': {
             'type': 'obj',
             'filename': 'meshes/rectangle.obj',
@@ -120,56 +171,50 @@ def load_scene():
                 up=(0, 0, 1)
             ),
             'bsdf': {'type': 'ref', 'id': 'black-bsdf'},
-            'focused-emitter': {
-                'type':'directionalarea',
-                'radiance': {'type': 'spectrum', 'value': 0.8},
-            },
+            'focused-emitter': emitter,
         },
     }
     scene = load_dict(scene)
     return scene, scene.integrator(), scene.sensors()[0]
 
-def load_ref_image(resolution, output_dir):
+def load_ref_image(config, resolution, output_dir):
+    from mitsuba.core import Bitmap
     from mitsuba.python.autodiff import write_bitmap
 
-    if False:
-        image_ref = np.zeros(shape=(*resolution, 3), dtype=np.float32)
-        image_ref[..., 1:] = 0.5
-    else:
-        from mitsuba.core import Bitmap
+    b = Bitmap(config['reference'])
+    b = b.convert(Bitmap.PixelFormat.RGB, Bitmap.Float32, False)
+    if b.size() != resolution:
+        # TODO(!): how to avoid this mode change?
+        #          `Bitmap::resample` doesn't work without it.
+        bak = mitsuba.variant()
+        mitsuba.set_variant('scalar_rgb')
+        b = b.resample(resolution)
+        mitsuba.set_variant(bak)
 
-        b = Bitmap(os.path.join(SCENE_DIR, 'references/wave-1024.exr'))
-        b = b.convert(Bitmap.PixelFormat.RGB, Bitmap.Float32, False)
-        if b.size() != resolution:
-            # TODO(!): how to avoid this mode change?
-            #          `Bitmap::resample` doesn't work without it.
-            bak = mitsuba.variant()
-            mitsuba.set_variant('scalar_rgb')
-            b = b.resample(resolution)
-            mitsuba.set_variant(bak)
-
-        image_ref = np.array(b)
+    image_ref = np.array(b)
 
     write_bitmap(os.path.join(output_dir, 'out_ref.exr'), image_ref, resolution)
     return mitsuba.core.Float(image_ref.ravel())
 
-def main():
+def main(config):
     from mitsuba.core import Bitmap, Vector3f
     from mitsuba.core.xml import load_dict
     from mitsuba.render import SurfaceInteraction3f
     from mitsuba.python.util import traverse
     from mitsuba.python.autodiff import render, write_bitmap, Adam
 
-    scene, integrator, sensor = load_scene()
+    config = CONFIGS[config]
+    scene, integrator, sensor = load_scene(config)
 
     crop_size = sensor.film().crop_size()
 
     # Heightmap (displacement texture) that will actually be optimized
-    texture_res = (2048, 2048)
+    # Note: the resolution of displacement is also limited by the number
+    #       of vertices that can be displaced ('lens' mesh).
     heightmap_texture = load_dict({
         'type': 'bitmap',
         'id': 'heightmap_texture',
-        'bitmap': Bitmap(np.zeros(texture_res, dtype=np.float32)),
+        'bitmap': Bitmap(np.zeros(config['heightmap_resolution'], dtype=np.float32)),
         'raw': True,
     }).expand()[0]
 
@@ -195,14 +240,15 @@ def main():
     # Actually optimized: the heightmap texture
     params = traverse(heightmap_texture)
     params.keep(['data'])
-    opt = Adam(lr=5e-5, params=params)
+    opt = Adam(lr=config['learning_rate'], params=params)
     opt.load()
 
     # Load or create the reference image
-    image_ref = load_ref_image(crop_size, output_dir='.')
+    image_ref = load_ref_image(config, crop_size, output_dir='.')
+    ref_scale = ek.hsum(image_ref) / ek.width(image_ref)
 
     start_time = time.time()
-    iterations = 500
+    iterations = config['max_iterations']
     for it in range(iterations):
         t0 = time.time()
 
@@ -210,14 +256,17 @@ def main():
 
         # Perform a differentiable rendering of the scene
         # TODO: support unbiased=True
-        image = render(scene, optimizer=opt, unbiased=False, spp=32)
-        # image = render(scene, optimizer=opt, unbiased=True, spp=32)
+        image = render(scene, optimizer=opt, unbiased=False, spp=config['spp'])
+        # image = render(scene, optimizer=opt, unbiased=True, spp=config['spp'])
 
         if it % 5 == 0:
             write_bitmap('out_{:03d}.exr'.format(it), image, crop_size)
 
-        # Objective: MSE between 'image' and 'image_ref'
-        loss = ek.hsum_async(ek.sqr(image - image_ref)) / len(image)
+        # Loss function: scale-independent L2
+        current_scale = ek.hsum(ek.detach(image)) / ek.width(image)
+        loss = ek.hsum_async(ek.sqr(
+            (image / current_scale) - (image_ref / ref_scale)
+        )) / len(image)
 
         # Back-propagate errors to input parameters and take an optimizer step
         ek.backward(loss)
@@ -238,7 +287,13 @@ def main():
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('config', type=str, choices=list(CONFIGS.keys()), default='wave',
+                        help='Configuration name')
+    parsed = parser.parse_args()
+
     mitsuba.set_variant('cuda_ad_rgb')
     # TODO: enable more options once stable
     ek.set_flags(ek.JitFlag.ADOptimize)
-    main()
+    main(**vars(parsed))
