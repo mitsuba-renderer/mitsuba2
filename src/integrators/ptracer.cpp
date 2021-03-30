@@ -133,6 +133,9 @@ public:
             // Intersect the BSDF ray against scene geometry (next vertex).
             ray = si.spawn_ray(si.to_world(bs.wo));
             si = scene->ray_intersect(ray, active);
+
+            // TODO: shouldn't need this?
+            ek::schedule(throughput, si, ray, eta, active);
         }
 
         // TODO: proper alpha support

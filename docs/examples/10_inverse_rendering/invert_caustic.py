@@ -35,7 +35,7 @@ def load_scene():
 
         'sampler': {
             'type': 'independent',
-            'sample_count': 512
+            'sample_count': 512  # Not really used
         },
         'film': {
             'type': 'hdrfilm',
@@ -165,7 +165,7 @@ def main():
     crop_size = sensor.film().crop_size()
 
     # Heightmap (displacement texture) that will actually be optimized
-    texture_res = (1024, 1024)
+    texture_res = (2048, 2048)
     heightmap_texture = load_dict({
         'type': 'bitmap',
         'id': 'heightmap_texture',
@@ -195,15 +195,14 @@ def main():
     # Actually optimized: the heightmap texture
     params = traverse(heightmap_texture)
     params.keep(['data'])
-    opt = Adam(lr=1e-3, params=params)
+    opt = Adam(lr=5e-5, params=params)
     opt.load()
 
     # Load or create the reference image
-    # TODO: actual ref image
     image_ref = load_ref_image(crop_size, output_dir='.')
 
     start_time = time.time()
-    iterations = 1000
+    iterations = 500
     for it in range(iterations):
         t0 = time.time()
 
@@ -211,10 +210,10 @@ def main():
 
         # Perform a differentiable rendering of the scene
         # TODO: support unbiased=True
-        image = render(scene, optimizer=opt, unbiased=False, spp=8)
-        # image = render(scene, optimizer=opt, unbiased=True, spp=1)
+        image = render(scene, optimizer=opt, unbiased=False, spp=32)
+        # image = render(scene, optimizer=opt, unbiased=True, spp=32)
 
-        if it % 50 == 0:
+        if it % 5 == 0:
             write_bitmap('out_{:03d}.exr'.format(it), image, crop_size)
 
         # Objective: MSE between 'image' and 'image_ref'
@@ -226,10 +225,7 @@ def main():
 
         # TODO: shouldn't need to do this (?)
         opt.update()
-
-        # TODO: shouldn't need to do this (?)
-        ek.schedule(image, loss)
-        ek.eval()
+        sensor.sampler().schedule_state()
 
         elapsed_ms = 1000. * (time.time() - t0)
         print('Iteration {:03d}: loss={:g} (took {:.0f}ms)'.format(
