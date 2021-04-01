@@ -11,26 +11,23 @@ import mitsuba
 import numpy as np
 
 
-SCENE_DIR = os.path.realpath(os.path.join(
-    os.path.dirname(__file__), '../../../resources/data/scenes/caustic-optimization'))
+SCENE_DIR = realpath(join(
+    dirname(__file__), '../../../resources/data/scenes/caustic-optimization'))
 CONFIGS = {
     'wave': {
         'emitter': 'gray',
-        'reference': os.path.join(SCENE_DIR, 'references/wave-1024.exr'),
+        'reference': join(SCENE_DIR, 'references/wave-1024.exr'),
         'render_resolution': (512, 512),
-        'heightmap_resolution': (4096, 4096),
-        'spp': 8,
+        'heightmap_resolution': (512, 512),
+        'spp': 32,
         'max_iterations': 500,
-        'learning_rate': 5e-5,
+        'learning_rate': 2e-5,
     },
     'sunday': {
         'emitter': 'bayer',
-        'reference': os.path.join(SCENE_DIR, 'references/sunday-512.exr'),
-        # 'render_resolution': (256, 256),
-        # 'heightmap_resolution': (1024, 1024),
-        # 'spp': 16,
+        'reference': join(SCENE_DIR, 'references/sunday-512.exr'),
         'render_resolution': (512, 512),
-        'heightmap_resolution': (2048, 2048),
+        'heightmap_resolution': (512, 512),
         'spp': 32,
         'max_iterations': 500,
         'learning_rate': 2e-5,
@@ -60,10 +57,10 @@ def load_scene(config, output_dir):
         }
     elif config['emitter'] == 'bayer':
         bayer = np.zeros(shape=(32, 32, 3))
-        bayer[::2, ::2, 2] = 2
-        bayer[::2, 1::2, 1] = 2
+        bayer[::2, ::2, 2] = 2.2
+        bayer[::2, 1::2, 1] = 2.2
         # bayer[1::2, ::2, 1] = 1  # Avoid too much green
-        bayer[1::2, 1::2, 0] = 2
+        bayer[1::2, 1::2, 0] = 2.2
 
         bayer = Bitmap(bayer.astype(np.float32), pixel_format=Bitmap.PixelFormat.RGB)
         # bayer.write('emitter.exr')
@@ -142,7 +139,7 @@ def load_scene(config, output_dir):
         'receiving-plane': {
             'type': 'obj',
             'id': 'receiving-plane',
-            'filename': 'meshes/rectangle.obj',
+            'filename': '../../common/meshes/rectangle.obj',
             'to_world': \
                 ScalarTransform4f.look_at(
                     target=(0, 1, 0),
@@ -172,7 +169,7 @@ def load_scene(config, output_dir):
         # Directional area emitter placed behind the glass slab
         'focused-emitter-shape': {
             'type': 'obj',
-            'filename': 'meshes/rectangle.obj',
+            'filename': '../../common/meshes/rectangle.obj',
             'to_world': ScalarTransform4f.look_at(
                 target=(0, 0, 0),
                 origin=(0, 5, 0),
@@ -201,7 +198,7 @@ def load_ref_image(config, resolution, output_dir):
 
     image_ref = np.array(b)
 
-    write_bitmap(os.path.join(output_dir, 'out_ref.exr'), image_ref, resolution)
+    write_bitmap(join(output_dir, 'out_ref.exr'), image_ref, resolution)
     return mitsuba.core.Float(image_ref.ravel())
 
 
@@ -304,9 +301,10 @@ def main(config, output=None):
     lens_si.uv = ek.unravel(type(lens_si.uv), params_scene['lens.vertex_texcoords'])
 
     def apply_displacement(amplitude = 1.):
-        # Enforce reasonable range
-        # TODO: range based on scene scale (mm)
-        params['data'] = ek.clamp(params['data'], -0.5, 0.5)
+        # Enforce reasonable range. For reference, the receiving plane
+        # is 7 scene units away from the lens.
+        vmax = 1 / 100.
+        params['data'] = ek.clamp(params['data'], -vmax, vmax)
         ek.enable_grad(params['data'])
 
         new_positions = (heightmap_texture.eval_1(lens_si) * normals_initial * amplitude
@@ -337,14 +335,16 @@ def main(config, output=None):
         image = render(scene, optimizer=opt, unbiased=False, spp=config['spp'])
         # image = render(scene, optimizer=opt, unbiased=True, spp=config['spp'])
 
-        if it % 5 == 0:
+        if (it % 5 == 0) or (it == iterations - 1):
             write_bitmap('out_{:03d}.exr'.format(it), image, crop_size)
 
-        # Loss function: scale-independent L2
+        # -- Loss function
         current_scale = ek.hsum(ek.detach(image)) / ek.width(image)
-        loss = ek.hsum_async(ek.sqr(
-            (image / current_scale) - (image_ref / ref_scale)
-        )) / len(image)
+        # Scale-independent L2
+        diff = (image / current_scale) - (image_ref / ref_scale)
+        # # Scale-independent relative L2
+        # diff = ((image / current_scale) - (image_ref / ref_scale)) / (0.01 + image_ref / ref_scale)
+        loss = ek.hsum_async(ek.sqr(diff)) / len(image)
 
         # Back-propagate errors to input parameters and take an optimizer step
         ek.backward(loss)
@@ -362,6 +362,17 @@ def main(config, output=None):
     end_time = time.time()
     print()
     print('{:f} ms per iteration'.format(((end_time - start_time) * 1000) / iterations))
+
+    # Save final state
+    fname = join(output_dir, 'heightmap_final.exr')
+    write_bitmap(fname, params['data'], config['heightmap_resolution'])
+    print('[+] Saved final heightmap state to:', fname)
+
+    fname = join(output_dir, 'lens_displaced.ply')
+    apply_displacement()
+    lens_mesh = [m for m in scene.shapes() if m.id() == 'lens'][0]
+    lens_mesh.write_ply(fname)
+    print('[+] Saved displaced lens to:', fname)
 
 
 if __name__ == '__main__':
