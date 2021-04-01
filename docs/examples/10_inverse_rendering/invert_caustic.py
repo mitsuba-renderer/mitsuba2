@@ -3,6 +3,7 @@
 # differentiable rendering and gradient-based optimization.
 
 import os
+from os.path import join, realpath, dirname
 import time
 
 import enoki as ek
@@ -37,12 +38,19 @@ CONFIGS = {
 }
 
 
-def load_scene(config):
+def load_scene(config, output_dir):
     from mitsuba.core import ScalarTransform4f, Thread, Bitmap
     from mitsuba.core.xml import load_dict
 
     fr = Thread.thread().file_resolver()
     fr.append(SCENE_DIR)
+
+    lens_res = config.get('lens_res', config['heightmap_resolution'])
+    lens_fname = join(output_dir, 'lens_{}_{}.ply'.format(*lens_res))
+    if not os.path.isfile(lens_fname):
+        m = create_flat_lens_mesh(lens_res)
+        m.write_ply(lens_fname)
+        print('[+] Wrote lens mesh ({}x{} tesselation) file to: {}'.format(*lens_res, lens_fname))
 
     emitter = None
     if config['emitter'] == 'gray':
@@ -154,9 +162,9 @@ def load_scene(config):
         },
         # Glass rectangle, to be optimized
         'lens': {
-            'type': 'obj',
+            'type': 'ply',
             'id': 'lens',
-            'filename': 'meshes/rectangle-ultra.obj',
+            'filename': lens_fname,
             'to_world': ScalarTransform4f.rotate(axis=(1, 0, 0), angle=90),
             'bsdf': {'type': 'ref', 'id': 'simple-glass'},
         },
@@ -196,15 +204,85 @@ def load_ref_image(config, resolution, output_dir):
     write_bitmap(os.path.join(output_dir, 'out_ref.exr'), image_ref, resolution)
     return mitsuba.core.Float(image_ref.ravel())
 
-def main(config):
+
+def create_flat_lens_mesh(resolution):
+    from mitsuba.core import Float, UInt32, ScalarTransform4f
+    from mitsuba.render import Mesh
+
+    assert resolution[0] == resolution[1], 'Not supported yet: non-symmetric lens mesh resolution'
+    X, Y = np.mgrid[:resolution[0], :resolution[1]]
+    # Scale UVs to [-1, 1]
+    U = X / (resolution[0]-1)
+    V = Y / (resolution[1]-1)
+    # Scale actual positions to [-1, 1]
+    X = 2 * (U - 0.5)
+    Y = 2 * (V - 0.5)
+
+    n_vertices = resolution[0] * resolution[1]
+
+    vertices = np.stack([
+        X.ravel(), Y.ravel(), np.zeros((n_vertices))
+    ], axis=1)
+    # # Rotate to match the `slab.obj` positioning
+    # to_world = ScalarTransform4f.rotate(axis=(1, 0, 0), angle=90)
+    # to_world = np.array(to_world.matrix)[:3, :3]
+    # vertices = (to_world @ vertices.T).T
+    assert vertices.shape == (n_vertices, 3)
+
+    texcoords =  np.stack([
+        U.ravel(), V.ravel()
+    ], axis=1)
+    assert texcoords.shape == (n_vertices, 2)
+
+    # Create two triangles per grid cell
+    faces = []
+    for i in range(resolution[0] - 1):
+        for j in range(resolution[1] - 1):
+            v00 = i * resolution[1] + j
+            v01 = v00 + 1
+            v10 = (i + 1) * resolution[1] + j
+            v11 = v10 + 1
+
+            faces.append((v00, v10, v01))
+            faces.append((v01, v10, v11))
+    n_faces = len(faces)
+    faces = np.array(faces).astype(np.uint32)
+    assert faces.shape == (n_faces, 3)
+
+    m = Mesh("lens-mesh", n_vertices, n_faces, has_vertex_texcoords=True)
+    ek.scatter(
+        m.vertex_positions_buffer(),
+        Float(vertices.ravel().astype(np.float32)),
+        ek.arange(UInt32, n_vertices * 3)
+    )
+    ek.scatter(
+        m.faces_buffer(),
+        UInt32(faces.ravel().astype(np.uint32)),
+        ek.arange(UInt32, n_faces * 3)
+    )
+    ek.scatter(
+        m.vertex_texcoords_buffer(),
+        Float(texcoords.ravel().astype(np.float32)),
+        ek.arange(UInt32, n_vertices * 2)
+    )
+    ek.eval()
+    m.parameters_changed()
+
+    return m
+
+
+def main(config, output=None):
     from mitsuba.core import Bitmap, Vector3f
     from mitsuba.core.xml import load_dict
     from mitsuba.render import SurfaceInteraction3f
     from mitsuba.python.util import traverse
     from mitsuba.python.autodiff import render, write_bitmap, Adam
 
+    output_dir = realpath(output or '.')
+    os.makedirs(output_dir, exist_ok=True)
+
     config = CONFIGS[config]
-    scene, integrator, sensor = load_scene(config)
+    scene, integrator, sensor = load_scene(config, output_dir)
 
     crop_size = sensor.film().crop_size()
 
@@ -291,6 +369,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('config', type=str, choices=list(CONFIGS.keys()), default='wave',
                         help='Configuration name')
+    parser.add_argument('-o', '--output', type=str, default=None,
+                        help='Output directory (defaults to current directory)')
     parsed = parser.parse_args()
 
     mitsuba.set_variant('cuda_ad_rgb')
