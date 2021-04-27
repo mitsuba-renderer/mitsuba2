@@ -4,7 +4,7 @@ import enoki as ek
 import mitsuba
 
 
-def make_sensor(origin=None, direction=None, to_world=None, pixels=1):
+def make_sensor(origin=None, direction=None, to_world=None, pixels=1, srf=None):
     from mitsuba.core.xml import load_dict
 
     d = {
@@ -23,6 +23,8 @@ def make_sensor(origin=None, direction=None, to_world=None, pixels=1):
         d["direction"] = direction
     if to_world is not None:
         d["to_world"] = to_world
+    if srf is not None:
+        d["srf"] = srf
 
     return load_dict(d)
 
@@ -151,3 +153,48 @@ def test_render(variant_scalar_rgb, radiance):
     scene.integrator().render(scene, sensor)
     img = sensor.film().bitmap()
     assert np.allclose(np.array(img), radiance)
+
+
+srf_dict = {
+    # Uniform SRF covering full spectral range
+    "uniform_full": {
+        "type": "uniform",
+        "value": 1.0
+    },
+    # Uniform SRF covering full the [400, 700] nm spectral range
+    "uniform_restricted": {
+        "type": "uniform",
+        "value": 2.0,
+        "lambda_min": 400.0,
+        "lambda_max": 700.0,
+    }
+}
+
+
+@pytest.mark.parametrize("ray_differential", [False, True])
+@pytest.mark.parametrize("srf", list(srf_dict.keys()))
+def test_srf(variant_scalar_spectral, ray_differential, srf):
+    # Test the spectral response function specification feature
+    from mitsuba.core.xml import load_dict
+    from mitsuba.core import sample_shifted
+    from mitsuba.render import SurfaceInteraction3f
+
+    origin = [0, 0, 0]
+    direction = [0, 0, 1]
+    srf = srf_dict[srf]
+
+    sensor = make_sensor(origin=origin, direction=direction, srf=srf)
+    srf = load_dict(srf)
+    time = 0.5
+    wav_sample = 0.5
+    pos_sample = [0.2, 0.6]
+
+    sample_func = sensor.sample_ray_differential if ray_differential else sensor.sample_ray
+    ray, spec_weight = sample_func(time, wav_sample, pos_sample, 0)
+
+    # Importance sample wavelength and weight
+    wav, wav_weight = srf.sample_spectrum(
+        SurfaceInteraction3f(), sample_shifted(wav_sample))
+    
+    assert ek.allclose(ray.wavelengths, wav)
+    assert ek.allclose(spec_weight, wav_weight)

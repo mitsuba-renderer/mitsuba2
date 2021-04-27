@@ -4,6 +4,7 @@
 #include <mitsuba/core/warp.h>
 #include <mitsuba/render/fwd.h>
 #include <mitsuba/render/sensor.h>
+#include <mitsuba/render/texture.h>
 
 NAMESPACE_BEGIN(mitsuba)
 
@@ -16,7 +17,10 @@ Irradiance meter (:monosp:`irradiancemeter`)
 
 .. pluginparameters::
 
- * - none
+ * - srf
+   - |spectrum|
+   - If set, sensor response function used to sample wavelengths from. This 
+     parameter is ignored if used with nonspectral variants.
 
 This sensor plugin implements an irradiance meter, which measures
 the incident power per unit area over a shape which it is attached to.
@@ -43,9 +47,18 @@ simply instantiate the desired sensor shape and specify an
 MTS_VARIANT class IrradianceMeter final : public Sensor<Float, Spectrum> {
 public:
     MTS_IMPORT_BASE(Sensor, m_film, m_world_transform, m_shape)
-    MTS_IMPORT_TYPES(Shape)
+    MTS_IMPORT_TYPES(Shape, Texture)
 
-    IrradianceMeter(const Properties &props) : Base(props) {
+    IrradianceMeter(const Properties &props) : Base(props), m_srf(nullptr) {
+        if (props.has_property("srf")) {
+            if constexpr(is_spectral_v<Spectrum>) {
+                m_srf = props.texture<Texture>("srf");
+            } else {
+                Log(Warn, "Ignoring spectral response function "
+                          "(not supported for non-spectral variants)");
+            }
+        }
+        
         if (props.has_property("to_world"))
             Throw("Found a 'to_world' transformation -- this is not allowed. "
                   "The irradiance meter inherits this transformation from its parent "
@@ -75,7 +88,19 @@ public:
         Vector3f local = warp::square_to_cosine_hemisphere(sample3);
 
         // 3. Sample spectrum
-        auto [wavelengths, wav_weight] = sample_wavelength<Float, Spectrum>(wavelength_sample);
+        Wavelength wavelengths;
+        Spectrum wav_weight;
+        
+        if (m_srf == nullptr) {
+            std::tie(wavelengths, wav_weight) = 
+                sample_wavelength<Float, Spectrum>(wavelength_sample);
+        } else {
+            std::tie(wavelengths, wav_weight) = 
+                m_srf->sample_spectrum(
+                    zero<SurfaceInteraction3f>(), 
+                    math::sample_shifted<Wavelength>(wavelength_sample)
+                );
+        }
 
         return std::make_pair(
             RayDifferential3f(ps.p, Frame3f(ps.n).to_world(local), time, wavelengths),
@@ -109,6 +134,8 @@ public:
     }
 
     MTS_DECLARE_CLASS()
+private:
+    ref<Texture> m_srf;
 };
 
 MTS_IMPLEMENT_CLASS_VARIANT(IrradianceMeter, Sensor)

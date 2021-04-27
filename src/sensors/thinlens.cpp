@@ -52,6 +52,10 @@ Perspective camera with a thin lens (:monosp:`thinlens`)
    - |float|
    - Distance to the near/far clip planes. (Default: :monosp:`near_clip=1e-2` (i.e. :monosp:`0.01`)
      and :monosp:`far_clip=1e4` (i.e. :monosp:`10000`))
+ * - srf
+   - |spectrum|
+   - If set, sensor response function used to sample wavelengths from. This parameter is ignored if 
+     used with nonspectral variants.
 
 .. subfigstart::
 .. subfigure:: ../../resources/data/docs/images/render/sensor_thinlens_small_aperture.jpg
