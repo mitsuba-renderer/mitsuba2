@@ -23,8 +23,8 @@ class DistantSensorImpl;
 
 .. _sensor-distant:
 
-Distant directional sensor (:monosp:`distant`)
-----------------------------------------------
+Distant radiancemeter sensor (:monosp:`distant`)
+------------------------------------------------
 
 .. pluginparameters::
 
@@ -111,13 +111,14 @@ public:
 
         // Get target
         if (props.has_property("ray_target")) {
-            try {
-                // We first try to get a point
+            if (props.type("ray_target") == Properties::Type::Array3f) {
                 props.point3f("ray_target");
                 m_ray_target_type = RayTargetType::Point;
-            } catch (const std::runtime_error &e) {
-                // If it fails, we assume it's a shape
+            } else if (props.type("ray_target") == Properties::Type::Object) {
+                // We assume it's a shape
                 m_ray_target_type = RayTargetType::Shape;
+            } else {
+                Throw("Unsupported 'ray_target' parameter type");
             }
         } else {
             m_ray_target_type = RayTargetType::None;
@@ -126,9 +127,8 @@ public:
         // Get origin
         if (props.has_property("ray_origin"))
             m_ray_origin_type = RayOriginType::Shape;
-        else {
+        else
             m_ray_origin_type = RayOriginType::BoundingSphere;
-        }
 
         props.mark_queried("direction");
         props.mark_queried("flip_directions");
@@ -229,19 +229,21 @@ public:
         // Check film size and select direction sampling mode
         auto film_size = m_film->size();
 
-        if (film_size == ScalarPoint2i(1, 1))
+        if (film_size == ScalarPoint2i(1, 1)) {
             m_direction_type = RayDirectionType::Single;
-        else if (film_size[1] == 1) {
+        } else if (film_size[1] == 1) {
             Log(Info, "Directions in plane");
             m_direction_type = RayDirectionType::SampleWidth;
-        } else
+        } else {
             m_direction_type = RayDirectionType::SampleAll;
+        }
 
         // Check reconstruction filter radius
         if (m_film->reconstruction_filter()->radius() >
-            0.5f + math::RayEpsilon<Float>)
+            0.5f + math::RayEpsilon<Float>) {
             Log(Warn, "This sensor should be used with a reconstruction filter "
                       "with a radius of 0.5 or lower (e.g. default box)");
+        }
 
         // Compute transform, possibly based on direction parameter
         if (props.has_property("direction")) {
@@ -279,7 +281,7 @@ public:
 
         // Set ray origin
         if constexpr (OriginType == RayOriginType::Shape) {
-            auto obj           = props.object("ray_origin");
+            auto obj = props.object("ray_origin");
             m_ray_origin_shape = dynamic_cast<Shape *>(obj.get());
 
             if (!m_ray_origin_shape)
@@ -382,7 +384,7 @@ public:
                 ray.o = ray_target - ray.d * 2.f * m_bsphere.radius;
         }
 
-        return { ray, ray_weight && active };
+        return { ray, ray_weight & active };
     }
 
     std::pair<Ray3f, Spectrum> sample_ray(Float time, Float wavelength_sample,
@@ -394,7 +396,7 @@ public:
         auto [ray, ray_weight] = sample_ray_impl<Ray3f>(
             time, wavelength_sample, film_sample, aperture_sample, active);
         ray.update();
-        return { ray, ray_weight && active };
+        return { ray, ray_weight & active };
     }
 
     std::pair<RayDifferential3f, Spectrum> sample_ray_differential(
@@ -409,7 +411,7 @@ public:
         ray.has_differentials = false;
 
         ray.update();
-        return { ray, ray_weight && active };
+        return { ray, ray_weight & active };
     }
 
     // This sensor does not occupy any particular region of space, return an
