@@ -244,7 +244,7 @@ def test04_path_tracer_polarizer(variant_scalar_mono_polarized):
         value, _, _ = integrator.sample(scene, sampler, ray)
 
         # Normalize Stokes vector
-        value /= value[0, 0]
+        value *= ek.rcp(value[0, 0][0])
 
         # Align output stokes vector (based on ray.d) with optical table. (In this configuration, this is a no-op.)
         forward = -ray.d

@@ -167,14 +167,13 @@ fresnel_polarized(Float cos_theta_i, Float eta) {
        "Stellar Polarimetry" by David Clarke) */
     cos_theta_t = mulsign(Array<Float, 2>(cos_theta_t), cos_theta_t_sqr);
 
-    /* Amplitudes of reflected waves. The sign convention of 'a_p' used here
-       matches Fresnel's original paper from 1823 and is different from some
-       contemporary references. See appendix A.1 of "Stellar Polarimetry" by
-       David Clarke for a historical perspective. */
-    Complex<Float> a_s = (-eta_it * cos_theta_t + cos_theta_i_abs) /
-                         ( eta_it * cos_theta_t + cos_theta_i_abs);
-    Complex<Float> a_p = (-eta_it * cos_theta_i_abs + cos_theta_t) /
-                         ( eta_it * cos_theta_i_abs + cos_theta_t);
+    /* Amplitudes of reflected waves. The sign of 'a_p' used here is referred
+       to as the "Verdet convention" which more common in the literature
+       compared to Fresnel's original formulation from 1823. */
+    Complex<Float> a_s = (cos_theta_i_abs - eta_it * cos_theta_t) /
+                         (cos_theta_i_abs + eta_it * cos_theta_t);
+    Complex<Float> a_p = (eta_it * cos_theta_i_abs - cos_theta_t) /
+                         (eta_it * cos_theta_i_abs + cos_theta_t);
 
     auto index_matched = eq(eta, 1.f);
     auto invalid       = eq(eta, 0.f);
@@ -227,6 +226,11 @@ std::tuple<Complex<Float>, Complex<Float>, Float, Complex<Float>, Complex<Float>
 fresnel_polarized(Float cos_theta_i, Complex<Float> eta) {
     auto outside_mask = cos_theta_i >= 0.f;
 
+    /* Polarized Fresnel equations here assume that 'kappa' is negative, which
+       is flipped from the usual convention used by Mitsuba that is more common
+       in computer graphics. */
+    masked(eta, imag(eta) > 0.f) = conj(eta);
+
     Complex<Float> rcp_eta = rcp(eta),
                    eta_it  = select(outside_mask, eta, rcp_eta),
                    eta_ti  = select(outside_mask, rcp_eta, eta);
@@ -245,14 +249,13 @@ fresnel_polarized(Float cos_theta_i, Complex<Float> eta) {
        "Stellar Polarimetry" by David Clarke) */
     cos_theta_t = mulsign(Array<Float, 2>(cos_theta_t), real(cos_theta_t_sqr));
 
-    /* Amplitudes of reflected waves. The sign convention of 'a_p' used here
-       matches Fresnel's original paper from 1823 and is different from some
-       contemporary references. See appendix A.1 of "Stellar Polarimetry" by
-       David Clarke for a historical perspective. */
-    Complex<Float> a_s = (-eta_it * cos_theta_t + cos_theta_i_abs) /
-                         ( eta_it * cos_theta_t + cos_theta_i_abs);
-    Complex<Float> a_p = (-eta_it * cos_theta_i_abs + cos_theta_t) /
-                         ( eta_it * cos_theta_i_abs + cos_theta_t);
+    /* Amplitudes of reflected waves. The sign of 'a_p' used here is referred
+       to as the "Verdet convention" which more common in the literature
+       compared to Fresnel's original formulation from 1823. */
+    Complex<Float> a_s = (cos_theta_i_abs - eta_it * cos_theta_t) /
+                         (cos_theta_i_abs + eta_it * cos_theta_t);
+    Complex<Float> a_p = (eta_it * cos_theta_i_abs - cos_theta_t) /
+                         (eta_it * cos_theta_i_abs + cos_theta_t);
 
     auto index_matched = eq(squared_norm(eta), 1.f) && eq(imag(eta), 0.f);
     auto invalid       = eq(squared_norm(eta), 0.f);

@@ -31,7 +31,12 @@ BSDF_ORDERING = ['diffuse',
                  'blendbsdf',
                  'mask',
                  'twosided',
-                 'null']
+                 'null',
+                 'polarizer',
+                 'retarder',
+                 'circular',
+                 'measured_polarized',
+                 'pplastic']
 
 EMITTER_ORDERING = ['area',
                     'point',

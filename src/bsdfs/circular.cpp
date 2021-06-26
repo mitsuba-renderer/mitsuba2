@@ -8,61 +8,57 @@ NAMESPACE_BEGIN(mitsuba)
 
 /**!
 
-.. _bsdf-retarder:
+.. _bsdf-circular:
 
-Linear retarder material (:monosp:`retarder`)
------------------------------------------------
+Circular polarizer material (:monosp:`circular`)
+------------------------------------------------
 
 .. pluginparameters::
 
  * - theta
    - |spectrum| or |texture|
-   - Specifies the rotation angle (in degrees) of the retarder around the optical axis (Default: 0.0)
- * - delta
-   - |spectrum| or |texture|
-   - Specifies the retardance (in degrees) where 360 degrees is equivalent to a full wavelength. (Default: 90.0)
+   - Specifies the rotation angle (in degrees) of the polarizer around the optical axis (Default: 0.0)
  * - transmittance
    - |spectrum| or |texture|
    - Optional factor that can be used to modulate the specular transmission. (Default: 1.0)
+ * - left_handed
+   - |bool|
+   - Flag to switch between left and right circular polarization. (Default: |false|, i.e. right circular polarizer)
 
-This material simulates an ideal linear retarder useful to test polarization aware
-light transport or to conduct virtual optical experiments. The fast axis of the
-retarder is aligned with the *U*-direction of the underlying surface parameterization.
-For non-perpendicular incidence, a cosine falloff term is applied to the retardance.
+This material simulates an ideal circular polarizer useful to test polarization aware
+light transport or to conduct virtual optical experiments. To rotate the polarizer,
+either the parameter ``theta`` can be used, or alternative a rotation can be applied
+directly to the associated shape.
 
-This plugin can be used to instantiate the  common special cases of
-*half-wave plates* (with ``delta=180``) and *quarter-wave plates* (with ``delta=90``).
-
-The following XML snippet describes a quarter-wave plate material:
+The following XML snippet describes a left circular polarizer material:
 
 .. code-block:: xml
-    :name: retarder
+    :name: circular
 
-    <bsdf type="retarder">
-        <spectrum name="delta" value="90"/>
+    <bsdf type="circular">
+        <boolean name="left_handed" value="true"/>
     </bsdf>
 
 Apart from a change of polarization, light does not interact with this material
 in any way and does not change its direction.
 Internally, this is implemented as a forward-facing Dirac delta distribution.
-Note that the standard :ref:`path tracer <integrator-path>` does not have a good sampling strategy to deal with this,
-but the (:ref:`volumetric path tracer <integrator-volpath>`) does.
+Note that the standard :ref:`path tracer <integrator-path>` does not have a good
+sampling strategy to deal with this, but the (:ref:`volumetric path tracer <integrator-volpath>`) does.
 
 In *unpolarized* rendering modes, the behaviour defaults to non-polarizing
 transparent material similar to the :ref:`null <bsdf-null>` BSDF plugin.
 
 */
 template <typename Float, typename Spectrum>
-class LinearRetarder final : public BSDF<Float, Spectrum> {
+class CircularPolarizer final : public BSDF<Float, Spectrum> {
 public:
     MTS_IMPORT_BASE(BSDF, m_flags, m_components)
     MTS_IMPORT_TYPES(Texture)
 
-    LinearRetarder(const Properties &props) : Base(props) {
+    CircularPolarizer(const Properties &props) : Base(props) {
         m_theta = props.texture<Texture>("theta", 0.f);
-        // As default, instantiate as a quarter-wave plate
-        m_delta = props.texture<Texture>("delta", 90.f);
         m_transmittance = props.texture<Texture>("transmittance", 1.f);
+        m_left_handed = props.bool_("left_handed", false);
 
         m_flags = BSDFFlags::FrontSide | BSDFFlags::BackSide | BSDFFlags::Null;
         m_components.push_back(m_flags);
@@ -86,24 +82,22 @@ public:
             // Query rotation angle
             UnpolarizedSpectrum theta = deg_to_rad(m_theta->eval(si, active));
 
-            // Query phase difference
-            UnpolarizedSpectrum delta = deg_to_rad(m_delta->eval(si, active));
-
-            // Approximate angle-of-incidence behaviour with a cosine falloff
-            delta *= abs(Frame3f::cos_theta(si.wi));
-
-            // Get standard Mueller matrix for a linear polarizer.
-            Spectrum M = mueller::linear_retarder(delta);
+            // Combine linear polarizer and quarter wave plate
+            Spectrum LP  = mueller::linear_polarizer(1.f);
+            Spectrum QWP = mueller::linear_retarder(0.5f*math::Pi<Float>);
+            UnpolarizedSpectrum rot = m_left_handed ? 3.f*math::Pi<Float>/4.f : math::Pi<Float>/4.f;
+            QWP = mueller::rotated_element(rot, QWP);
+            Spectrum M = QWP * LP;
 
             // Rotate optical element by specified angle
             M = mueller::rotated_element(theta, M);
 
             /* The `forward` direction here is always along the direction that
-               light travels. This is needed for the coordinate system rotation
-               below. */
+                light travels. This is needed for the coordinate system rotation
+                below. */
             Vector3f forward = ctx.mode == TransportMode::Radiance ? si.wi : -si.wi;
 
-            // Rotate in/out basis of M s.t. it aligns with BSDF coordinate frame
+            // Rotate in/out basis of M s.t. it alignes with BSDF coordinate frame
             M = mueller::rotate_mueller_basis_collinear(M, forward,
                                                         Vector3f(1.f, 0.f, 0.f),
                                                         mueller::stokes_basis(forward));
@@ -113,7 +107,7 @@ public:
 
             return { bs, M };
         } else {
-            return { bs, transmittance };
+            return { bs, 0.5f*transmittance };
         }
     }
 
@@ -131,29 +125,26 @@ public:
         MTS_MASKED_FUNCTION(ProfilerPhase::BSDFEvaluate, active);
 
         UnpolarizedSpectrum transmittance = m_transmittance->eval(si, active);
-
         if constexpr (is_polarized_v<Spectrum>) {
             // Query rotation angle
             UnpolarizedSpectrum theta = deg_to_rad(m_theta->eval(si, active));
 
-            // Query phase difference
-            UnpolarizedSpectrum delta = deg_to_rad(m_delta->eval(si, active));
-
-            // Approximate angle-of-incidence behaviour with a cosine falloff
-            delta *= abs(Frame3f::cos_theta(si.wi));
-
-            // Get standard Mueller matrix for a linear polarizer.
-            Spectrum M = mueller::linear_retarder(delta);
+            // Combine linear polarizer and quarter wave plate
+            Spectrum LP  = mueller::linear_polarizer(1.f);
+            Spectrum QWP = mueller::linear_retarder(0.5f*math::Pi<Float>);
+            UnpolarizedSpectrum rot = m_left_handed ? 3.f*math::Pi<Float>/4.f : math::Pi<Float>/4.f;
+            QWP = mueller::rotated_element(rot, QWP);
+            Spectrum M = QWP * LP;
 
             // Rotate optical element by specified angle
             M = mueller::rotated_element(theta, M);
 
             /* The `forward` direction here is always along the direction that
-               light travels. This is needed for the coordinate system rotation
-               below. */
+                light travels. This is needed for the coordinate system rotation
+                below. */
             Vector3f forward = si.wi;   // Note: Should be reversed for TransportMode::Importance.
 
-            // Rotate in/out basis of M s.t. it aligns with BSDF coordinate frame
+            // Rotate in/out basis of M s.t. it alignes with BSDF coordinate frame
             M = mueller::rotate_mueller_basis_collinear(M, forward,
                                                         Vector3f(1.f, 0.f, 0.f),
                                                         mueller::stokes_basis(forward));
@@ -163,21 +154,19 @@ public:
 
             return M;
         } else {
-            return transmittance;
+            return 0.5f*transmittance;
         }
     }
 
     void traverse(TraversalCallback *callback) override {
         callback->put_object("theta", m_theta.get());
-        callback->put_object("delta", m_delta.get());
         callback->put_object("transmittance", m_transmittance.get());
     }
 
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << "LinearPolarizer[" << std::endl
+        oss << "CircularPolarizer[" << std::endl
             << "  theta = " << string::indent(m_theta) << std::endl
-            << "  delta = " << string::indent(m_delta) << std::endl
             << "  transmittance = " << string::indent(m_transmittance) << std::endl
             << "]";
         return oss.str();
@@ -186,10 +175,10 @@ public:
     MTS_DECLARE_CLASS()
 private:
     ref<Texture> m_theta;
-    ref<Texture> m_delta;
     ref<Texture> m_transmittance;
+    bool m_left_handed;
 };
 
-MTS_IMPLEMENT_CLASS_VARIANT(LinearRetarder, BSDF)
-MTS_EXPORT_PLUGIN(LinearRetarder, "Linear retarder material")
+MTS_IMPLEMENT_CLASS_VARIANT(CircularPolarizer, BSDF)
+MTS_EXPORT_PLUGIN(CircularPolarizer, "Circular polarizer material")
 NAMESPACE_END(mitsuba)

@@ -70,12 +70,14 @@ template <typename Float> MuellerMatrix<Float> linear_polarizer(Float value = 1.
 
 /**
  * \brief Constructs the Mueller matrix of a linear retarder which has its fast
- * aligned vertically.
+ * axis aligned horizontally.
  *
  * This implements the general case with arbitrary phase shift and can be used
  * to construct the common special cases of quarter-wave and half-wave plates.
  *
- * "Polarized Light" by Edward Collett, Ch. 5 eq. (27)
+ * "Polarized Light, Third Edition" by Dennis H. Goldstein, Ch. 6 eq. (6.43)
+ * (Note that the fast and slow axis were flipped in the first edition by Edward
+ * Collett.)
  *
  * \param phase
  *     The phase difference between the fast and slow axis
@@ -87,8 +89,8 @@ template <typename Float> MuellerMatrix<Float> linear_retarder(Float phase) {
     return MuellerMatrix<Float>(
         1, 0, 0, 0,
         0, 1, 0, 0,
-        0, 0, c, -s,
-        0, 0, s, c
+        0, 0, c, s,
+        0, 0, -s, c
     );
 }
 
@@ -144,20 +146,6 @@ MuellerMatrix<Float> rotated_element(Float theta,
 }
 
 /**
- * \brief Reverse direction of propagation of the electric field. Also used for
- * reflecting reference frames.
- */
-template <typename Float>
-MuellerMatrix<Float> reverse(const MuellerMatrix<Float> &M) {
-    return MuellerMatrix<Float>(
-        1, 0,  0,  0,
-        0, 1,  0,  0,
-        0, 0, -1,  0,
-        0, 0,  0, -1
-    ) * M;
-}
-
-/**
  * \brief Calculates the Mueller matrix of a specular reflection at an
  * interface between two dielectrics or conductors.
  *
@@ -176,8 +164,9 @@ MuellerMatrix<Float> specular_reflection(Float cos_theta_i, Eta eta) {
     std::tie(a_s, a_p, std::ignore, std::ignore, std::ignore) =
         fresnel_polarized(cos_theta_i, eta);
 
+    // Compute Sine and Cosine of the phase delay delta = arg(a_p) - arg(a_s).
     Float sin_delta, cos_delta;
-    std::tie(sin_delta, cos_delta) = sincos_arg_diff(a_s, a_p);
+    std::tie(sin_delta, cos_delta) = sincos_arg_diff(a_p, a_s);
 
     Float r_s = abs(sqr(a_s)),
           r_p = abs(sqr(a_p)),
@@ -191,8 +180,8 @@ MuellerMatrix<Float> specular_reflection(Float cos_theta_i, Eta eta) {
     return MuellerMatrix<Float>(
         a, b, 0, 0,
         b, a, 0, 0,
-        0, 0,  c * cos_delta, c * sin_delta,
-        0, 0, -c * sin_delta, c * cos_delta
+        0, 0, c * cos_delta, -c * sin_delta,
+        0, 0, c * sin_delta,  c * cos_delta
     );
 }
 
@@ -221,8 +210,8 @@ MuellerMatrix<Float> specular_transmission(Float cos_theta_i, Float eta) {
                                     cos_theta_t / cos_theta_i, 0.f);
 
     // Compute transmission amplitudes
-    Float a_s_r = real(a_s) + 1.f,
-          a_p_r = (1.f - real(a_p)) * eta_ti;
+    Float a_s_r = 1.f + real(a_s),
+          a_p_r = (1.f + real(a_p)) * eta_ti;
 
     Float t_s = sqr(a_s_r),
           t_p = sqr(a_p_r),
@@ -247,18 +236,17 @@ MuellerMatrix<Float> specular_transmission(Float cos_theta_i, Float eta) {
  * In Mitsuba, these reference frames are never explicitly stored but instead
  * can be computed on the fly using this function.
  *
- * \param w
+ * \param forward
  *      Direction of travel for Stokes vector (normalized)
  *
  * \return
  *      The (implicitly defined) reference coordinate system basis for the
- *      Stokes vector travelling along \ref w.
+ *      Stokes vector travelling along \ref forward.
  *
  */
 template <typename Vector3>
-Vector3 stokes_basis(const Vector3 &w) {
-    auto [s, t] = coordinate_system(w);
-    return s;
+Vector3 stokes_basis(const Vector3 &forward) {
+    return coordinate_system(forward).first;
 }
 
 /**
