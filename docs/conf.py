@@ -79,7 +79,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'mitsuba2'
-copyright = '2019, Realistic Graphics Lab (RGL), EPFL'
+copyright = '2021, Realistic Graphics Lab (RGL), EPFL'
 author = 'Realistic Graphics Lab, EPFL'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -163,6 +163,9 @@ extensions.append('sphinx.ext.todo')
 todo_include_todos = True
 
 extensions.append('sphinxcontrib.bibtex')
+
+# Add bibfile
+bibtex_bibfiles = ['references.bib']
 
 # Touch the bibliography file to force a rebuild of it
 Path('zz_bibliography.rst').touch()
@@ -370,4 +373,4 @@ def custom_step(app):
 def setup(app):
     # Texinfo
     app.connect("builder-inited", custom_step)
-    app.add_stylesheet('theme_overrides.css')
+    app.add_css_file('theme_overrides.css')
