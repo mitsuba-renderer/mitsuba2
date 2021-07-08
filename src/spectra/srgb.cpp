@@ -12,6 +12,16 @@ NAMESPACE_BEGIN(mitsuba)
 sRGB spectrum (:monosp:`srgb`)
 ------------------------------
 
+.. pluginparameters::
+
+ * - color
+   - |color|
+   - RGB color value
+ * - unbounded
+   - |bool|
+   - Allows the color components to be outside the range [0, 1]
+     (Default: false)
+
 In spectral render modes, this smooth spectrum is the result of the
 *spectral upsampling* process :cite:`Jakob2019Spectral` used by the system.
 In RGB render modes, this spectrum represents a constant RGB value.
