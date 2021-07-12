@@ -165,15 +165,20 @@ public:
 
         m_nonlinear = props.bool_("nonlinear", false);
 
-        mitsuba::MicrofacetDistribution<ScalarFloat, Spectrum> distr(props);
-        m_type = distr.type();
-        m_sample_visible = distr.sample_visible();
-
-        if (distr.is_anisotropic())
-            Throw("The 'roughplastic' plugin currently does not support "
-                  "anisotropic microfacet distributions!");
-
-        m_alpha = distr.alpha();
+        /// Load Microfacet distribution
+        m_type = MicrofacetType::Beckmann;
+        if (props.has_property("distribution")) {
+            std::string distr = string::to_lower(props.string("distribution"));
+            if (distr == "beckmann")
+                m_type = MicrofacetType::Beckmann;
+            else if (distr == "ggx")
+                m_type = MicrofacetType::GGX;
+            else
+                Throw("Specified an invalid distribution \"%s\", must be "
+                      "\"beckmann\" or \"ggx\"!", distr.c_str());
+        }
+        m_sample_visible = props.bool_("sample_visible", true);
+        m_alpha = props.texture<Texture>("alpha",  0.1f);
 
         m_components.push_back(BSDFFlags::GlossyReflection | BSDFFlags::FrontSide);
         m_components.push_back(BSDFFlags::DiffuseReflection | BSDFFlags::FrontSide);
@@ -219,7 +224,7 @@ public:
         bs.eta = 1.f;
 
         if (any_or<true>(sample_specular)) {
-            MicrofacetDistribution distr(m_type, m_alpha, m_sample_visible);
+            MicrofacetDistribution distr(m_type, m_alpha->eval_1(si, active), m_sample_visible);
             Normal3f m = std::get<0>(distr.sample(si.wi, sample2));
 
             masked(bs.wo, sample_specular) = reflect(si.wi, m);
@@ -252,7 +257,8 @@ public:
 
         active &= cos_theta_i > 0.f && cos_theta_o > 0.f;
 
-        MicrofacetDistribution distr(m_type, m_alpha, m_sample_visible);
+        Float alpha = m_alpha->eval_1(si, active);
+        MicrofacetDistribution distr(m_type, alpha, m_sample_visible);
 
         UnpolarizedSpectrum result(0.f);
         if (unlikely((!has_specular && !has_diffuse) || none_or<false>(active)))
@@ -339,7 +345,7 @@ public:
 
         Vector3f H = normalize(wo + si.wi);
 
-        MicrofacetDistribution distr(m_type, m_alpha, m_sample_visible);
+        MicrofacetDistribution distr(m_type, m_alpha->eval_1(si, active), m_sample_visible);
         Float result = 0.f;
         if (m_sample_visible)
             result = distr.eval(H) * distr.smith_g1(si.wi, H) /
@@ -354,7 +360,7 @@ public:
     }
 
     void traverse(TraversalCallback *callback) override {
-        callback->put_parameter("alpha", m_alpha);
+        callback->put_object("alpha", m_alpha.get());
         callback->put_parameter("eta", m_eta);
         callback->put_object("diffuse_reflectance", m_diffuse_reflectance.get());
         if (m_specular_reflectance)
@@ -380,7 +386,7 @@ public:
             using FloatP    = Packet<ScalarFloat>;
             using Vector3fX = Vector<DynamicArray<FloatP>, 3>;
 
-            mitsuba::MicrofacetDistribution<FloatP, Spectrum> distr_p(m_type, m_alpha);
+            mitsuba::MicrofacetDistribution<FloatP, Spectrum> distr_p(m_type, m_alpha->mean());
             Vector3fX wi = zero<Vector3fX>(MTS_ROUGH_TRANSMITTANCE_RES);
             for (size_t i = 0; i < slices(wi); ++i) {
                 ScalarFloat mu    = std::max((ScalarFloat) 1e-6f, ScalarFloat(i) / ScalarFloat(slices(wi) - 1));
@@ -400,11 +406,11 @@ public:
         oss << "RoughPlastic[" << std::endl
             << "  distribution = " << m_type << "," << std::endl
             << "  sample_visible = "           << m_sample_visible                    << "," << std::endl
-            << "  alpha = "                    << m_alpha                             << "," << std::endl
+            << "  alpha = "                    << m_alpha->mean()                     << "," << std::endl
             << "  diffuse_reflectance = "      << m_diffuse_reflectance               << "," << std::endl;
 
         if (m_specular_reflectance)
-            oss << "  specular_reflectance = "     << m_specular_reflectance              << "," << std::endl;
+            oss << "  specular_reflectance = " << m_specular_reflectance              << "," << std::endl;
 
         oss << "  specular_sampling_weight = " << m_specular_sampling_weight          << "," << std::endl
             << "  eta = "                      << m_eta                               << "," << std::endl
@@ -420,7 +426,7 @@ private:
     MicrofacetType m_type;
     ScalarFloat m_eta;
     ScalarFloat m_inv_eta_2;
-    ScalarFloat m_alpha;
+    ref<Texture> m_alpha;
     ScalarFloat m_specular_sampling_weight;
     bool m_nonlinear;
     bool m_sample_visible;
