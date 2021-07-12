@@ -49,6 +49,7 @@ rst_prolog = r"""
 .. |string| replace:: :paramtype:`string`
 .. |bsdf| replace:: :paramtype:`bsdf`
 .. |point| replace:: :paramtype:`point`
+.. |color| replace:: :paramtype:`color`
 .. |transform| replace:: :paramtype:`transform`
 
 .. |enoki| replace:: :monosp:`enoki`
@@ -735,7 +736,7 @@ def generate_list_api_callback(app):
 def setup(app):
     # Texinfo
     app.connect("builder-inited", generate_list_api_callback)
-    app.add_stylesheet('theme_overrides.css')
+    app.add_css_file('theme_overrides.css')
 
     # Autodoc
     app.connect('autodoc-process-docstring', process_docstring_callback)

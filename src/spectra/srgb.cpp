@@ -12,6 +12,16 @@ NAMESPACE_BEGIN(mitsuba)
 sRGB spectrum (:monosp:`srgb`)
 ------------------------------
 
+.. pluginparameters::
+
+ * - color
+   - |color|
+   - RGB color value
+ * - unbounded
+   - |bool|
+   - Allows the color components to be outside the range [0, 1]
+     (Default: false)
+
 In spectral render modes, this smooth spectrum is the result of the
 *spectral upsampling* process :cite:`Jakob2019Spectral` used by the system.
 In RGB render modes, this spectrum represents a constant RGB value.
@@ -27,7 +37,9 @@ public:
     SRGBReflectanceSpectrum(const Properties &props) : Texture(props) {
         ScalarColor3f color = props.color("color");
 
-        if (any(color < 0 || color > 1) && !props.bool_("unbounded", false))
+        m_unbounded = props.bool_("unbounded", false);
+
+        if (any(color < 0 || color > 1) && !m_unbounded)
             Throw("Invalid RGB reflectance value %s, must be in the range [0, 1]!", color);
 
         if constexpr (is_spectral_v<Spectrum>) {
@@ -61,8 +73,10 @@ public:
     }
 
     void parameters_changed(const std::vector<std::string> &/*keys*/) override {
-        if constexpr (!is_spectral_v<Spectrum>)
-            m_value = clamp(m_value, 0.f, 1.f);
+        if constexpr (!is_spectral_v<Spectrum>){
+            if (!m_unbounded)
+                m_value = clamp(m_value, 0.f, 1.f);
+        }
     }
 
     std::string to_string() const override {
@@ -82,6 +96,7 @@ protected:
     static constexpr size_t ChannelCount = is_monochromatic_v<Spectrum> ? 1 : 3;
 
     Color<Float, ChannelCount> m_value;
+    bool m_unbounded;
 };
 
 MTS_IMPLEMENT_CLASS_VARIANT(SRGBReflectanceSpectrum, Texture)
