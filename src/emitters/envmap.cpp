@@ -81,21 +81,24 @@ public:
         bitmap = bitmap->convert(Bitmap::PixelFormat::RGBA, struct_type_v<ScalarFloat>, false);
         m_filename = file_path.filename().string();
 
-        std::unique_ptr<ScalarFloat[]> luminance(new ScalarFloat[bitmap->pixel_count()]);
+        /* Add an extra column to the image data with the same values as in the first
+           column. This ensures correctness of sampling using 2D distribution without
+           the need of wrapping  */
+        m_resolution = bitmap->size() + ScalarVector2u(1, 0);
 
-        ScalarFloat *ptr     = (ScalarFloat *) bitmap->data(),
-                    *lum_ptr = (ScalarFloat *) luminance.get();
+        std::unique_ptr<ScalarFloat[]> data(new ScalarFloat[hprod(m_resolution) * 4]);
 
-        for (size_t y = 0; y < bitmap->size().y(); ++y) {
-            ScalarFloat sin_theta =
-                std::sin(y / ScalarFloat(bitmap->size().y() - 1) * math::Pi<ScalarFloat>);
+        ScalarFloat *bitmap_ptr = (ScalarFloat *) bitmap->data(),
+                    *data_ptr   = (ScalarFloat *) data.get();
 
-            for (size_t x = 0; x < bitmap->size().x(); ++x) {
-                ScalarColor3f rgb = load_unaligned<ScalarVector3f>(ptr);
-                ScalarFloat lum   = mitsuba::luminance(rgb);
-
+        for (size_t y = 0; y < m_resolution.y(); ++y) {
+            size_t offset_y = y * bitmap->size().x();
+            for (size_t x = 0; x < m_resolution.x(); ++x) {
+                size_t index = 4 * (offset_y + x % bitmap->size().x());
+                ScalarColor3f rgb = load_unaligned<ScalarVector3f>(bitmap_ptr + index);
                 ScalarVector4f coeff;
                 if constexpr (is_monochromatic_v<Spectrum>) {
+                    ScalarFloat lum = mitsuba::luminance(rgb);
                     coeff = ScalarVector4f(lum, lum, lum, 1.f);
                 } else if constexpr (is_rgb_v<Spectrum>) {
                     coeff = concat(rgb, ScalarFloat(1.f));
@@ -110,17 +113,16 @@ public:
                     coeff = concat((ScalarColor3f) srgb_model_fetch(rgb_norm), scale);
                 }
 
-                *lum_ptr++ = lum * sin_theta;
-                store_unaligned(ptr, coeff);
-                ptr += 4;
+                store_unaligned(data_ptr, coeff);
+                data_ptr += 4;
             }
         }
+        m_data = DynamicBuffer<Float>::copy(data.get(), hprod(m_resolution) * 4);
 
-        m_resolution = bitmap->size();
-        m_data = DynamicBuffer<Float>::copy(bitmap->data(), hprod(m_resolution) * 4);
+        // Process edge of the image and initialize warp 2D distribution
+        parameters_changed();
 
         m_scale = props.float_("scale", 1.f);
-        m_warp = Warp(luminance.get(), m_resolution);
         m_d65 = Texture::D65(1.f);
         m_flags = EmitterFlags::Infinite | EmitterFlags::SpatiallyVarying;
     }
@@ -223,11 +225,17 @@ public:
         if (keys.empty() || string::contains(keys, "data")) {
             m_data.managed();
 
+            // Average values on first and last row (north and south poles)
+            UInt32 indices = arange<UInt32>(m_resolution.x());
+            scatter(m_data, hmean(gather<Vector4f>(m_data, indices)), indices);
+            indices += m_resolution.x() * (m_resolution.y() - 1);
+            scatter(m_data, hmean(gather<Vector4f>(m_data, indices)), indices);
+
+            // Update warp 2D distribution
             std::unique_ptr<ScalarFloat[]> luminance(new ScalarFloat[hprod(m_resolution)]);
 
             ScalarFloat *ptr     = (ScalarFloat *) m_data.data(),
                         *lum_ptr = (ScalarFloat *) luminance.get();
-
 
             for (size_t y = 0; y < m_resolution.y(); ++y) {
                 ScalarFloat sin_theta =
@@ -267,11 +275,15 @@ public:
 
 protected:
     UnpolarizedSpectrum eval_spectrum(Point2f uv, const Wavelength &wavelengths, Mask active) const {
-        uv *= Vector2f(m_resolution - 1u);
+        // The code below matches the behaviour of Distribution2D::eval()
 
-        Point2u pos = min(Point2u(uv), m_resolution - 2u);
+        // Avoid issues with roundoff error
+        uv = clamp(uv, 0.f, 1.f);
 
-        Point2f w1 = uv - Point2f(pos),
+        // Compute linear interpolation weights
+        uv *= (m_resolution - 1);
+        Point2u pos = min(Point2u(Point2i(uv)), m_resolution - 2);
+        Point2f w1 = uv - Point2f(Point2i(pos)),
                 w0 = 1.f - w1;
 
         const uint32_t width = m_resolution.x();
