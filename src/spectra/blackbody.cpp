@@ -11,8 +11,8 @@ NAMESPACE_BEGIN(mitsuba)
 sRGB D65 spectrum (:monosp:`blackbody`)
 ---------------------------------------
 
-This is a black body radiation spectrum for a specified temperature
-And therefore takes a single :monosp:`float`-valued parameter :paramtype:`temperature` (in Kelvins).
+This is a black body radiation spectrum for a specified temperature.
+The temperature of the black body in degrees Kelvin is given by the :paramtype:`temperature` parameter.
 
 This is the only spectrum type that needs to be explicitly instantiated in its full XML description:
 
@@ -32,8 +32,16 @@ in non-spectral rendering modes.
 Note that attaching a black body spectrum to the intensity property of a emitter introduces
 physical units into the rendering process of Mitsuba 2, which is ordinarily a unitless system.
 Specifically, the black body spectrum has units of power (:math:`W`) per unit area (:math:`m^{-2}`)
-per steradian (:math:`sr^{-1}`) per unit wavelength (:math:`nm^{-1}`). As a consequence,
-your scene should be modeled in meters for this plugin to work properly.
+per steradian (:math:`sr^{-1}`) per unit wavelength (:math:`nm^{-1}`). If these units are
+inconsistent with your scene description (e.g. because it is modeled in millimeters or kilometers),
+you may use the optional scale attribute to adjust them.
+
+.. code-block:: xml
+
+    <spectrum type="blackbody" name="radiance">
+        <float name="temperature" value="5000"/>
+        <float name="scale" value="0.001"/> <!-- for scene modeled in millimeters -->
+    </spectrum>
 
  */
 
@@ -53,6 +61,10 @@ public:
 
     BlackBodySpectrum(const Properties &props) : Texture(props) {
         m_temperature = props.float_("temperature");
+        if (props.has_property("scale"))
+            m_scale = props.float_("scale");
+        else
+            m_scale = 1.f;
         parameters_changed();
     }
 
@@ -77,7 +89,7 @@ public:
             /* Watts per unit surface area (m^-2)
                      per unit wavelength (nm^-1)
                      per unit steradian (sr^-1) */
-            UnpolarizedSpectrum P = 1e-9f * c0 / (lambda5 *
+            UnpolarizedSpectrum P = 1e-9f * m_scale * c0 / (lambda5 *
                     (exp(c1 / (lambda * m_temperature)) - 1.f));
 
             return select(active, P, 0.f);
@@ -108,7 +120,7 @@ public:
                        lambda5 = sqr(lambda2) * lambda;
 
             // Wien's approximation to Planck's law
-            Wavelength pdf = 1e-9f * c0 * exp(-c1 / (lambda * m_temperature))
+            Wavelength pdf = 1e-9f * m_scale * c0 * exp(-c1 / (lambda * m_temperature))
                 / (lambda5 * m_integral);
 
             return select(active, pdf, 0.f);
@@ -136,11 +148,11 @@ public:
 
         Value expval = exp(-c1 / (K * lambda));
 
-        Value cdf = c0 * K * expval *
+        Value cdf = m_scale * c0 * K * expval *
                 (c1_3 + 3 * c1_2 * K * lambda + 6 * c1 * K2 * lambda2 +
                  6 * K3 * lambda3) / (c1_4 * lambda3);
 
-        Value pdf = 1e-9f * c0 * expval / lambda5;
+        Value pdf = 1e-9f * m_scale * c0 * expval / lambda5;
 
         return { cdf, pdf };
     }
@@ -206,11 +218,13 @@ public:
 
     void traverse(TraversalCallback *callback) override {
         callback->put_parameter("temperature", m_temperature);
+        callback->put_parameter("scale", m_scale);
     }
 
     MTS_DECLARE_CLASS()
 private:
     ScalarFloat m_temperature;
+    ScalarFloat m_scale;
     ScalarFloat m_integral_min;
     ScalarFloat m_integral;
 };
