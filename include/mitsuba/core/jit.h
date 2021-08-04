@@ -13,6 +13,10 @@
 #    pragma warning(disable : 4245) // warning C4245: 'argument': conversion from 'int' to 'uint32_t', signed/unsigned mismatch
 #  endif
 
+#ifndef ASMJIT_STATIC
+#define ASMJIT_STATIC
+#endif
+
 #  include <asmjit/asmjit.h>
 
 #  if defined(__GNUG__) && !defined(__clang__)
