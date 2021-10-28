@@ -52,7 +52,7 @@ public:
     }
 
     /**
-     * \brief Return the offset, size and unique identifer of the next block.
+     * \brief Return the offset, size and unique identifier of the next block.
      *
      * A size of zero indicates that the spiral traversal is done.
      */

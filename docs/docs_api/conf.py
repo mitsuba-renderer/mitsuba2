@@ -118,7 +118,7 @@ block_line_start = 0
 # Keep track of the current block name
 last_block_name = None
 
-# Dictionary of {'block_name' : [start_line, end_line], ...} storeing the range of each block
+# Dictionary of {'block_name' : [start_line, end_line], ...} storing the range of each block
 # in the extracted RST text list.
 rst_block_range = {}
 
@@ -284,7 +284,7 @@ def parse_overload_signature(signature):
 
 
 def insert_params_and_return_docstring(lines, params, next_idx, indent=''):
-    """Add parameter descriptions to the docstring if neccessary (could
+    """Add parameter descriptions to the docstring if necessary (could
        already be added by the \param doxygen macro). Also add a line
        for the return value if any. It returns the number of lines added
        through this process.
@@ -608,7 +608,7 @@ def process_docstring_callback(app, what, name, obj, options, lines):
             else:
                 extracted_rst.append(doc_indent + l + '\n')
 
-    # Keep track of last class name (to distingush the two callbacks)
+    # Keep track of last class name (to distinguish the two callbacks)
     last_class_name = name
 
 
@@ -619,7 +619,7 @@ def write_rst_file_callback(app, exception):
     # Register last block
     rst_block_range[last_block_name] = [block_line_start, len(extracted_rst)]
 
-    # Given a class/fucntion "block" name, add an RST 'include' directive with the
+    # Given a class/function "block" name, add an RST 'include' directive with the
     # corresponding start/end-line to the output file.
     def write_block(f, block_name):
         f.write('.. include:: extracted_rst_api.rst\n')

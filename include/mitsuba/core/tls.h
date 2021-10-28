@@ -17,7 +17,7 @@ NAMESPACE_BEGIN(mitsuba)
  * The native TLS classes on Linux/MacOS/Windows only support a limited number
  * of dynamically allocated entries (usually 1024 or 1088). Furthermore, they
  * do not provide appropriate cleanup semantics when the TLS object or one of
- * the assocated threads dies. The custom TLS code provided by this class has
+ * the associated threads dies. The custom TLS code provided by this class has
  * no such limits (caching in various subsystems of Mitsuba may create a huge
  * amount, so this is a big deal), and it also has the desired cleanup
  * semantics: TLS entries are destroyed when the owning thread dies \a or when

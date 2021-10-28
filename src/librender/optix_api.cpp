@@ -7,7 +7,7 @@
 #endif
 #include <windows.h>
 #include <cfgmgr32.h>
-// Automatically link the libary
+// Automatically link the library
 #pragma comment( lib, "Cfgmgr32.lib" )
 #else
 #  include <dlfcn.h>
@@ -103,7 +103,7 @@ bool optix_initialize() {
             if (CM_Locate_DevNodeA(&dev_handle, device_name, CM_LOCATE_DEVNODE_NORMAL))
                 continue;
 
-            // Open registery key
+            // Open registry key
             HKEY reg_key = 0;
             if (CM_Open_DevNode_Key(dev_handle, KEY_QUERY_VALUE, 0,
                                     RegDisposition_OpenExisting, &reg_key,

@@ -80,5 +80,5 @@ __constant__ OptixException exceptions[] = {
 extern "C" __global__ void __exception__err() {
     int ex_code = optixGetExceptionCode();
     printf("Optix Exception %u: %s\n", ex_code, exceptions[ex_code].string);
-    // TODO: retreive more informations based on exception
+    // TODO: retrieve more information based on exception
 }

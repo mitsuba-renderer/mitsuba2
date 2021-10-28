@@ -355,7 +355,7 @@ def test12_differentiable_surface_interaction_automatic(variant_gpu_autodiff_rgb
     assert ek.requires_gradient(si.t)
     assert ek.requires_gradient(si.p)
 
-    # si should not be attached if falgs says so
+    # si should not be attached if flags says so
     ek.set_requires_gradient(ray.o)
     si = pi.compute_surface_interaction(ray, HitComputeFlags.NonDifferentiable)
     assert not ek.requires_gradient(si.t)
@@ -571,7 +571,7 @@ def test16_differentiable_surface_interaction_params_backward(variant_gpu_autodi
     assert ek.allclose(ek.gradient(params[vertex_pos_key]),
                        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], atol=1e-5)
 
-    # To increase si.dp_du along the x-axis, we need to strech the upper edge of the rectangle
+    # To increase si.dp_du along the x-axis, we need to stretch the upper edge of the rectangle
     si = pi.compute_surface_interaction(ray)
     ek.backward(si.dp_du.x)
     assert ek.allclose(ek.gradient(params[vertex_pos_key]),
@@ -589,7 +589,7 @@ def test16_differentiable_surface_interaction_params_backward(variant_gpu_autodi
     assert ek.allclose(ek.gradient(params[vertex_pos_key]),
                        [-1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], atol=1e-5)
 
-    # To increase si.dp_dv along the y-axis, we need to strech the right edge of the rectangle
+    # To increase si.dp_dv along the y-axis, we need to stretch the right edge of the rectangle
     si = pi.compute_surface_interaction(ray)
     ek.backward(si.dp_dv.y)
     assert ek.allclose(ek.gradient(params[vertex_pos_key]),

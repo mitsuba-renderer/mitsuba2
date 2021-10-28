@@ -16,7 +16,7 @@ void bind_set_object(PyClass &cl) {
 MTS_PY_EXPORT(PositionSample) {
     MTS_PY_IMPORT_TYPES_DYNAMIC(ObjectPtr)
     auto pos = py::class_<PositionSample3f>(m, "PositionSample3f", D(PositionSample))
-        .def(py::init<>(), "Construct an unitialized position sample")
+        .def(py::init<>(), "Construct an uninitialized position sample")
         .def(py::init<const PositionSample3f &>(), "Copy constructor", "other"_a)
         .def(py::init<const SurfaceInteraction3f &>(),
             "si"_a, D(PositionSample, PositionSample))
@@ -37,7 +37,7 @@ MTS_PY_EXPORT(PositionSample) {
 MTS_PY_EXPORT(DirectionSample) {
     MTS_PY_IMPORT_TYPES_DYNAMIC(ObjectPtr)
     auto pos = py::class_<DirectionSample3f, PositionSample3f>(m, "DirectionSample3f", D(DirectionSample))
-        .def(py::init<>(), "Construct an unitialized direct sample")
+        .def(py::init<>(), "Construct an uninitialized direct sample")
         .def(py::init<const PositionSample3f &>(), "Construct from a position sample", "other"_a)
         .def(py::init<const DirectionSample3f &>(), "Copy constructor", "other"_a)
         .def(py::init<const Point3f &, const Normal3f &, const Point2f &,

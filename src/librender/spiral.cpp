@@ -37,7 +37,7 @@ std::tuple<Spiral::Vector2i, Spiral::Vector2i, size_t> Spiral::next_block() {
             return { Vector2i(0), Vector2i(0), (size_t) -1 };
     }
 
-    // Calculate a unique identifer per block
+    // Calculate a unique identifier per block
     size_t block_id = m_block_counter + (m_remaining_passes - 1) * m_block_count;
 
     Vector2i offset(m_position * (int) m_block_size);

@@ -322,7 +322,7 @@ constexpr uint32_t operator +(Struct::Flags e)                    { return (uint
 constexpr bool has_flag(uint32_t flags, Struct::Flags f)          { return (flags & (uint32_t) f) != 0; }
 
 /**
- * \brief This class solves the any-to-any problem: effiently converting from
+ * \brief This class solves the any-to-any problem: efficiently converting from
  * one kind of structured data representation to another
  *
  * Graphics applications often need to convert from one kind of structured

@@ -85,7 +85,7 @@ endif()
 #   export LD_LIBRARY_PATH=<path to libasan.so>
 
 option(MTS_SANITIZE_ADDRESS "Enable GCC/Clang address sanitizer?" OFF) # To catch out-of-bounds accesses
-option(MTS_SANITIZE_MEMORY  "Enable GCC/Clang memory sanitizer?"  OFF) # To catch use of unitialized memory
+option(MTS_SANITIZE_MEMORY  "Enable GCC/Clang memory sanitizer?"  OFF) # To catch use of uninitialized memory
 
 option(MTS_THROW_TRAPS_DEBUGGER "Trap the debugger on calls to `Throw`?" OFF)
 if(MTS_THROW_TRAPS_DEBUGGER)

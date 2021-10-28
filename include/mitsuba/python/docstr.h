@@ -2375,7 +2375,7 @@ Parameter ``class_``:
     Originating class or ``nullptr``
 
 Parameter ``thread``:
-    Thread, which is reponsible for creating the message
+    Thread, which is responsible for creating the message
 
 Parameter ``file``:
     File, which is responsible for creating the message
@@ -3236,7 +3236,7 @@ R"doc(Compute the transmittance and PDF
 
 This function evaluates the transmittance and PDF of sampling a
 certain free-flight distance The returned PDF takes into account if a
-medium interaction occured (mi.t <= si.t) or the ray left the medium
+medium interaction occurred (mi.t <= si.t) or the ray left the medium
 (mi.t > si.t)
 
 The evaluated PDF is spectrally varying. This allows to account for
