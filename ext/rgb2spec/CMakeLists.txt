@@ -44,12 +44,21 @@ if (TARGET tbb)
   )
 endif()
 
-add_custom_command(
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/srgb.coeff
-  DEPENDS rgb2spec_opt
-  COMMAND ${CMAKE_COMMAND} -E env LD_LIBRARY_PATH=.:$ENV{LD_LIBRARY_PATH}
-  $<TARGET_FILE:rgb2spec_opt> 64 ${CMAKE_CURRENT_BINARY_DIR}/srgb.coeff
-)
+if (APPLE)
+  add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/srgb.coeff
+    DEPENDS rgb2spec_opt
+    COMMAND ${CMAKE_COMMAND} -E env DYLD_LIBRARY_PATH=.:$ENV{DYLD_LIBRARY_PATH}
+    $<TARGET_FILE:rgb2spec_opt> 64 ${CMAKE_CURRENT_BINARY_DIR}/srgb.coeff
+  )
+else ()
+  add_custom_command(
+      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/srgb.coeff
+      DEPENDS rgb2spec_opt
+      COMMAND ${CMAKE_COMMAND} -E env LD_LIBRARY_PATH=.:$ENV{LD_LIBRARY_PATH}
+      $<TARGET_FILE:rgb2spec_opt> 64 ${CMAKE_CURRENT_BINARY_DIR}/srgb.coeff
+    )
+endif ()
 
 add_custom_target(
   rgb2spec_opt_run
