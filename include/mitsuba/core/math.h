@@ -375,8 +375,8 @@ MTS_INLINE std::tuple<mask_t<Value>, Value, Value> solve_quadratic(const Value &
     /* Is this perhaps a linear equation? */
     Mask linear_case = eq(a, Scalar(0));
 
-    /* If so, we require b > 0 */
-    Mask active = !linear_case || (b > Scalar(0));
+    /* If so, we require b != 0 */
+    Mask valid_linear = linear_case && neq(b, Scalar(0));
 
     /* Initialize solution with that of linear equation */
     Value x0, x1;
@@ -384,9 +384,9 @@ MTS_INLINE std::tuple<mask_t<Value>, Value, Value> solve_quadratic(const Value &
 
     /* Check if the quadratic equation is solvable */
     Value discrim = fmsub(b, b, Scalar(4) * a * c);
-    active &= linear_case || (discrim >= 0);
+    Mask valid_quadratic = !linear_case && (discrim >= Scalar(0));
 
-    if (likely(any_or<true>(active))) {
+    if (likely(any_or<true>(valid_quadratic))) {
         Value sqrt_discrim = sqrt(discrim);
 
         /* Numerically stable version of (-b (+/-) sqrt_discrim) / (2 * a)
@@ -409,7 +409,7 @@ MTS_INLINE std::tuple<mask_t<Value>, Value, Value> solve_quadratic(const Value &
         x1 = select(linear_case, x0, x1m);
     }
 
-    return std::make_tuple(active, x0, x1);
+    return std::make_tuple(valid_linear || valid_quadratic, x0, x1);
 }
 
 //! @}
