@@ -695,7 +695,8 @@ NAMESPACE_BEGIN(mitsuba)
                         m_optix_data_ptr = cuda_malloc(sizeof(OptixAsphSurfData));
 
                     OptixAsphSurfData data = { bbox(), m_to_world, m_to_object,
-                        m_center, m_radius, m_flip_normals };
+                        m_center, m_radius, m_k, m_p, m_r, m_h_lim, m_flip, m_z_lim,
+                        m_flip_normals };
 
                     cuda_memcpy_to_device(m_optix_data_ptr, &data, sizeof(OptixAsphSurfData));
                 }
