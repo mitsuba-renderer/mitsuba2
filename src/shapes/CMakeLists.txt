@@ -6,9 +6,11 @@ add_plugin(blender     blender.cpp)
 add_plugin(serialized  serialized.cpp)
 
 add_plugin(cylinder    cylinder.cpp)
+add_plugin(cylshell    cylshell.cpp)
 add_plugin(disk        disk.cpp)
 add_plugin(rectangle   rectangle.cpp)
 add_plugin(sphere      sphere.cpp)
+add_plugin(cut         cut.cpp)
 
 add_plugin(shapegroup  shapegroup.cpp)
 add_plugin(instance    instance.cpp)
