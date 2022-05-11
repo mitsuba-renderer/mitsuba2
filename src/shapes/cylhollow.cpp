@@ -10,7 +10,7 @@
 #include <mitsuba/render/shape.h>
 
 #if defined(MTS_ENABLE_OPTIX)
-    #include "optix/cylshell.cuh"
+    #include "optix/cylhollow.cuh"
 #endif
 
 #include <unistd.h>
@@ -24,7 +24,7 @@ NAMESPACE_BEGIN(mitsuba)
 
 .. _shape-sphere:
 
-Cylshell (:monosp:`sphere`)
+CylHollow (:monosp:`sphere`)
 -------------------------------------------------
 
 .. pluginparameters::
@@ -91,7 +91,7 @@ This makes it a good default choice for lighting new scenes.
  */
 
 template <typename Float, typename Spectrum>
-class Cylshell final : public Shape<Float, Spectrum> {
+class CylHollow final : public Shape<Float, Spectrum> {
 public:
     MTS_IMPORT_BASE(Shape, m_to_world, m_to_object, set_children,
                     get_children_string, parameters_grad_enabled)
@@ -102,7 +102,7 @@ public:
 
     using typename Base::ScalarSize;
 
-    Cylshell(const Properties &props) : Base(props) {
+    CylHollow(const Properties &props) : Base(props) {
 
         (void) dbg; (void) dbg2;
 
@@ -492,10 +492,10 @@ public:
 
 
 #if 0
-        // Cylshell doesn't intersect with the segment on the ray
+        // CylHollow doesn't intersect with the segment on the ray
         Mask out_bounds = !(near_t <= maxt && far_t >= mint); // NaN-aware conditionals
 
-        // Cylshell fully contains the segment of the ray
+        // CylHollow fully contains the segment of the ray
         Mask in_bounds = near_t < mint && far_t > maxt;
 
         active &= solution_found && !out_bounds && !in_bounds;
@@ -537,10 +537,10 @@ public:
 
         auto [solution_found, near_t, far_t] = math::solve_quadratic(A, B, C);
 
-        // Cylshell doesn't intersect with the segment on the ray
+        // CylHollow doesn't intersect with the segment on the ray
         Mask out_bounds = !(near_t <= maxt && far_t >= mint); // NaN-aware conditionals
 
-        // Cylshell fully contains the segment of the ray
+        // CylHollow fully contains the segment of the ray
         Mask in_bounds  = near_t < mint && far_t > maxt;
 
         return solution_found && !out_bounds && !in_bounds && active;
@@ -669,19 +669,19 @@ public:
     void optix_prepare_geometry() override {
         if constexpr (is_cuda_array_v<Float>) {
             if (!m_optix_data_ptr)
-                m_optix_data_ptr = cuda_malloc(sizeof(OptixCylshellData));
+                m_optix_data_ptr = cuda_malloc(sizeof(OptixCylHollowData));
 
-            OptixCylshellData data = { bbox(), m_to_world, m_to_object,
+            OptixCylHollowData data = { bbox(), m_to_world, m_to_object,
                                      m_center, m_radius0, m_flip_normals };
 
-            cuda_memcpy_to_device(m_optix_data_ptr, &data, sizeof(OptixCylshellData));
+            cuda_memcpy_to_device(m_optix_data_ptr, &data, sizeof(OptixCylHollowData));
         }
     }
 #endif
 
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << "Cylshell[" << std::endl
+        oss << "CylHollow[" << std::endl
             << "  to_world = " << string::indent(m_to_world, 13) << "," << std::endl
             << "  center = "  << m_center << "," << std::endl
             << "  radius = "  << m_radius0 << "," << std::endl
@@ -711,6 +711,6 @@ private:
     bool m_flip_normals;
 };
 
-MTS_IMPLEMENT_CLASS_VARIANT(Cylshell, Shape)
-MTS_EXPORT_PLUGIN(Cylshell, "Cylshell intersection primitive");
+MTS_IMPLEMENT_CLASS_VARIANT(CylHollow, Shape)
+MTS_EXPORT_PLUGIN(CylHollow, "CylHollow intersection primitive");
 NAMESPACE_END(mitsuba)
