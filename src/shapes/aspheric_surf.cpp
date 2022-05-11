@@ -54,23 +54,23 @@ NAMESPACE_BEGIN(mitsuba)
                 m_h_lim = props.float_("limit", 0.0f);
 
                 // First lens object - initial parameters
-                m_k0 = props.float_("kappa0", 2.f);
-                m_r0 = props.float_("radius0", 2.f);
-                m_p0 =  1.0f / m_r0;
+                m_k = props.float_("kappa0", 2.f);
+                m_r = props.float_("radius0", 2.f);
+                m_p =  1.0f / m_r;
 
                 update();
 
                 // AsphSurfes' z limit
-                m_z_lim0 = ((pow(m_h_lim, 2.0f) * m_p0) / (1 + sqrt(1 - (1 + m_k0) * pow(m_h_lim*m_p0,2.0f))));
+                m_z_lim = ((pow(m_h_lim, 2.0f) * m_p) / (1 + sqrt(1 - (1 + m_k) * pow(m_h_lim*m_p,2.0f))));
 
                 // How far into z plane?
-                m_z0 = m_center[2] + m_z_lim0;
+                m_z = m_center[2] + m_z_lim;
 
                 fprintf(stdout, "AsphSurf using flip=%s kappa=%.2f radius=%.2f (rho=%f) hlim=%.2f zlim=%.2f zend=%.2f\n",
-                        m_flip ? "true" : "false", (double) m_k0, (double) m_r0, (double) m_p0, (double) m_h_lim, (double) m_z_lim0,
-                        (double) m_z0);
+                        m_flip ? "true" : "false", (double) m_k, (double) m_r, (double) m_p, (double) m_h_lim, (double) m_z_lim,
+                        (double) m_z);
 
-                if( isnan( m_z_lim0 ) ){
+                if( isnan( m_z_lim ) ){
                     fprintf(stdout, "nan error\n");
                     fflush(stdout);
                     while(1){};
@@ -393,8 +393,8 @@ NAMESPACE_BEGIN(mitsuba)
                 if( m_flip ){
                     solution0 = find_intersections1( near_t0, far_t0,
                                            //m_center,
-                                           m_center + Double3(0,0, /*m_z_lim1*/ m_z_lim0), (scalar_t<Double>) /*m_z_lim0*/ 0,
-                                           (scalar_t<Double>) m_p0, (scalar_t<Double>) m_k0,
+                                           m_center + Double3(0,0, /*m_z_lim1*/ m_z_lim), (scalar_t<Double>) /*m_z_lim*/ 0,
+                                           (scalar_t<Double>) m_p, (scalar_t<Double>) m_k,
                                            ray);
 
                     near_t0 = far_t0; // hack hack
@@ -408,14 +408,14 @@ NAMESPACE_BEGIN(mitsuba)
                 else{
                     solution0 = find_intersections0( near_t0, far_t0,
                                            m_center,
-                                           (scalar_t<Double>) m_p0, (scalar_t<Double>) m_k0,
+                                           (scalar_t<Double>) m_p, (scalar_t<Double>) m_k,
                                            ray);
 
                     zplane_t = select( valid1,
-                                       ((m_center[2] + Double(m_z_lim0)) - ray.o[2]) / ray.d[2],
+                                       ((m_center[2] + Double(m_z_lim)) - ray.o[2]) / ray.d[2],
                                        math::Infinity<Float> );
                     
-                    d = (m_center + Double3(0,0,m_z_lim0)) - ray(zplane_t);
+                    d = (m_center + Double3(0,0,m_z_lim)) - ray(zplane_t);
                 }
 
                                    // I wish there was a prettier way of doing
@@ -430,8 +430,8 @@ NAMESPACE_BEGIN(mitsuba)
                 // Where on the sphere plane is that?
 
                 Mask valid0 = point_valid( ray(near_t0),
-                                           m_center + (m_flip ? Double3(0,0,m_z_lim0) : Double3(0)),
-                                           (scalar_t<Double>) m_z_lim0 );
+                                           m_center + (m_flip ? Double3(0,0,m_z_lim) : Double3(0)),
+                                           (scalar_t<Double>) m_z_lim );
 
                 valid0 = valid0 && solution0 && (near_t0 >= mint && near_t0 < maxt);
 
@@ -570,8 +570,8 @@ NAMESPACE_BEGIN(mitsuba)
 
                 if( m_flip ){
 
-                        fx = 1 * ( ( point[0] * m_p0 ) / sqrt( 1 - (1+m_k0) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p0, 2) ) );
-                        fy = 1 * ( ( point[1] * m_p0 ) / sqrt( 1 - (1+m_k0) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p0, 2) ) );
+                        fx = 1 * ( ( point[0] * m_p ) / sqrt( 1 - (1+m_k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p, 2) ) );
+                        fy = 1 * ( ( point[1] * m_p ) / sqrt( 1 - (1+m_k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p, 2) ) );
                         fz = 1.0;
 
                         Double3 surf1 = 1 * normalize( Double3( fx, fy, fz ) );
@@ -580,8 +580,8 @@ NAMESPACE_BEGIN(mitsuba)
                 }
                 else{
 
-                        fx = ( point[0] * m_p0 ) / sqrt( 1 - (1+m_k0) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p0, 2) );
-                        fy = ( point[1] * m_p0 ) / sqrt( 1 - (1+m_k0) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p0, 2) );
+                        fx = ( point[0] * m_p ) / sqrt( 1 - (1+m_k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p, 2) );
+                        fy = ( point[1] * m_p ) / sqrt( 1 - (1+m_k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p, 2) );
                         fz = -1.0;
 
                         Double3 surf0 = normalize( Double3( fx, fy, fz ) );
@@ -620,8 +620,8 @@ NAMESPACE_BEGIN(mitsuba)
 
                     //Float hyp = sqrt( pow( local.x(), 2.0f ) + pow( local.y(), 2.0f ) );
 
-                    si.uv = Point2f( local.x() / m_r0,
-                                     local.y() / m_r0 );
+                    si.uv = Point2f( local.x() / m_r,
+                                     local.y() / m_r );
 
                     //std::cout << si.uv << "\n";
 
@@ -631,10 +631,10 @@ NAMESPACE_BEGIN(mitsuba)
                         Float dpzdu;
                         Float dpzdv;
 
-                        //fx = 1 * ( ( point[0] * m_p0 ) / sqrt( 1 - (1+m_k0) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p0, 2) ) );
+                        //fx = 1 * ( ( point[0] * m_p ) / sqrt( 1 - (1+m_k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p, 2) ) );
 
-                        dpzdu = ( local.x() * m_p0 * m_h_lim ) / sqrt( 1 - ( 1 + m_k0 ) * pow( local.x(), 2.0f ) + pow( local.y(), 2.0f ) * pow( m_p0 * m_h_lim, 2.0f ));
-                        dpzdv = ( local.y() * m_p0 * m_h_lim ) / sqrt( 1 - ( 1 + m_k0 ) * pow( local.x(), 2.0f ) + pow( local.y(), 2.0f ) * pow( m_p0 * m_h_lim, 2.0f ));
+                        dpzdu = ( local.x() * m_p * m_h_lim ) / sqrt( 1 - ( 1 + m_k ) * pow( local.x(), 2.0f ) + pow( local.y(), 2.0f ) * pow( m_p * m_h_lim, 2.0f ));
+                        dpzdv = ( local.y() * m_p * m_h_lim ) / sqrt( 1 - ( 1 + m_k ) * pow( local.x(), 2.0f ) + pow( local.y(), 2.0f ) * pow( m_p * m_h_lim, 2.0f ));
 #endif
 
                         si.dp_du = Vector3f( fx, 1.0, 0.0 );
@@ -721,13 +721,13 @@ NAMESPACE_BEGIN(mitsuba)
                 /// Radius in world-space
                 ScalarFloat m_radius;
                 /// kappa
-                ScalarFloat m_k0;
+                ScalarFloat m_k;
                 /// curvature
-                ScalarFloat m_p0;
+                ScalarFloat m_p;
                 /// radius
-                ScalarFloat m_r0;
+                ScalarFloat m_r;
                 /// end of lens z plane
-                ScalarFloat m_z0;
+                ScalarFloat m_z;
 
                 /// limit of h
                 ScalarFloat m_h_lim;
@@ -737,7 +737,7 @@ NAMESPACE_BEGIN(mitsuba)
 
                 /// how far into the "z plane" the surface reaches
                 /// -- it is a function of m_h_lim
-                ScalarFloat m_z_lim0;
+                ScalarFloat m_z_lim;
 
                 ScalarFloat m_inv_surface_area;
 
