@@ -51,7 +51,7 @@
 
 	</sensor>
 
-    <shape type="cut">
+    <shape type="asph_surf">
         <point name="center" x="278" y="273" z="-10800.46950704447"/>
 
         <float name="limit" value="12.7"/>
@@ -76,7 +76,7 @@
         <float name="thickness" value="1.0" />
     </shape>
 
-   <shape type="cut">
+   <shape type="asph_surf">
         <point name="center" x="278" y="273" z="-10796.784074424556"/>
         <!-- 
         <point name="center" x="278" y="273" z="-795"/>

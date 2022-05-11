@@ -13,7 +13,7 @@
 #include <unistd.h>
 
 #if defined(MTS_ENABLE_OPTIX)
-#include "optix/cut.cuh"
+#include "optix/aspheric_surf.cuh"
 #endif
 
 NAMESPACE_BEGIN(mitsuba)
@@ -28,7 +28,7 @@ NAMESPACE_BEGIN(mitsuba)
     static int dbg2 = 0;
 
     template <typename Float, typename Spectrum>
-    class Cut final : public Shape<Float, Spectrum> {
+    class AsphSurf final : public Shape<Float, Spectrum> {
         public:
             MTS_IMPORT_BASE(Shape, m_to_world, m_to_object, set_children,
                             get_children_string, parameters_grad_enabled)
@@ -39,7 +39,7 @@ NAMESPACE_BEGIN(mitsuba)
                 using Double = std::conditional_t<is_cuda_array_v<Float>, Float, Float64>;
                 using Double3 = Vector<Double, 3>;
 
-            Cut(const Properties &props) : Base(props) {
+            AsphSurf(const Properties &props) : Base(props) {
                 /// Are the sphere normals pointing inwards? default: no
                 m_flip_normals = props.bool_("flip_normals", false);
 
@@ -60,13 +60,13 @@ NAMESPACE_BEGIN(mitsuba)
 
                 update();
 
-                // Cutes' z limit
+                // AsphSurfes' z limit
                 m_z_lim0 = ((pow(m_h_lim, 2.0f) * m_p0) / (1 + sqrt(1 - (1 + m_k0) * pow(m_h_lim*m_p0,2.0f))));
 
                 // How far into z plane?
                 m_z0 = m_center[2] + m_z_lim0;
 
-                fprintf(stdout, "Cut using flip=%s kappa=%.2f radius=%.2f (rho=%f) hlim=%.2f zlim=%.2f zend=%.2f\n",
+                fprintf(stdout, "AsphSurf using flip=%s kappa=%.2f radius=%.2f (rho=%f) hlim=%.2f zlim=%.2f zend=%.2f\n",
                         m_flip ? "true" : "false", (double) m_k0, (double) m_r0, (double) m_p0, (double) m_h_lim, (double) m_z_lim0,
                         (double) m_z0);
 
@@ -692,19 +692,19 @@ NAMESPACE_BEGIN(mitsuba)
             void optix_prepare_geometry() override {
                 if constexpr (is_cuda_array_v<Float>) {
                     if (!m_optix_data_ptr)
-                        m_optix_data_ptr = cuda_malloc(sizeof(OptixCutData));
+                        m_optix_data_ptr = cuda_malloc(sizeof(OptixAsphSurfData));
 
-                    OptixCutData data = { bbox(), m_to_world, m_to_object,
+                    OptixAsphSurfData data = { bbox(), m_to_world, m_to_object,
                         m_center, m_radius, m_flip_normals };
 
-                    cuda_memcpy_to_device(m_optix_data_ptr, &data, sizeof(OptixCutData));
+                    cuda_memcpy_to_device(m_optix_data_ptr, &data, sizeof(OptixAsphSurfData));
                 }
             }
 #endif
 
             std::string to_string() const override {
                 std::ostringstream oss;
-                oss << "Cut[" << std::endl
+                oss << "AsphSurf[" << std::endl
                     << "  to_world = " << string::indent(m_to_world, 13) << "," << std::endl
                     << "  center = "  << m_center << "," << std::endl
                     << "  radius = "  << m_radius << "," << std::endl
@@ -744,6 +744,6 @@ NAMESPACE_BEGIN(mitsuba)
                 bool m_flip_normals;
     };
 
-MTS_IMPLEMENT_CLASS_VARIANT(Cut, Shape)
-    MTS_EXPORT_PLUGIN(Cut, "Cut intersection primitive");
+MTS_IMPLEMENT_CLASS_VARIANT(AsphSurf, Shape)
+    MTS_EXPORT_PLUGIN(AsphSurf, "AsphSurf intersection primitive");
 NAMESPACE_END(mitsuba)

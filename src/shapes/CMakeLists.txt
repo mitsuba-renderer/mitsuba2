@@ -10,7 +10,8 @@ add_plugin(cylshell    cylshell.cpp)
 add_plugin(disk        disk.cpp)
 add_plugin(rectangle   rectangle.cpp)
 add_plugin(sphere      sphere.cpp)
-add_plugin(cut         cut.cpp)
+
+add_plugin(asph_surf   aspheric_surf.cpp)
 
 add_plugin(shapegroup  shapegroup.cpp)
 add_plugin(instance    instance.cpp)

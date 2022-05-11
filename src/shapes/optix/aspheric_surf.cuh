@@ -5,7 +5,7 @@
 #include <mitsuba/render/optix/common.h>
 #include <mitsuba/render/optix/math.cuh>
 
-struct OptixCutData {
+struct OptixAsphSurfData {
     optix::BoundingBox3f bbox;
     optix::Transform4f to_world;
     optix::Transform4f to_object;
@@ -18,7 +18,7 @@ struct OptixCutData {
 
 extern "C" __global__ void __intersection__sphere() {
     const OptixHitGroupData *sbt_data = (OptixHitGroupData*) optixGetSbtDataPointer();
-    OptixCutData *sphere = (OptixSphereData *)sbt_data->data;
+    OptixAsphSurfData *sphere = (OptixSphereData *)sbt_data->data;
 
     // Ray in instance-space
     Ray3f ray = get_ray();
@@ -33,10 +33,10 @@ extern "C" __global__ void __intersection__sphere() {
     float near_t, far_t;
     bool solution_found = solve_quadratic(A, B, C, near_t, far_t);
 
-    // Cut doesn't intersect with the segment on the ray
+    // AsphSurf doesn't intersect with the segment on the ray
     bool out_bounds = !(near_t <= ray.maxt && far_t >= ray.mint); // NaN-aware conditionals
 
-    // Cut fully contains the segment of the ray
+    // AsphSurf fully contains the segment of the ray
     bool in_bounds = near_t < ray.mint && far_t > ray.maxt;
 
     float t = (near_t < ray.mint ? far_t: near_t);
@@ -53,7 +53,7 @@ extern "C" __global__ void __closesthit__sphere() {
         params.out_hit[launch_index] = true;
     } else {
         const OptixHitGroupData *sbt_data = (OptixHitGroupData *) optixGetSbtDataPointer();
-        OptixCutData *sphere = (OptixSphereData *)sbt_data->data;
+        OptixAsphSurfData *sphere = (OptixSphereData *)sbt_data->data;
 
         // Ray in instance-space
         Ray3f ray = get_ray();
@@ -65,7 +65,7 @@ extern "C" __global__ void __closesthit__sphere() {
         }
 
         /* Compute and store information describing the intersection. This is
-           very similar to Cut::compute_surface_interaction() */
+           very similar to AsphSurf::compute_surface_interaction() */
 
         Vector3f ns = normalize(ray(ray.maxt) - sphere->center);
 
