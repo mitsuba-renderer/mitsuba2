@@ -170,7 +170,7 @@ NAMESPACE_BEGIN(mitsuba)
                 m_p0 = 1.0f / m_r0;
 
                 // Lens' z-limit
-                m_z_lim0 = ((pow(m_h_lim, 2.0f) * m_p0) / (1 + sqrt(1 - (1 + m_k0) * (pow(m_h_lim,2.0f) * pow(m_p0, 2.0f)))));
+                m_z_lim0 = ((enoki::pow(m_h_lim, 2.0f) * m_p0) / (1 + sqrt(1 - (1 + m_k0) * (enoki::pow(m_h_lim,2.0f) * enoki::pow(m_p0, 2.0f)))));
 
                 m_center = ScalarPoint3f(0.0,0.0, 0.0 - m_z_lim0);
 
@@ -178,10 +178,10 @@ NAMESPACE_BEGIN(mitsuba)
 
                 //std::cerr << m_world_transform << "\n";
 
-                fprintf(stdout, "Lens0 center %.2f %.2f %.2f\n", (double) m_center[0], (double) m_center[1], (double) m_center[2]);
+                fprintf(stdout, "Lens0 center %.2f %.2f %.2f\n", m_center[0], m_center[1], m_center[2]);
                 fprintf(stdout, "Lens0 using kappa=%.2f radius=%.2f (rho=%f) hlim=%.2f zlim=%.2f\n",
-                        (double) m_k0, (double) m_r0, (double) m_p0, (double) m_h_lim, (double) m_z_lim0 );
-                fprintf(stdout, "Lens0 center1 %.2f %.2f %.2f\n", (double) m_center1[0], (double) m_center1[1], (double) m_center1[2]);
+                         m_k0,  m_r0,  m_p0,  m_h_lim,  m_z_lim0 );
+                fprintf(stdout, "Lens0 center1 %.2f %.2f %.2f\n", m_center1[0], m_center1[1], m_center1[2]);
 
                 if( isnan( m_z_lim0 ) || isnan(m_z_lim1)){
                     fprintf(stdout, "nan error\n");
@@ -211,9 +211,9 @@ NAMESPACE_BEGIN(mitsuba)
 
                 Double g = -1 * ( 1 + m_k );
 
-                Double A = -1 * g * pow(dz, 2.0) + pow(dx,2.0) + pow(dy,2.0);
+                Double A = -1 * g * enoki::pow(dz, 2.0f) + enoki::pow(dx,2.0f) + enoki::pow(dy,2.0f);
                 Double B = -1 * g * 2 * oz * dz + 2 * g * z0 * dz + 2 * ox * dx - 2 * x0 * dx + 2 * oy * dy - 2 * y0 * dy - 2 * dz / m_p;
-                Double C = -1 * g * pow(oz, 2.0) + g * 2 * z0 * oz - g * pow(-1*z0,2.0) + pow(ox,2.0) - 2 * x0 * ox + pow(-1*x0,2.0) + pow(oy,2.0) - 2 * y0 * oy + pow(-1*y0,2.0) - 2 * oz / m_p - 2 * -1*z0 / m_p;
+                Double C = -1 * g * enoki::pow(oz, 2.0f) + g * 2 * z0 * oz - g * enoki::pow(-1*z0,2.0f) + enoki::pow(ox,2.0f) - 2 * x0 * ox + enoki::pow(-1*x0,2.0f) + enoki::pow(oy,2.0f) - 2 * y0 * oy + enoki::pow(-1*y0,2.0f) - 2 * oz / m_p - 2 * -1*z0 / m_p;
 
                 auto [solution_found, near_t, far_t] = math::solve_quadratic(A, B, C);
 
@@ -231,13 +231,13 @@ NAMESPACE_BEGIN(mitsuba)
 
                 delta0 = t0 - center;
 
-                hyp0 = sqrt( pow( delta0[0], 2.0) + pow(delta0[1], 2.0) + pow(delta0[2], 2.0) );
+                hyp0 = sqrt( enoki::pow( delta0[0], 2.0f) + enoki::pow(delta0[1], 2.0f) + enoki::pow(delta0[2], 2.0f) );
 
                 Double limit;
 
                 Double w = (Double) z_lim;
 
-                limit = sqrt( (pow( (Double) m_h_lim, 2.0)) + pow(w, 2.0) );
+                limit = sqrt( (enoki::pow( (Double) m_h_lim, 2.0f)) + enoki::pow(w, 2.0f) );
 
 #if 0
                 std::cout << "Considering:\n";

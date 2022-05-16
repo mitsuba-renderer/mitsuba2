@@ -672,7 +672,8 @@ public:
                 m_optix_data_ptr = cuda_malloc(sizeof(OptixCylHollowData));
 
             OptixCylHollowData data = { bbox(), m_to_world, m_to_object,
-                                     m_center, m_radius0, m_flip_normals };
+                                     m_center, m_radius0, m_radius1, m_thickness,
+                                     m_h, m_h_low, m_h_hi, m_flip_normals };
 
             cuda_memcpy_to_device(m_optix_data_ptr, &data, sizeof(OptixCylHollowData));
         }
@@ -684,7 +685,12 @@ public:
         oss << "CylHollow[" << std::endl
             << "  to_world = " << string::indent(m_to_world, 13) << "," << std::endl
             << "  center = "  << m_center << "," << std::endl
-            << "  radius = "  << m_radius0 << "," << std::endl
+            << "  radius0 = "  << m_radius0 << "," << std::endl
+            << "  radius1 = "  << m_radius1 << "," << std::endl
+            << "  thickness = "  << m_thickness << "," << std::endl
+            << "  length = "  << m_h << "," << std::endl
+            << "  h_low = "  << m_h_low << "," << std::endl
+            << "  h_hi = "  << m_h_hi << "," << std::endl
             << "  surface_area = " << surface_area() << "," << std::endl
             << "  " << string::indent(get_children_string()) << std::endl
             << "]";

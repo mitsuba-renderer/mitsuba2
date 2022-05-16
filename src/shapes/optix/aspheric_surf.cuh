@@ -24,10 +24,7 @@ struct OptixAsphSurfData {
 
 #ifdef __CUDACC__
 
-#if 0
-
-Mask point_valid( Vector3f t0, float3 center,
-                  scalar_t<float> z_lim) const {
+bool __device__ point_valid( Vector3f t0, Vector3f center, float z_lim, float h_lim) {
 
     Vector3f delta0;
     float hyp0;
@@ -40,166 +37,15 @@ Mask point_valid( Vector3f t0, float3 center,
 
     float w = (float) z_lim;
 
-    limit = sqrt( (pow( (float) m_h_lim, 2.0)) + pow(w, 2.0) );
+    limit = sqrt( (pow( (float) h_lim, 2.0)) + pow(w, 2.0) );
 
     return (hyp0 <= limit);
 }
 
-//! @}
-// =============================================================
-
-// =============================================================
-//! @{ \name Ray tracing routines
-// =============================================================
-
-PreliminaryIntersection3f ray_intersect_preliminary(const Ray3f &ray,
-                                                    Mask active) const override {
-    MTS_MASK_ARGUMENT(active);
-
-    float mint = float(ray.mint);
-    float maxt = float(ray.maxt);
-
-    //std::cout << " mint " << mint << " maxt " << maxt << "\n";
-
-    // Point-solutions for each sphere
-    float near_t0, far_t0;
-    float zplane_t;
-
-    near_t0 = 0.0;
-    far_t0  = 0.0;
-
-    /*
-     * The closest point on the initial curvature.
-     * */
-    Mask solution0;
-    Mask solution1;
-
-    // z-plane validity
-    Mask valid1 = (ray.d[2] != 0.0);
-    /*
-     * 'd' is the distance from center of out zplane.
-     * Use x/y distance vectors to check aperture circle boundaries.
-     * */
-    Vector3f d;
-
-    if( m_flip ){
-        solution0 = find_intersections1( near_t0, far_t0,
-                                         //m_center,
-                                         m_center + Vector3f(0,0, /*m_z_lim1*/ m_z_lim), (scalar_t<float>) /*m_z_lim*/ 0,
-                                         (scalar_t<float>) m_p, (scalar_t<float>) m_k,
-                                         ray);
-
-        near_t0 = far_t0; // hack hack
-
-        zplane_t = select( valid1,
-                           float((m_center[2] - ray.o[2]) / ray.d[2]),
-                           math::Infinity<Float> );
-
-        d = m_center - ray(zplane_t);
-    }
-    else{
-        solution0 = find_intersections0( near_t0, far_t0,
-                                         m_center,
-                                         (scalar_t<float>) m_p, (scalar_t<float>) m_k,
-                                         ray);
-
-        zplane_t = select( valid1,
-                           ((m_center[2] + float(m_z_lim)) - ray.o[2]) / ray.d[2],
-                           math::Infinity<Float> );
-
-        d = (m_center + Vector3f(0,0,m_z_lim)) - ray(zplane_t);
-    }
-
-    // I wish there was a prettier way of doing
-    // this...
-    valid1 = valid1 && (sqrt( pow( d[0], 2.0 ) + pow( d[1], 2.0 ) ) <= m_h_lim);
-
-    valid1 = valid1 && (zplane_t >= mint && zplane_t < maxt) ;
-
-    float dist1 = select( valid1,
-                           zplane_t, math::Infinity<Float> );
-
-    // Where on the sphere plane is that?
-
-    Mask valid0 = point_valid( ray(near_t0),
-                               m_center + (m_flip ? Vector3f(0,0,m_z_lim) : float3(0)),
-                               (scalar_t<float>) m_z_lim );
-
-    valid0 = valid0 && solution0 && (near_t0 >= mint && near_t0 < maxt);
-
-    float dist0 = select( valid0,
-                           near_t0, math::Infinity<Float> );
-
-    /*
-     * Build the resulting ray.
-     * */
-    PreliminaryIntersection3f pi = zero<PreliminaryIntersection3f>();
-
-    // Note: All rays from origin should have a hit.
-    //       I think it should be an error if it does not.
-#if 0
-    pi.t = select( dist0 < dist1,
-                   select( valid0, near_t0, math::Infinity<Float> ),
-                   select( valid1, zplane_t, math::Infinity<Float> ) );
-#else
-    pi.t = select( valid0, near_t0, math::Infinity<Float> );
-#endif
-
-    // Remember to set active mask
-    active &= valid0;
-
-    Ray3f out_ray;
-    out_ray.o = ray( pi.t );
-
-#if 1
-    if( m_flip ){
-
-        if( 0 || ( ++dbg2 > 100000 ) ){
-
-            if( any(  valid0 ) ) {
-
-                std::cerr << "point3," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
-                std::cerr << "vec3," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2]  << "\n";
-            }
-            else{
-                //std::cerr << "point2," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
-                //std::cerr << "vec2," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2]  << "\n";
-            }
-            dbg2 = 0;
-        }
-
-        //usleep(1000);
-    }
-    else{ // !m_flip
-
-        if( 0 || ( ++dbg > 100000 ) ){
-            if( any( valid0 ) ) {
-
-                std::cerr << "point2," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
-                std::cerr << "point1," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "\n";
-                std::cerr << "vec1," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2]  << "\n";
-            }
-            else{
-                //std::cerr << "point1," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
-                //std::cerr << "vec1," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2]  << "\n";
-            }
-            dbg = 0;
-        }
-
-        //usleep(1000);
-    }
-#endif
-
-    pi.shape = this;
-
-    return pi;
-}
-#endif
-
-bool find_intersections1( float &near_t, float &far_t,
-                          Vector3f center, scalar_t<float> z_lim,
-                          scalar_t<float> m_p, scalar_t<float> m_k,
-                          const Ray3f &ray) const{
+bool __device__ find_intersections1( float &near_t, float &far_t,
+                          Vector3f center, float z_lim,
+                          float m_p, float m_k,
+                          const Ray3f &ray){
 
     // Unit vector
     Vector3f d = ray.d;
@@ -232,10 +78,10 @@ bool find_intersections1( float &near_t, float &far_t,
     return solution_found;
 }
 
-bool find_intersections0( float &near_t, float &far_t,
+bool __device__ find_intersections0( float &near_t, float &far_t,
                           Vector3f center,
-                          scalar_t<float> m_p, scalar_t<float> m_k,
-                          const Ray3f &ray) const{
+                          float m_p, float m_k,
+                          const Ray3f &ray){
 
     // Unit vector
     Vector3f d = ray.d;
@@ -262,47 +108,81 @@ bool find_intersections0( float &near_t, float &far_t,
     return solution_found;
 }
 
-extern "C" __global__ void __intersection__sphere() {
+extern "C" __global__ void __intersection__asphsurf() {
     const OptixHitGroupData *sbt_data = (OptixHitGroupData*) optixGetSbtDataPointer();
-    OptixAsphSurfData *sphere = (OptixSphereData *)sbt_data->data;
+    OptixAsphSurfData *asurf = (OptixAsphSurfData *)sbt_data->data;
 
     // Ray in instance-space
     Ray3f ray = get_ray();
 
-#if 1
+    float zplane_t;
+    float near_t0, far_t0;
 
-    Vector3f o = ray.o - sphere->center;
-    Vector3f d = ray.d;
+    Vector3f d;
 
-    float A = squared_norm(d);
-    float B = 2.f * dot(o, d);
-    float C = squared_norm(o) - sqr(sphere->radius);
+    bool solution0;
+    bool valid0, valid1;
 
-    float near_t, far_t;
-    bool solution_found = solve_quadratic(A, B, C, near_t, far_t);
+    valid1 = (ray.d[2] != 0.0);
 
-    // AsphSurf doesn't intersect with the segment on the ray
-    bool out_bounds = !(near_t <= ray.maxt && far_t >= ray.mint); // NaN-aware conditionals
+    if( asurf->flip ){
+        solution0 = find_intersections1( near_t0, far_t0,
+                                         //m_center,
+                                         asurf->center + Vector3f(0,0, asurf->z_lim), 0.0f,
+                                         asurf->p, asurf->k,
+                                         ray);
 
-    // AsphSurf fully contains the segment of the ray
-    bool in_bounds = near_t < ray.mint && far_t > ray.maxt;
+        near_t0 = far_t0; // hack hack
 
-    float t = (near_t < ray.mint ? far_t: near_t);
-#endif
+        if( valid1 )
+            zplane_t = (asurf->center[2] - ray.o[2]) / ray.d[2];
+        else
+            zplane_t = INFINITY;
 
-    if (solution_found && !out_bounds && !in_bounds)
-        optixReportIntersection(t, OPTIX_HIT_KIND_TRIANGLE_FRONT_FACE);
+        d = asurf->center - ray(zplane_t);
+    }
+    else{
+        solution0 = find_intersections0( near_t0, far_t0,
+                                         asurf->center,
+                                         asurf->p, asurf->k,
+                                         ray);
+
+        if( valid1 )
+            zplane_t = ((asurf->center[2] + asurf->z_lim) - ray.o[2]) / ray.d[2];
+        else
+            zplane_t = INFINITY;
+
+        d = (asurf->center + Vector3f(0,0,asurf->z_lim)) - ray(zplane_t);
+    }
+
+    // I wish there was a prettier way of doing
+    // this...
+    valid1 = valid1 && (sqrt( pow( d[0], 2.0 ) + pow( d[1], 2.0 ) ) <= asurf->h_lim);
+
+    valid1 = valid1 && (zplane_t >= ray.mint && zplane_t < ray.maxt) ;
+
+    // Where on the sphere plane is that?
+
+    valid0 = point_valid( ray(near_t0),
+                    asurf->center + (asurf->flip ? Vector3f(0,0,asurf->z_lim) : Vector3f(0)),
+                    asurf->z_lim, asurf->h_lim );
+
+    valid0 = valid0 && solution0 && (near_t0 >= ray.mint && near_t0 < ray.maxt);
+
+    if( valid0 ){
+        optixReportIntersection( near_t0, OPTIX_HIT_KIND_TRIANGLE_FRONT_FACE );
+    }
 }
 
 
-extern "C" __global__ void __closesthit__sphere() {
+extern "C" __global__ void __closesthit__asphsurf() {
     unsigned int launch_index = calculate_launch_index();
 
     if (params.is_ray_test()) {
         params.out_hit[launch_index] = true;
     } else {
         const OptixHitGroupData *sbt_data = (OptixHitGroupData *) optixGetSbtDataPointer();
-        OptixAsphSurfData *sphere = (OptixSphereData *)sbt_data->data;
+        OptixAsphSurfData *asurf = (OptixAsphSurfData *)sbt_data->data;
 
         // Ray in instance-space
         Ray3f ray = get_ray();
@@ -316,55 +196,66 @@ extern "C" __global__ void __closesthit__sphere() {
         /* Compute and store information describing the intersection. This is
            very similar to AsphSurf::compute_surface_interaction() */
 
-        Vector3f ns = normalize(ray(ray.maxt) - sphere->center);
+        Vector3f p;
 
-        if (sphere->flip_normals)
-            ns = -ns;
+        // From cylinder.h
+        p = ray( ray.maxt );
+
+        Vector3f point = p - asurf->center;
+
+        /*
+         * Now compute the unit vector
+         * */
+        float fx, fy, fz;
+
+        Vector3f ns;
+
+        if( asurf->flip ){
+
+            fx = 1 * ( ( point[0] * asurf->p ) / sqrt( 1 - (1+asurf->k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(asurf->p, 2) ) );
+            fy = 1 * ( ( point[1] * asurf->p ) / sqrt( 1 - (1+asurf->k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(asurf->p, 2) ) );
+            fz = 1.0;
+
+            Vector3f surf1 = 1 * normalize( Vector3f( fx, fy, fz ) );
+
+            ns = surf1;
+        }
+        else{
+
+            fx = ( point[0] * asurf->p ) / sqrt( 1 - (1+asurf->k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(asurf->p, 2) );
+            fy = ( point[1] * asurf->p ) / sqrt( 1 - (1+asurf->k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(asurf->p, 2) );
+            fz = -1.0;
+
+            Vector3f surf0 = normalize( Vector3f( fx, fy, fz ) );
+
+            ns = surf0;
+        }
 
         Vector3f ng = ns;
-
-        // Re-project onto the sphere to improve accuracy
-        Vector3f p = fmaf(sphere->radius, ns, sphere->center);
 
         Vector2f uv;
         Vector3f dp_du, dp_dv;
         if (params.has_uv()) {
-            Vector3f local = sphere->to_object.transform_point(p);
 
-            float rd_2  = sqr(local.x()) + sqr(local.y()),
-                  theta = acos(local.z()),
-                  phi   = atan2(local.y(), local.x());
+            Vector3f local = asurf->to_object.transform_point(p);
 
-            if (phi < 0.f)
-                phi += TwoPi;
-
-            uv = Vector2f(phi * InvTwoPi, theta * InvPi);
+            uv = Vector2f( local.x() / asurf->r,
+                             local.y() / asurf->r );
 
             if (params.has_dp_duv()) {
-                dp_du = Vector3f(-local.y(), local.x(), 0.f);
 
-                float rd      = sqrt(rd_2),
-                      inv_rd  = 1.f / rd,
-                      cos_phi = local.x() * inv_rd,
-                      sin_phi = local.y() * inv_rd;
+                dp_du = Vector3f( fx, 1.0, 0.0 );
+                dp_dv = Vector3f( fy, 0.0, 1.0 );
 
-                dp_dv = Vector3f(local.z() * cos_phi,
-                                local.z() * sin_phi,
-                                -rd);
-
-                // Check for singularity
-                if (rd == 0.f)
-                    dp_dv = Vector3f(1.f, 0.f, 0.f);
-
-                dp_du = sphere->to_world.transform_vector(dp_du) * TwoPi;
-                dp_dv = sphere->to_world.transform_vector(dp_dv) * Pi;
             }
         }
 
-        float inv_radius = (sphere->flip_normals ? -1.f : 1.f) / sphere->radius;
-        Vector3f dn_du = dp_du * inv_radius;
-        Vector3f dn_dv = dp_dv * inv_radius;
+        Vector3f dn_du, dn_dv;
 
+        dn_du = dp_du; // <<
+        dn_dv = dp_dv; // Was flipped for negative radius
+
+        // Produce all of this
         write_output_si_params(params, launch_index, sbt_data->shape_ptr,
                                0, p, uv, ns, ng, dp_du, dp_dv, dn_du, dn_dv, ray.maxt);
     }
