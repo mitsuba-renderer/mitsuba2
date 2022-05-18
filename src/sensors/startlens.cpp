@@ -482,15 +482,6 @@ NAMESPACE_BEGIN(mitsuba)
                     ray.d_y = trafo * normalize(Vector3f(focus_p_y - aperture_p));
                     ray.has_differentials = true;
 
-#if 0
-                    if( 0 || (++dbg == 1) ){
-                        fprintf(stderr, "vec,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
-                                ray.o[0], ray.o[1], ray.o[2],
-                                ray.d[0], ray.d[1], ray.d[2]);
-                        dbg = 0;
-                    }
-#endif
-
                     return std::make_pair(ray, wav_weight);
                 }
 

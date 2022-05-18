@@ -459,7 +459,7 @@ NAMESPACE_BEGIN(mitsuba)
                 Ray3f out_ray;
                 out_ray.o = ray( pi.t );
 
-#if 1
+#if 0
                 if( m_flip ){
 
                     if( 0 || ( ++dbg2 > 100000 ) ){
