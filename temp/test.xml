@@ -8,7 +8,6 @@
     <default name="res" value="256"/> <!-- Unused -->
     <default name="max_depth" value="12"/>
     <default name="flen" value="43.4" />
-    <default name="fov" value="60" />
     <default name="aperture" value="12.7" />
     <default name="smp_per_pass" value="$spp" />
 
@@ -18,21 +17,24 @@
         <integer name="samples_per_pass" value="$smp_per_pass" />
     </integrator>
 
-	<sensor type="startlens" id="Camera-camera">
-        <!-- <string name="fov_axis" value="smaller"/> -->
-        <!-- <float name="focal_length" value="37.5"/> -->
-        <float name="fov" value="$fov"/>
-        <!-- <string name="fov_axis" value="smaller"/> -->
+	<sensor type="cmos" id="Camera-camera">
         <float name="focus_distance" value="$flen"/>
+
+        <!-- The physical size of the sensor.
+            Depends on the resolution and physical cell size.
+            E.g. cell size 2.4x2.4 µm; 5496x3128 pixels: -->
+        <float name="width" value="13.1904" />
+        <float name="height" value="7.4688" />
 
         <!-- This must be equal to the h limit 'limit' setting below -->
         <float name="aperture_radius" value="$aperture"/>
 
 		<transform name="to_world">
-            <!-- origin=location of aperture/focus point -->
-            <!-- target="camera pixel location before focus dist adjust -->
-            <lookat origin="278, 273, -10800.0"
-                    target="278, 273, -10799.0"
+            <!-- origin: center of die and origin of rays
+                 target: orientation of the camera
+            -->
+            <lookat origin="278, 273, -10847.0"
+                    target="278, 273, 0.0"
                     up    ="  0,   1,    0"/>
 		</transform>
 
@@ -46,10 +48,6 @@
 			<string name="pixel_format" value="rgb"/>
 			<rfilter type="gaussian"/>
 		</film>
-
-        <!-- Radius must match the first lens below -->
-        <float name="radius0" value="172"/>
-        <float name="kappa0" value="0"/>
 
 	</sensor>
 
