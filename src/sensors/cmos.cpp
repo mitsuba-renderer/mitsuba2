@@ -123,8 +123,26 @@ public:
         if (m_world_transform->has_scale())
             Throw("Scale factors in the camera-to-world transformation are not allowed!");
 
-        m_width = props.float_("width");
-        m_height = props.float_("height");
+        m_width = props.float_("width", -1.f);
+        m_height = props.float_("height", -1.f);
+
+        m_cw = props.float_("cw", -1.f);
+        m_ch = props.float_("ch", -1.f);
+
+        if( ((m_width > 0.f) && (m_cw > 0.f)) ||
+            ((m_height > 0.f) && (m_ch > 0.f))){
+            Log(Error, "Specify total die size using 'width' "
+                        "or 'height' OR the pixel cell size "
+                        "using 'cw' and 'ch', not both." );
+        }
+
+        if( m_cw > 0.f ){
+            m_width = m_resolution.x() * m_cw / 1.0E3f;
+        }
+        if( m_ch > 0.f ){
+            m_height = m_resolution.y() * m_ch / 1.0E3f;
+        }
+
 
         m_camera_to_sample = perspective_projection(
             m_film->size(), m_film->crop_size(), m_film->crop_offset(),
@@ -293,6 +311,8 @@ private:
     /// New stuff
     ScalarFloat m_width;
     ScalarFloat m_height;
+    ScalarFloat m_cw;
+    ScalarFloat m_ch;
 
     //ScalarTransform4f m_test_transform;
 };

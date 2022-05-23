@@ -5,7 +5,8 @@
     <!-- ########################################## -->
     <!-- ########################################## -->
     <default name="spp" value="256"/>
-    <default name="res" value="256"/> <!-- Unused -->
+    <default name="w" value="256"/> <!-- Unused -->
+    <default name="h" value="256"/> <!-- Unused -->
     <default name="max_depth" value="12"/>
     <default name="flen" value="43.4" />
     <default name="aperture" value="12.7" />
@@ -20,11 +21,15 @@
 	<sensor type="cmos" id="Camera-camera">
         <float name="focus_distance" value="$flen"/>
 
-        <!-- The physical size of the sensor.
-            Depends on the resolution and physical cell size.
-            E.g. cell size 2.4x2.4 µm; 5496x3128 pixels: -->
+        <!-- The physical size of the sensor [mm] -->
         <float name="width" value="13.1904" />
         <float name="height" value="7.4688" />
+
+        <!-- The physical size of a pixel [µm] -->
+        <!--
+        <float name="cw" value="2.4" />
+        <float name="ch" value="2.4" />
+        -->
 
         <!-- This must be equal to the h limit 'limit' setting below -->
         <float name="aperture_radius" value="$aperture"/>
@@ -33,7 +38,7 @@
             <!-- origin: center of die and origin of rays
                  target: orientation of the camera
             -->
-            <lookat origin="278, 273, -10847.0"
+            <lookat origin="278, 273, -5847.0"
                     target="278, 273, 0.0"
                     up    ="  0,   1,    0"/>
 		</transform>
@@ -43,8 +48,8 @@
 		</sampler>
 
 		<film type="hdrfilm" id="film">
-			<integer name="width" value="$res"/>
-			<integer name="height" value="$res"/>
+			<integer name="width" value="$w"/>
+			<integer name="height" value="$h"/>
 			<string name="pixel_format" value="rgb"/>
 			<rfilter type="gaussian"/>
 		</film>
@@ -52,7 +57,7 @@
 	</sensor>
 
     <shape type="asphsurf">
-        <point name="center" x="278" y="273" z="-10800.46950704447"/>
+        <point name="center" x="278" y="273" z="-5800.46950704447"/>
 
         <float name="limit" value="12.7"/>
 
@@ -69,7 +74,7 @@
     </shape>
 
     <shape type="cylhollow">
-        <point name="center" x="278" y="273" z="-10800.0"/>
+        <point name="center" x="278" y="273" z="-5800.0"/>
 
         <float name="length" value="3.21592557544385"/>
         <float name="radius" value="12.7"/>
@@ -77,7 +82,7 @@
     </shape>
 
    <shape type="asphsurf">
-        <point name="center" x="278" y="273" z="-10796.784074424556"/>
+        <point name="center" x="278" y="273" z="-5796.784074424556"/>
         <!-- 
         <point name="center" x="278" y="273" z="-795"/>
         -->
