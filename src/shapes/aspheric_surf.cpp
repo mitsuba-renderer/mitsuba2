@@ -18,14 +18,7 @@
 
 NAMESPACE_BEGIN(mitsuba)
 
-#if 1
-    static bool csv_vec = false;
-#else
-    static bool csv_vec = true;
-#endif // 1
-
     static int dbg = 0;
-    static int dbg2 = 0;
 
     template <typename Float, typename Spectrum>
     class AsphSurf final : public Shape<Float, Spectrum> {
@@ -64,11 +57,10 @@ NAMESPACE_BEGIN(mitsuba)
                 m_z_lim = ((pow(m_h_lim, 2.0f) * m_p) / (1 + sqrt(1 - (1 + m_k) * pow(m_h_lim*m_p,2.0f))));
 
                 // How far into z plane?
-                m_z = m_center[2] + m_z_lim;
-
-                fprintf(stdout, "AsphSurf using flip=%s kappa=%.2f radius=%.2f (rho=%f) hlim=%.2f zlim=%.2f zend=%.2f\n",
-                        m_flip ? "true" : "false", (double) m_k, (double) m_r, (double) m_p, (double) m_h_lim, (double) m_z_lim,
-                        (double) m_z);
+                fprintf(stdout, "AsphSurf using flip=%s inv_norm=%s kappa=%.2f radius=%.2f (rho=%f) hlim=%.2f zlim=%.2f\n",
+                        m_flip ? "true" : "false",
+                        m_flip_normals ? "true" : "false",
+                        (double) m_k, (double) m_r, (double) m_p, (double) m_h_lim, (double) m_z_lim);
 
                 if( isnan( m_z_lim ) ){
                     fprintf(stdout, "nan error\n");
@@ -97,8 +89,7 @@ NAMESPACE_BEGIN(mitsuba)
                 m_radius = S[0][0];
 
                 if (m_radius <= 0.f) {
-                    m_radius = std::abs(m_radius);
-                    m_flip_normals = !m_flip_normals;
+                    Log(Error, "Radius must be > 0");
                 }
 
                 // Reconstruct the to_world transform with uniform scaling and no shear
@@ -261,7 +252,7 @@ NAMESPACE_BEGIN(mitsuba)
                              );
             }
 
-            Mask find_intersections0( Double &near_t_, Double &far_t_,
+            Mask find_intersections( Double &near_t_, Double &far_t_,
                                      Double3 center,
                                      scalar_t<Double> m_p, scalar_t<Double> m_k,
                                      const Ray3f &ray) const{
@@ -285,46 +276,6 @@ NAMESPACE_BEGIN(mitsuba)
                 Double A = -1 * g * pow(dz, 2.0) + pow(dx,2.0) + pow(dy,2.0);
                 Double B = -1 * g * 2 * oz * dz + 2 * g * z0 * dz + 2 * ox * dx - 2 * x0 * dx + 2 * oy * dy - 2 * y0 * dy - 2 * dz / m_p;
                 Double C = -1 * g * pow(oz, 2.0) + g * 2 * z0 * oz - g * pow(-1*z0,2.0) + pow(ox,2.0) - 2 * x0 * ox + pow(-1*x0,2.0) + pow(oy,2.0) - 2 * y0 * oy + pow(-1*y0,2.0) - 2 * oz / m_p - 2 * -1*z0 / m_p;
-
-                auto [solution_found, near_t, far_t] = math::solve_quadratic(A, B, C);
-
-                near_t_ = near_t;
-                far_t_  = far_t;
-
-                return solution_found;
-            }
-
-
-            Mask find_intersections1( Double &near_t_, Double &far_t_,
-                                     Double3 center, scalar_t<Double> z_lim,
-                                     scalar_t<Double> m_p, scalar_t<Double> m_k,
-                                     const Ray3f &ray) const{
-
-                // Unit vector
-                Double3 d(ray.d);
-
-                // Origin
-                Double3 o(ray.o);
-
-                // Center of sphere
-                Double3 c = Double3(center) * -1;
-
-                Double w = (Double) z_lim;
-
-                Double dx = d[0], dy = d[1], dz = d[2];
-                Double ox = o[0], oy = o[1], oz = o[2];
-
-
-                Double cx = c[0], cy = c[1], cz = c[2];
-
-                Double A = -1 * pow(dz, 2.0) - m_k * pow(dz, 2.0) - pow(dx, 2.0) - pow(dy, 2.0);
-                Double B = 2 *       w * dz - 2       * cz * dz - 2       * oz * dz +
-                           2 * m_k * w * dz - 2 * m_k * cz * dz - 2 * m_k * oz * dz -
-                                                                                        2 * cx * dx - 2 * ox * dx - 2 * cy * dy - 2 * oy * dy -
-                                                                                        2 * dz / m_p;
-                Double C = -1 * pow(w, 2.0) + 2     * w * cz + 2 * w     * oz     - pow(cz, 2.0) -     2 * cz * oz     - pow(oz, 2.0) -
-                            m_k * pow(w, 2.0) + 2 * m_k * w * cz + 2 * m_k * w * oz - m_k * pow(cz, 2.0) - m_k * 2 * cz * oz - m_k * pow(oz, 2.0) -
-                                                                                        pow(cx, 2.0) - 2 * cx * ox - pow(ox, 2.0) - pow(cy, 2.0) - 2 * cy * oy - pow(oy, 2.0) + 2 * w / m_p - 2 * cz / m_p - 2 * oz / m_p;
 
                 auto [solution_found, near_t, far_t] = math::solve_quadratic(A, B, C);
 
@@ -371,87 +322,43 @@ NAMESPACE_BEGIN(mitsuba)
 
                 // Point-solutions for each sphere
                 Double near_t0, far_t0;
-                Double zplane_t;
 
                 near_t0 = 0.0;
                 far_t0  = 0.0;
 
-                /*
-                 * The closest point on the initial curvature.
-                 * */
-                Mask solution0;
-                Mask solution1;
-
-                // z-plane validity
-                Mask valid1 = (ray.d[2] != 0.0);
-                /*
-                 * 'd' is the distance from center of out zplane.
-                 * Use x/y distance vectors to check aperture circle boundaries.
-                 * */
-                Double3 d;
+                Mask solution;
 
                 if( m_flip ){
-                    solution0 = find_intersections1( near_t0, far_t0,
-                                           //m_center,
-                                           m_center + Double3(0,0, /*m_z_lim1*/ m_z_lim), (scalar_t<Double>) /*m_z_lim*/ 0,
+
+                    solution = find_intersections( near_t0, far_t0,
+                                           m_center - Double3(0,0,m_r*2.f),
                                            (scalar_t<Double>) m_p, (scalar_t<Double>) m_k,
                                            ray);
 
-                    near_t0 = far_t0; // hack hack
-
-                    zplane_t = select( valid1,
-                                       Double((m_center[2] - ray.o[2]) / ray.d[2]),
-                                       math::Infinity<Float> );
-
-                    d = m_center - ray(zplane_t);
+                    // Works as long as origin ray "comes from the right
+                    // direction" - needs fix.
+                    near_t0 = far_t0;
                 }
                 else{
-                    solution0 = find_intersections0( near_t0, far_t0,
+                    solution = find_intersections( near_t0, far_t0,
                                            m_center,
                                            (scalar_t<Double>) m_p, (scalar_t<Double>) m_k,
                                            ray);
-
-                    zplane_t = select( valid1,
-                                       ((m_center[2] + Double(m_z_lim)) - ray.o[2]) / ray.d[2],
-                                       math::Infinity<Float> );
-                    
-                    d = (m_center + Double3(0,0,m_z_lim)) - ray(zplane_t);
                 }
 
-                                   // I wish there was a prettier way of doing
-                                   // this...
-                valid1 = valid1 && (sqrt( pow( d[0], 2.0 ) + pow( d[1], 2.0 ) ) <= m_h_lim);
-
-                valid1 = valid1 && (zplane_t >= mint && zplane_t < maxt) ;
-
-                Double dist1 = select( valid1,
-                                       zplane_t, math::Infinity<Float> );
-
                 // Where on the sphere plane is that?
-
                 Mask valid0 = point_valid( ray(near_t0),
-                                           m_center + (m_flip ? Double3(0,0,m_z_lim) : Double3(0)),
+                                           m_center,
                                            (scalar_t<Double>) m_z_lim );
 
-                valid0 = valid0 && solution0 && (near_t0 >= mint && near_t0 < maxt);
-
-                Double dist0 = select( valid0,
-                                       near_t0, math::Infinity<Float> );
+                valid0 = valid0 && solution && (near_t0 >= mint && near_t0 < maxt);
 
                 /*
                  * Build the resulting ray.
                  * */
                 PreliminaryIntersection3f pi = zero<PreliminaryIntersection3f>();
 
-                // Note: All rays from origin should have a hit.
-                //       I think it should be an error if it does not.
-#if 0
-                pi.t = select( dist0 < dist1,
-                        select( valid0, near_t0, math::Infinity<Float> ),
-                        select( valid1, zplane_t, math::Infinity<Float> ) );
-#else
                 pi.t = select( valid0, near_t0, math::Infinity<Float> );
-#endif
 
                 // Remember to set active mask
                 active &= valid0;
@@ -462,30 +369,30 @@ NAMESPACE_BEGIN(mitsuba)
 #if 0
                 if( m_flip ){
 
-                    if( 1 || ( ++dbg2 > 100000 ) ){
+                    if( 0 || ( ++dbg > 100000 ) ){
 
                         if( any(  valid0 ) ) {
 
-                            //std::cerr << "point3," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
+                            std::cerr << "point3," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
                             //std::cerr << "vec3," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2]  << "\n";
                         }
                         else{
                             //std::cerr << "point2," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
                             //std::cerr << "vec2," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2]  << "\n";
                         }
-                        dbg2 = 0;
+                        dbg = 0;
                     }
 
                     //usleep(1000);
                 }
                 else{ // !m_flip
 
-                    if( 1 || ( ++dbg > 100000 ) ){
+                    if( 0 || ( ++dbg > 100000 ) ){
                         if( any( valid0 ) ) {
 
                             //std::cerr << "point2," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
-                            std::cerr << "point1," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "\n";
-                            std::cerr << "vec1," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2]  << "\n";
+                            std::cerr << "point1," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
+                            //std::cerr << "vec1," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2]  << "\n";
                         }
                         else{
                             //std::cerr << "point1," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
@@ -567,27 +474,26 @@ NAMESPACE_BEGIN(mitsuba)
                  * Now compute the unit vector
                  * */
                 Double fx, fy, fz;
+                Double p(m_p);
+                Double k(m_k);
 
                 if( m_flip ){
 
-                        fx = 1 * ( ( point[0] * m_p ) / sqrt( 1 - (1+m_k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p, 2) ) );
-                        fy = 1 * ( ( point[1] * m_p ) / sqrt( 1 - (1+m_k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p, 2) ) );
-                        fz = 1.0;
-
-                        Double3 surf1 = 1 * normalize( Double3( fx, fy, fz ) );
-
-                        si.sh_frame.n = surf1;
+                    fx = ( point[0] * p ) / sqrt( 1 - (1+k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(p, 2));
+                    fy = ( point[1] * p ) / sqrt( 1 - (1+k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(p, 2));
+                    fz = 1.0;
                 }
                 else{
 
-                        fx = ( point[0] * m_p ) / sqrt( 1 - (1+m_k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p, 2) );
-                        fy = ( point[1] * m_p ) / sqrt( 1 - (1+m_k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p, 2) );
-                        fz = -1.0;
-
-                        Double3 surf0 = normalize( Double3( fx, fy, fz ) );
-
-                        si.sh_frame.n = surf0;
+                    fx = ( point[0] * p ) / sqrt( 1 - (1+k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(p, 2));
+                    fy = ( point[1] * p ) / sqrt( 1 - (1+k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(p, 2));
+                    fz = -1.0;
                 }
+
+                if( ! m_flip_normals )
+                    si.sh_frame.n = normalize( Double3( fx, fy, fz ) );
+                else
+                    si.sh_frame.n = normalize( Double(-1) * Double3( fx, fy, fz ) );
 
                 // Frame.n is a unit vector. between the center of the
                 // ellipsis and the crossing point apparently.
@@ -610,59 +516,33 @@ NAMESPACE_BEGIN(mitsuba)
                 }
 #endif
 
-#if 1
                 if (likely(has_flag(flags, HitComputeFlags::UV))) {
 
                     Vector3f local = m_to_object.transform_affine(si.p);
 
-                    //std::cout << local << " -- local \n";
-                    //std::cout << si.p << "\n";
-
-                    //Float hyp = sqrt( pow( local.x(), 2.0f ) + pow( local.y(), 2.0f ) );
-
                     si.uv = Point2f( local.x() / m_r,
                                      local.y() / m_r );
 
-                    //std::cout << si.uv << "\n";
-
                     if (likely(has_flag(flags, HitComputeFlags::dPdUV))) {
-
-#if 0 // same formulas as fx, fy, fz --- these are wrong
-                        Float dpzdu;
-                        Float dpzdv;
-
-                        //fx = 1 * ( ( point[0] * m_p ) / sqrt( 1 - (1+m_k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(m_p, 2) ) );
-
-                        dpzdu = ( local.x() * m_p * m_h_lim ) / sqrt( 1 - ( 1 + m_k ) * pow( local.x(), 2.0f ) + pow( local.y(), 2.0f ) * pow( m_p * m_h_lim, 2.0f ));
-                        dpzdv = ( local.y() * m_p * m_h_lim ) / sqrt( 1 - ( 1 + m_k ) * pow( local.x(), 2.0f ) + pow( local.y(), 2.0f ) * pow( m_p * m_h_lim, 2.0f ));
-#endif
 
                         si.dp_du = Vector3f( fx, 1.0, 0.0 );
                         si.dp_dv = Vector3f( fy, 0.0, 1.0 );
-
-#if 0
-                        si.dp_du = normalize( si.dp_du );
-                        si.dp_dv = normalize( si.dp_dv );
-#endif
-
-                        //si.dp_du = m_to_world * si.dp_du;
-                        //si.dp_dv = m_to_world * si.dp_dv;
-
                     }
                 }
-#endif
 
                 si.n = si.sh_frame.n;
 
-#if 1
                 if (has_flag(flags, HitComputeFlags::dNSdUV)) {
+                    // Should not happen ATM.
                     std::cout << "dNSdUV\n";
                     Log(Warn, "dNSdUV");
+                    Log(Error, "dNSdUV");
+#if 0
                     ScalarFloat inv_radius = (m_flip_normals ? -1.f : 1.f) / m_radius;
                     si.dn_du = si.dp_du * inv_radius;
                     si.dn_dv = si.dp_dv * inv_radius;
-                }
 #endif
+                }
 
                 return si;
             }
@@ -727,8 +607,6 @@ NAMESPACE_BEGIN(mitsuba)
                 ScalarFloat m_p;
                 /// radius
                 ScalarFloat m_r;
-                /// end of lens z plane
-                ScalarFloat m_z;
 
                 /// limit of h
                 ScalarFloat m_h_lim;

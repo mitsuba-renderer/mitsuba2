@@ -42,42 +42,6 @@ bool __device__ point_valid( Vector3f t0, Vector3f center, float z_lim, float h_
     return (hyp0 <= limit);
 }
 
-bool __device__ find_intersections1( float &near_t, float &far_t,
-                          Vector3f center, float z_lim,
-                          float m_p, float m_k,
-                          const Ray3f &ray){
-
-    // Unit vector
-    Vector3f d = ray.d;
-
-    // Origin
-    Vector3f o = ray.o;
-
-    // Center of sphere
-    Vector3f c = center * -1;
-
-    float w = (float) z_lim;
-
-    float dx = d[0], dy = d[1], dz = d[2];
-    float ox = o[0], oy = o[1], oz = o[2];
-
-
-    float cx = c[0], cy = c[1], cz = c[2];
-
-    float A = -1 * pow(dz, 2.0) - m_k * pow(dz, 2.0) - pow(dx, 2.0) - pow(dy, 2.0);
-    float B = 2 *       w * dz - 2       * cz * dz - 2       * oz * dz +
-        2 * m_k * w * dz - 2 * m_k * cz * dz - 2 * m_k * oz * dz -
-        2 * cx * dx - 2 * ox * dx - 2 * cy * dy - 2 * oy * dy -
-        2 * dz / m_p;
-    float C = -1 * pow(w, 2.0) + 2     * w * cz + 2 * w     * oz     - pow(cz, 2.0) -     2 * cz * oz     - pow(oz, 2.0) -
-        m_k * pow(w, 2.0) + 2 * m_k * w * cz + 2 * m_k * w * oz - m_k * pow(cz, 2.0) - m_k * 2 * cz * oz - m_k * pow(oz, 2.0) -
-        pow(cx, 2.0) - 2 * cx * ox - pow(ox, 2.0) - pow(cy, 2.0) - 2 * cy * oy - pow(oy, 2.0) + 2 * w / m_p - 2 * cz / m_p - 2 * oz / m_p;
-
-    bool solution_found = solve_quadratic(A, B, C, near_t, far_t);
-
-    return solution_found;
-}
-
 bool __device__ find_intersections0( float &near_t, float &far_t,
                           Vector3f center,
                           float m_p, float m_k,
@@ -115,56 +79,30 @@ extern "C" __global__ void __intersection__asphsurf() {
     // Ray in instance-space
     Ray3f ray = get_ray();
 
-    float zplane_t;
     float near_t0, far_t0;
 
-    Vector3f d;
-
     bool solution0;
-    bool valid0, valid1;
-
-    valid1 = (ray.d[2] != 0.0);
+    bool valid0;
 
     if( asurf->flip ){
-        solution0 = find_intersections1( near_t0, far_t0,
-                                         //m_center,
-                                         asurf->center + Vector3f(0,0, asurf->z_lim), 0.0f,
+        solution0 = find_intersections0( near_t0, far_t0,
+                                         asurf->center - Vector3f(0,0, asurf->r * 2.f),
                                          asurf->p, asurf->k,
                                          ray);
 
         near_t0 = far_t0; // hack hack
-
-        if( valid1 )
-            zplane_t = (asurf->center[2] - ray.o[2]) / ray.d[2];
-        else
-            zplane_t = INFINITY;
-
-        d = asurf->center - ray(zplane_t);
     }
     else{
         solution0 = find_intersections0( near_t0, far_t0,
                                          asurf->center,
                                          asurf->p, asurf->k,
                                          ray);
-
-        if( valid1 )
-            zplane_t = ((asurf->center[2] + asurf->z_lim) - ray.o[2]) / ray.d[2];
-        else
-            zplane_t = INFINITY;
-
-        d = (asurf->center + Vector3f(0,0,asurf->z_lim)) - ray(zplane_t);
     }
-
-    // I wish there was a prettier way of doing
-    // this...
-    valid1 = valid1 && (sqrt( pow( d[0], 2.0 ) + pow( d[1], 2.0 ) ) <= asurf->h_lim);
-
-    valid1 = valid1 && (zplane_t >= ray.mint && zplane_t < ray.maxt) ;
 
     // Where on the sphere plane is that?
 
     valid0 = point_valid( ray(near_t0),
-                    asurf->center + (asurf->flip ? Vector3f(0,0,asurf->z_lim) : Vector3f(0)),
+                    asurf->center,
                     asurf->z_lim, asurf->h_lim );
 
     valid0 = valid0 && solution0 && (near_t0 >= ray.mint && near_t0 < ray.maxt);
@@ -212,24 +150,21 @@ extern "C" __global__ void __closesthit__asphsurf() {
 
         if( asurf->flip ){
 
-            fx = 1 * ( ( point[0] * asurf->p ) / sqrt( 1 - (1+asurf->k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(asurf->p, 2) ) );
-            fy = 1 * ( ( point[1] * asurf->p ) / sqrt( 1 - (1+asurf->k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(asurf->p, 2) ) );
+            fx = ( point[0] * asurf->p ) / sqrt( 1 - (1+asurf->k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(asurf->p, 2) );
+            fy = ( point[1] * asurf->p ) / sqrt( 1 - (1+asurf->k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(asurf->p, 2) );
             fz = 1.0;
-
-            Vector3f surf1 = 1 * normalize( Vector3f( fx, fy, fz ) );
-
-            ns = surf1;
         }
         else{
 
             fx = ( point[0] * asurf->p ) / sqrt( 1 - (1+asurf->k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(asurf->p, 2) );
             fy = ( point[1] * asurf->p ) / sqrt( 1 - (1+asurf->k) * (pow(point[0], 2) + pow(point[1], 2)) * pow(asurf->p, 2) );
             fz = -1.0;
-
-            Vector3f surf0 = normalize( Vector3f( fx, fy, fz ) );
-
-            ns = surf0;
         }
+
+        if( ! asurf->flip_normals )
+            ns = normalize( Vector3f( fx, fy, fz ) );
+        else
+            ns = normalize( -1.f * Vector3f( fx, fy, fz ) );
 
         Vector3f ng = ns;
 

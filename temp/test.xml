@@ -66,10 +66,12 @@
 
         <boolean name="flip" value="false" />
 
+        <boolean name="flip_normals" value="false" />
+
         <bsdf type="dielectric">
-                <float name="int_ior" value="1.51679"/>
-                <float name="ext_ior" value="1.0" />
-                <float name="specular_reflectance" value="0.0" />
+            <float name="int_ior" value="1.51679"/>
+            <float name="ext_ior" value="1.0" />
+            <float name="specular_reflectance" value="0.0" />
         </bsdf>
     </shape>
 
@@ -82,10 +84,7 @@
     </shape>
 
    <shape type="asphsurf">
-        <point name="center" x="278" y="273" z="-5796.784074424556"/>
-        <!-- 
-        <point name="center" x="278" y="273" z="-795"/>
-        -->
+        <point name="center" x="278" y="273" z="-5793.96950704447"/>
 
         <float name="limit" value="12.7"/>
 
@@ -94,9 +93,11 @@
 
         <boolean name="flip" value="true" />
 
+        <boolean name="flip_normals" value="false" />
+
         <bsdf type="dielectric">
-                <float name="int_ior" value="1.51679"/>
-                <float name="ext_ior" value="1.0"/>
+            <float name="int_ior" value="1.51679"/>
+            <float name="ext_ior" value="1.0"/>
         </bsdf>
     </shape>
 
