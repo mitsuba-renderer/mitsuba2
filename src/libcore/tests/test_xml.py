@@ -115,7 +115,7 @@ def test09_incorrect_nesting(variant_scalar_rgb):
     with pytest.raises(Exception) as e:
         xml.load_string("""<scene version="2.0.0">
                    <shape type="ply">
-                   <transform name="toWorld">
+                   <transform name="to_world">
                    <integer name="value" value="10"/>
                    </transform>
                    </shape></scene>""")
