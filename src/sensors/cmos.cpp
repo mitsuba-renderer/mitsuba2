@@ -123,8 +123,8 @@ public:
         if (m_world_transform->has_scale())
             Throw("Scale factors in the camera-to-world transformation are not allowed!");
 
-        m_width = props.float_("width", -1.f);
-        m_height = props.float_("height", -1.f);
+        m_width = props.float_("sensor_width", -1.f);
+        m_height = props.float_("sensor_height", -1.f);
 
         m_cw = props.float_("cw", -1.f);
         m_ch = props.float_("ch", -1.f);
