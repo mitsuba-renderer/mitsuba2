@@ -19,6 +19,7 @@
 NAMESPACE_BEGIN(mitsuba)
 
     static int dbg = 0;
+    static int dbg2 = 0;
 
     template <typename Float, typename Spectrum>
     class AsphSurf final : public Shape<Float, Spectrum> {
@@ -366,15 +367,15 @@ NAMESPACE_BEGIN(mitsuba)
                 Ray3f out_ray;
                 out_ray.o = ray( pi.t );
 
-#if 0
+#if 1
                 if( m_flip ){
 
                     if( 0 || ( ++dbg > 100000 ) ){
 
                         if( any(  valid0 ) ) {
 
-                            std::cerr << "point3," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
-                            //std::cerr << "vec3," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2]  << "\n";
+                            std::cerr << "point1," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
+                            std::cerr << "vec1," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2]  << "\n";
                         }
                         else{
                             //std::cerr << "point2," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
@@ -387,18 +388,17 @@ NAMESPACE_BEGIN(mitsuba)
                 }
                 else{ // !m_flip
 
-                    if( 0 || ( ++dbg > 100000 ) ){
+                    if( 0 || ( ++dbg2 > 100000 ) ){
                         if( any( valid0 ) ) {
 
-                            //std::cerr << "point2," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
                             std::cerr << "point1," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
-                            //std::cerr << "vec1," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2]  << "\n";
+                            std::cerr << "vec1," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2]  << "\n";
                         }
                         else{
                             //std::cerr << "point1," << out_ray.o[0] << "," << out_ray.o[1] << "," << out_ray.o[2] << "\n";
                             //std::cerr << "vec1," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2]  << "\n";
                         }
-                        dbg = 0;
+                        dbg2 = 0;
                     }
 
                     //usleep(1000);

@@ -96,6 +96,8 @@ The exact camera position and orientation is most easily expressed using the
 
  */
 
+static int dbg = 0;
+
 template <typename Float, typename Spectrum>
 class CmosCamera final : public ProjectiveCamera<Float, Spectrum> {
 public:
@@ -205,7 +207,11 @@ public:
         ray.update();
 
         // Use this to track output rays
-        //std::cerr << "vec2," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2] << std::endl;
+        if(++dbg > 100000){
+            std::cerr << "point0," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << std::endl;
+            std::cerr << "vec0," << ray.o[0] << "," << ray.o[1] << "," << ray.o[2] << "," << ray.d[0] << "," << ray.d[1] << "," << ray.d[2] << std::endl;
+            dbg = 0;
+        }
 
         return std::make_pair(ray, wav_weight);
     }
