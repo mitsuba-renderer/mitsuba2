@@ -631,7 +631,7 @@ def write_rst_file_callback(app, exception):
         f.write('\n')
 
     # Write extracted RST to file
-    with open(extracted_rst_filename, 'w') as f:
+    with open(extracted_rst_filename, 'w', encoding='utf-8') as f:
         print('Extract API doc into: %s' % extracted_rst_filename)
         for l in extracted_rst:
             f.write(l)
@@ -640,7 +640,7 @@ def write_rst_file_callback(app, exception):
     for lib in api_doc_structure.keys():
         lib_structure = api_doc_structure[lib]
         lib_api_filename = join(docs_path, 'generated/%s_api.rst' % lib)
-        with open(lib_api_filename, 'w') as f:
+        with open(lib_api_filename, 'w', encoding='utf-8') as f:
             print('Generate %s API RST file: %s' % (lib, lib_api_filename))
             f.write('.. _sec-api-%s:\n\n' % lib)
             f.write('%s API Reference\n' % lib.title())
@@ -723,7 +723,7 @@ def generate_list_api_callback(app):
             f.write('.. auto%s:: %s\n\n' %
                     ('class' if isclass(obj) else 'function', full_name))
 
-    with open(list_api_filename, 'w') as f:
+    with open(list_api_filename, 'w', encoding='utf-8') as f:
         print('Generate API list file: %s' % list_api_filename)
         for lib in ['core', 'render', 'python']:
             module = importlib.import_module('mitsuba.%s' % lib)

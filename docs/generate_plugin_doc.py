@@ -89,7 +89,7 @@ def find_order_id(filename, ordering):
         return 1000
 
 def extract(target, filename):
-    f = open(filename)
+    f = open(filename, encoding='utf-8')
     inheader = False
     for line in f.readlines():
         match = re.match(r'^/\*\*! ?(.*)$', line)
@@ -131,14 +131,14 @@ def process(path, target, ordering):
 
     for entry in ordering:
         extract(target, entry[1])
-
+    
 
 def process_src(target, src_subdir, section=None, ordering=None):
     if section is None:
         section = "section_" + src_subdir
 
     # Copy paste the contents of the appropriate section file
-    with open('src/plugin_reference/' + section + '.rst', 'r') as f:
+    with open('src/plugin_reference/' + section + '.rst', 'r', encoding='utf-8') as f:
         target.write(f.read())
     process('../src/{0}'.format(src_subdir), target, ordering)
 
@@ -146,7 +146,7 @@ def process_src(target, src_subdir, section=None, ordering=None):
 def generate(build_dir):
     original_wd = os.getcwd()
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    with open(os.path.join(build_dir, 'plugins.rst'), 'w') as f:
+    with open(os.path.join(build_dir, 'plugins.rst'), 'w', encoding='utf-8') as f:
         process_src(f, 'shapes', 'section_shape', SHAPE_ORDERING)
         process_src(f, 'bsdfs', 'section_bsdf', BSDF_ORDERING)
         # process_src(f, 'subsurface')
