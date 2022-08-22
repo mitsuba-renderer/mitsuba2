@@ -194,7 +194,7 @@ public:
         channels_sorted.push_back("B");
         std::sort(channels_sorted.begin(), channels_sorted.end());
         for (size_t i = 1; i < channels.size(); ++i) {
-            if (channels[i] == channels[i - 1])
+            if (channels_sorted[i] == channels_sorted[i - 1])
                 Throw("Film::prepare(): duplicate channel name \"%s\"", channels[i]);
         }
 
