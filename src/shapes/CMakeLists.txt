@@ -10,6 +10,9 @@ add_plugin(disk        disk.cpp)
 add_plugin(rectangle   rectangle.cpp)
 add_plugin(sphere      sphere.cpp)
 
+add_plugin(cylhollow   cylhollow.cpp)
+add_plugin(asphsurf    aspheric_surf.cpp)
+
 add_plugin(shapegroup  shapegroup.cpp)
 add_plugin(instance    instance.cpp)
 

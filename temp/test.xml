@@ -1,0 +1,237 @@
+<scene version="2.0.0">
+
+    <!-- <include filename="fragments/base.xml"/> -->
+    <!-- ########################################## -->
+    <!-- ########################################## -->
+    <!-- ########################################## -->
+    <default name="spp" value="256"/>
+    <default name="w" value="256"/> <!-- Unused -->
+    <default name="h" value="256"/> <!-- Unused -->
+    <default name="max_depth" value="12"/>
+    <default name="flen" value="43.4" />
+    <default name="aperture" value="12.7" />
+    <default name="smp_per_pass" value="$spp" />
+
+    <!-- <integrator type="direct"/> -->
+    <integrator type="path">
+        <integer name="max_depth" value="$max_depth"/>
+        <integer name="samples_per_pass" value="$smp_per_pass" />
+    </integrator>
+
+	<sensor type="cmos" id="Camera-camera">
+        <float name="focus_distance" value="$flen"/>
+
+        <!-- The physical size of the sensor [mm] -->
+        <float name="width" value="13.1904" />
+        <float name="height" value="7.4688" />
+
+        <!-- The physical size of a pixel [µm] -->
+        <!--
+        <float name="cw" value="2.4" />
+        <float name="ch" value="2.4" />
+        -->
+
+        <!-- This must be equal to the h limit 'limit' setting below -->
+        <float name="aperture_radius" value="$aperture"/>
+
+		<transform name="to_world">
+            <!-- origin: center of die and origin of rays
+                 target: orientation of the camera
+            -->
+            <lookat origin="278, 273, -5847.0"
+                    target="278, 273, 0.0"
+                    up    ="  0,   1,    0"/>
+		</transform>
+
+		<sampler type="independent">
+			<integer name="sample_count" value="$spp"/>
+		</sampler>
+
+		<film type="hdrfilm" id="film">
+			<integer name="width" value="$w"/>
+			<integer name="height" value="$h"/>
+			<string name="pixel_format" value="rgb"/>
+			<rfilter type="gaussian"/>
+		</film>
+
+	</sensor>
+
+    <shape type="asphsurf">
+        <point name="center" x="278" y="273" z="-5800.46950704447"/>
+
+        <float name="limit" value="12.7"/>
+
+        <float name="radius0" value="172"/>
+        <float name="kappa0" value="0.0" />
+
+        <boolean name="flip" value="false" />
+
+        <boolean name="flip_normals" value="false" />
+
+        <bsdf type="dielectric">
+            <float name="int_ior" value="1.51679"/>
+            <float name="ext_ior" value="1.0" />
+            <float name="specular_reflectance" value="0.0" />
+        </bsdf>
+    </shape>
+
+    <shape type="cylhollow">
+        <point name="center" x="278" y="273" z="-5800.0"/>
+
+        <float name="length" value="3.21592557544385"/>
+        <float name="radius" value="12.7"/>
+        <float name="thickness" value="1.0" />
+    </shape>
+
+   <shape type="asphsurf">
+        <point name="center" x="278" y="273" z="-5793.96950704447"/>
+
+        <float name="limit" value="12.7"/>
+
+        <float name="radius0" value="30.05999975952"/>
+        <float name="kappa0" value="0.0" />
+
+        <boolean name="flip" value="true" />
+
+        <boolean name="flip_normals" value="false" />
+
+        <bsdf type="dielectric">
+            <float name="int_ior" value="1.51679"/>
+            <float name="ext_ior" value="1.0"/>
+        </bsdf>
+    </shape>
+
+    <!--
+    <shape type="lens">
+        <point name="center" x="278" y="273" z="-798.0"/>
+
+        <float name="limit" value="3.9"/>
+
+        <float name="radius0" value="4"/>
+        <float name="kappa0" value="0.0" />
+
+        <float name="radius1" value="4"/>
+        <float name="kappa1" value="0.0" />
+
+        <bsdf type="dielectric">
+                <string name="ext_ior" value="diamond"/>
+                <string name="int_ior" value="air"/>
+        </bsdf>
+    </shape>
+    -->
+
+    <!--
+    <shape type="lens">
+        <point name="center" x="278" y="273" z="-800.0"/>
+
+        <float name="limit" value="0.25"/>
+
+        <float name="radius0" value="4"/>
+        <float name="kappa0" value="0.0" />
+
+        <float name="radius1" value="0.75"/>
+        <float name="kappa1" value="0.0" />
+
+        <bsdf type="dielectric">
+                <string name="int_ior" value="diamond"/>
+                <string name="ext_ior" value="air"/>
+        </bsdf>
+    </shape>
+    -->
+
+    <!-- <include filename="fragments/bsdfs-rgb.xml"/> -->
+    <!-- ########################################## -->
+    <!-- ########################################## -->
+    <!-- ########################################## -->
+
+    <!--
+	<bsdf type="dielectric" id="box">
+            <string name="int_ior" value="diamond"/>
+            <string name="ext_ior" value="air"/>
+    </bsdf>
+    -->
+    <bsdf type="diffuse" id="box">
+        <rgb name="reflectance" value="0.45, 0.30, 0.90"/>
+    </bsdf>
+
+    <bsdf type="diffuse" id="white">
+        <rgb name="reflectance" value="0.885809, 0.698859, 0.666422"/>
+    </bsdf>
+
+    <bsdf type="diffuse" id="red">
+        <rgb name="reflectance" value="0.570068, 0.0430135, 0.0443706"/>
+    </bsdf>
+
+    <bsdf type="diffuse" id="green">
+        <rgb name="reflectance" value="0.105421, 0.37798, 0.076425"/>
+    </bsdf>
+
+    <bsdf type="diffuse" id="light">
+        <rgb name="reflectance" value="0.936461, 0.740433, 0.705267"/>
+    </bsdf>
+
+    <!-- <include filename="fragments/shapes.xml"/> -->
+    <!-- ########################################## -->
+    <!-- ########################################## -->
+    <!-- ########################################## -->
+
+    <!--
+    <shape type="sphere">
+        <point name="center" x="278" y="273" z="0"/>
+
+        <float name="radius" value="20"/>
+
+        <ref id="light"/>
+        <ref id="area-emitter"/>
+    </shape>
+    -->
+
+    <shape type="obj">
+        <string name="filename" value="resources/data/scenes/cbox/meshes/cbox_smallbox.obj"/>
+        <ref id="box"/>
+    </shape>
+    <shape type="obj">
+        <string name="filename" value="resources/data/scenes/cbox/meshes/cbox_largebox.obj"/>
+        <ref id="box"/>
+    </shape>
+
+    <shape type="obj">
+        <string name="filename" value="resources/data/scenes/cbox/meshes/cbox_ceiling.obj"/>
+        <ref id="white"/>
+    </shape>
+
+    <shape type="obj">
+        <string name="filename" value="resources/data/scenes/cbox/meshes/cbox_floor.obj"/>
+        <ref id="white"/>
+    </shape>
+
+    <shape type="obj">
+        <string name="filename" value="resources/data/scenes/cbox/meshes/cbox_back.obj"/>
+        <ref id="white"/>
+    </shape>
+    <shape type="obj">
+        <string name="filename" value="resources/data/scenes/cbox/meshes/cbox_greenwall.obj"/>
+        <ref id="green"/>
+    </shape>
+    <shape type="obj">
+        <string name="filename" value="resources/data/scenes/cbox/meshes/cbox_redwall.obj"/>
+        <ref id="red"/>
+    </shape>
+
+    <shape type="obj">
+        <string name="filename" value="resources/data/scenes/cbox/meshes/cbox_luminaire.obj"/>
+        <transform name="to_world">
+            <translate x="0" y="-0.5" z="0"/>
+        </transform>
+        <ref id="light"/>
+        <ref id="area-emitter"/>
+    </shape>
+
+    <!-- From base.xml -->
+    <!-- ########################################## -->
+    <!-- ########################################## -->
+    <!-- ########################################## -->
+    <emitter type="area" id="area-emitter">
+        <rgb name="radiance" value="18.387, 10.9873, 2.75357"/>
+    </emitter>
+</scene>
