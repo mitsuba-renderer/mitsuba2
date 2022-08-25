@@ -49,11 +49,11 @@ public:
 
     // .. and it is either stored in a general purpose or a vector register
     struct Value {
-        X86Gp gp;
-        X86Xmm xmm;
+        x86::Gp gp;
+        x86::Xmm xmm;
     };
 
-    StructCompiler(X86Compiler &cc, X86Gp x, X86Gp y, bool dither, Label &err_label)
+    StructCompiler(x86::Compiler &cc, x86::Gp x, x86::Gp y, bool dither, Label &err_label)
         : cc(cc), xp(x), yp(y), dither(dither), err_label(err_label) { }
 
 
@@ -63,11 +63,11 @@ public:
     /* --------------------------------------------------------- */
 
     template <typename T>
-    X86Mem const_(T value) {
+    x86::Mem const_(T value) {
         #if !defined(DOUBLE_PRECISION)
-            return cc.newFloatConst(asmjit::kConstScopeGlobal, (float) value);
+            return cc.newFloatConst(asmjit::ConstPool::kScopeGlobal, (float) value);
         #else
-            return cc.newDoubleConst(asmjit::kConstScopeGlobal, (double) value);
+            return cc.newDoubleConst(asmjit::ConstPool::kScopeGlobal, (double) value);
         #endif
     }
 
@@ -106,7 +106,7 @@ public:
         #endif
     }
 
-    void movs(const X86Xmm &x, const X86Xmm &y) {
+    void movs(const x86::Xmm &x, const x86::Xmm &y) {
         #if defined(ENOKI_X86_AVX)
             #if !defined(DOUBLE_PRECISION)
                 cc.vmovss(x, x, y);
@@ -404,13 +404,13 @@ public:
     }
 
     /// Forward/inverse gamma correction using the sRGB profile
-    X86Xmm gamma(X86Xmm x, bool to_srgb) {
+    x86::Xmm gamma(x86::Xmm x, bool to_srgb) {
         #if MTS_JIT_LOG_ASSEMBLY == 1
             cc.comment(to_srgb ? "# Linear -> sRGB conversion"
                                : "# sRGB -> linear conversion");
         #endif
 
-        X86Xmm a = cc.newXmm(),
+        x86::Xmm a = cc.newXmm(),
                b = cc.newXmm();
 
         movs(a, const_(to_srgb ? 12.92 : (1.0 / 12.92)));
@@ -419,7 +419,7 @@ public:
         Label low_value = cc.newLabel();
         cc.jb(low_value);
 
-        X86Xmm y;
+        x86::Xmm y;
         if (to_srgb) {
            y = cc.newXmm();
            sqrts(y, x);
@@ -475,8 +475,8 @@ public:
 
         for (size_t i = 0; i < ncoeffs; ++i) {
             for (int j = 0; j < 2; ++j) {
-                X86Xmm &v = (j == 0) ? a : b;
-                X86Mem coeff = const_(to_srgb ? to_srgb_coeffs[j][i]
+                x86::Xmm &v = (j == 0) ? a : b;
+                x86::Mem coeff = const_(to_srgb ? to_srgb_coeffs[j][i]
                                               : from_srgb_coeffs[j][i]);
                 if (i == 0)
                     movs(v, coeff);
@@ -493,7 +493,7 @@ public:
     }
 
     /// Load a variable from the given structure (or return from the cache if it was already loaded)
-    std::pair<Key, Value> load(const Struct* struct_, const X86Gp &input, const std::string &name) {
+    std::pair<Key, Value> load(const Struct* struct_, const x86::Gp &input, const std::string &name) {
         Struct::Field field = struct_->field(name);
 
         Key key { field.name, field.type, field.flags };
@@ -510,11 +510,11 @@ public:
 
         uint32_t op;
         if (field.is_signed())
-            op = field.size < 4 ? X86Inst::kIdMovsx : X86Inst::kIdMovsxd;
+            op = field.size < 4 ? x86::Inst::kIdMovsx : x86::Inst::kIdMovsxd;
         else
-            op = field.size < 4 ? X86Inst::kIdMovzx : X86Inst::kIdMov;
+            op = field.size < 4 ? x86::Inst::kIdMovzx : x86::Inst::kIdMov;
         if (field.size == 8)
-            op = X86Inst::kIdMov;
+            op = x86::Inst::kIdMov;
 
         // Will we need to swap the byte order of the source records?
         bool bswap = struct_->byte_order() == Struct::ByteOrder::BigEndian;
@@ -573,7 +573,7 @@ public:
 
             case Struct::Type::Float32:
                 if (bswap) {
-                    X86Gp temp = cc.newUInt32();
+                    x86::Gp temp = cc.newUInt32();
                     cc.mov(temp.r32(), x86::dword_ptr(input, offset));
                     cc.bswap(temp.r32());
                     #if defined(ENOKI_X86_AVX)
@@ -592,7 +592,7 @@ public:
 
             case Struct::Type::Float64:
                 if (bswap) {
-                    X86Gp temp = cc.newUInt64();
+                    x86::Gp temp = cc.newUInt64();
                     cc.mov(temp.r64(), x86::qword_ptr(input, offset));
                     cc.bswap(temp.r64());
                     #if defined(ENOKI_X86_AVX)
@@ -615,34 +615,34 @@ public:
         if (has_flag(field.flags, Struct::Flags::Assert)) {
             if (field.type == Struct::Type::Float16) {
                 auto ref = cc.newUInt16Const(
-                    asmjit::kConstScopeGlobal,
+                    asmjit::ConstPool::kScopeGlobal,
                     enoki::half::float32_to_float16((float) field.default_));
                 cc.cmp(value.gp.r16(), ref);
             } else if (field.type == Struct::Type::Float32) {
-                auto ref = cc.newFloatConst(asmjit::kConstScopeGlobal, (float) field.default_);
+                auto ref = cc.newFloatConst(asmjit::ConstPool::kScopeGlobal, (float) field.default_);
                 #if defined(ENOKI_X86_AVX)
                     cc.vucomiss(value.xmm, ref);
                 #else
                     cc.ucomiss(value.xmm, ref);
                 #endif
             } else if (field.type == Struct::Type::Float64) {
-                auto ref = cc.newDoubleConst(asmjit::kConstScopeGlobal, (double) field.default_);
+                auto ref = cc.newDoubleConst(asmjit::ConstPool::kScopeGlobal, (double) field.default_);
                 #if defined(ENOKI_X86_AVX)
                     cc.vucomisd(value.xmm, ref);
                 #else
                     cc.ucomisd(value.xmm, ref);
                 #endif
             } else if (field.type == Struct::Type::Int8 || field.type == Struct::Type::UInt8) {
-                auto ref = cc.newByteConst(asmjit::kConstScopeGlobal, (int8_t) field.default_);
+                auto ref = cc.newByteConst(asmjit::ConstPool::kScopeGlobal, (int8_t) field.default_);
                 cc.cmp(value.gp.r8(), ref);
             } else if (field.type == Struct::Type::Int16 || field.type == Struct::Type::UInt16) {
-                auto ref = cc.newInt16Const(asmjit::kConstScopeGlobal, (int16_t) field.default_);
+                auto ref = cc.newInt16Const(asmjit::ConstPool::kScopeGlobal, (int16_t) field.default_);
                 cc.cmp(value.gp.r16(), ref);
             } else if (field.type == Struct::Type::Int32 || field.type == Struct::Type::UInt32) {
-                auto ref = cc.newInt32Const(asmjit::kConstScopeGlobal, (int32_t) field.default_);
+                auto ref = cc.newInt32Const(asmjit::ConstPool::kScopeGlobal, (int32_t) field.default_);
                 cc.cmp(value.gp.r32(), ref);
             } else if (field.type == Struct::Type::Int64 || field.type == Struct::Type::UInt64) {
-                auto ref = cc.newInt64Const(asmjit::kConstScopeGlobal, (int64_t) field.default_);
+                auto ref = cc.newInt64Const(asmjit::ConstPool::kScopeGlobal, (int64_t) field.default_);
                 cc.cmp(value.gp.r64(), ref);
             } else {
                 Throw("Internal error!");
@@ -702,7 +702,7 @@ public:
             } else if (input.first.type == Struct::Type::UInt64) {
                 auto tmp = cc.newUInt64();
                 cc.mov(tmp, vr.gp.r64());
-                auto tmp2 = cc.newUInt64Const(asmjit::kConstScopeGlobal, 0x7fffffffffffffffull);
+                auto tmp2 = cc.newUInt64Const(asmjit::ConstPool::kScopeGlobal, 0x7fffffffffffffffull);
                 cc.and_(tmp, tmp2);
                 cvtsi2s(vr.xmm, tmp.r64());
                 cc.test(vr.gp.r64(), vr.gp.r64());
@@ -727,8 +727,8 @@ public:
                     cc.vmovd(vr.xmm, vr.gp.r32());
                     cc.vcvtph2ps(vr.xmm, vr.xmm);
                 #else
-                    auto call = cc.call(imm_ptr((void *) enoki::half::float16_to_float32),
-                        FuncSignature1<float, uint16_t>(CallConv::kIdHostCDecl));
+                    auto call = cc.call(imm((void *) enoki::half::float16_to_float32),
+                        FuncSignatureT<float, uint16_t>(CallConv::kIdHostCDecl));
                     call->setArg(0, vr.gp);
                     call->setRet(0, vr.xmm);
                 #endif
@@ -736,7 +736,7 @@ public:
             }
 
             if (kr.type == Struct::Type::Float32 && kr.type != struct_type_v<Float>) {
-                X86Xmm source = vr.xmm;
+                x86::Xmm source = vr.xmm;
                 vr.xmm = cc.newXmm();
                 #if defined(ENOKI_X86_AVX)
                     cc.vcvtss2sd(vr.xmm, vr.xmm, source);
@@ -747,7 +747,7 @@ public:
             }
 
             if (kr.type == Struct::Type::Float64 && kr.type != struct_type_v<Float>) {
-                X86Xmm source = vr.xmm;
+                x86::Xmm source = vr.xmm;
                 vr.xmm = cc.newXmm();
                 #if defined(ENOKI_X86_AVX)
                     cc.vcvtsd2ss(vr.xmm, vr.xmm, source);
@@ -767,7 +767,7 @@ public:
     }
 
     /// Write a variable to memory
-    void save(const Struct *struct_, const X86Gp &output,
+    void save(const Struct *struct_, const x86::Gp &output,
               Struct::Field field, const std::pair<Key, Value> &kv) {
         Key key = kv.first; Value value = kv.second;
 
@@ -800,16 +800,16 @@ public:
 
                 if (dither) {
                     if (!dither_ready) {
-                        X86Gp index = cc.newUInt64();
+                        x86::Gp index = cc.newUInt64();
                         cc.movzx(index.r64(), xp.r8Lo());
                         cc.mov(index.r8Hi(), yp.r8Lo());
-                        X86Gp base = cc.newUInt64();
+                        x86::Gp base = cc.newUInt64();
                         cc.mov(base.r64(), Imm((uintptr_t) dither_matrix256));
                         dither_value = cc.newXmm();
                         #if defined(ENOKI_X86_AVX)
-                            cc.movss(dither_value, X86Mem(base, index, 2, 0, (uint32_t) sizeof(float)));
+                            cc.movss(dither_value, x86::Mem(base, index, 2, 0, (uint32_t) sizeof(float)));
                         #else
-                            cc.vmovss(dither_value, X86Mem(base, index, 2, 0, (uint32_t) sizeof(float)));
+                            cc.vmovss(dither_value, x86::Mem(base, index, 2, 0, (uint32_t) sizeof(float)));
                         #endif
                         #if defined(DOUBLE_PRECISION)
                             #if defined(ENOKI_X86_AVX)
@@ -834,16 +834,16 @@ public:
             } else if (field.type == Struct::Type::UInt64) {
                 cvts2si(value.gp.r64(), value.xmm);
 
-                X86Xmm large_thresh = cc.newXmm();
+                x86::Xmm large_thresh = cc.newXmm();
                 movs(large_thresh, const_(9.223372036854776e18 /* 2^63 - 1 */));
 
-                X86Xmm tmp = cc.newXmm();
+                x86::Xmm tmp = cc.newXmm();
                 subs(tmp, value.xmm, large_thresh);
 
-                X86Gp tmp2 = cc.newInt64();
+                x86::Gp tmp2 = cc.newInt64();
                 cvts2si(tmp2, tmp);
 
-                X86Gp large_result = cc.newInt64();
+                x86::Gp large_result = cc.newInt64();
                 cc.mov(large_result, Imm(0x7fffffffffffffffull));
                 cc.add(large_result, tmp2);
 
@@ -866,7 +866,7 @@ public:
             case Struct::Type::Int16:
             case Struct::Type::UInt16:
                 if (bswap) {
-                   X86Gp temp = cc.newUInt16();
+                   x86::Gp temp = cc.newUInt16();
                    cc.mov(temp, value.gp.r16());
                    cc.xchg(temp.r8Lo(), temp.r8Hi());
                    value.gp = temp;
@@ -877,7 +877,7 @@ public:
             case Struct::Type::Int32:
             case Struct::Type::UInt32:
                 if (bswap) {
-                   X86Gp temp = cc.newUInt32();
+                   x86::Gp temp = cc.newUInt32();
                    cc.mov(temp, value.gp.r32());
                    cc.bswap(temp);
                    value.gp = temp;
@@ -888,7 +888,7 @@ public:
             case Struct::Type::Int64:
             case Struct::Type::UInt64:
                 if (bswap) {
-                   X86Gp temp = cc.newUInt64();
+                   x86::Gp temp = cc.newUInt64();
                    cc.mov(temp, value.gp.r64());
                    cc.bswap(temp);
                    value.gp = temp;
@@ -898,7 +898,7 @@ public:
 
             case Struct::Type::Float16:
                 if (key.type == Struct::Type::Float64) {
-                    X86Xmm temp = cc.newXmm();
+                    x86::Xmm temp = cc.newXmm();
                     #if defined(ENOKI_X86_AVX)
                         cc.vcvtsd2ss(temp, temp, value.xmm);
                     #else
@@ -911,12 +911,12 @@ public:
                     value.gp = cc.newUInt32();
 
                     #if defined(__F16C__)
-                        X86Xmm temp = cc.newXmm();
+                        x86::Xmm temp = cc.newXmm();
                         cc.vcvtps2ph(temp, value.xmm, 0);
                         cc.vmovd(value.gp.r32(), temp);
                     #else
-                        auto call = cc.call(imm_ptr((void *) enoki::half::float32_to_float16),
-                            FuncSignature1<uint16_t, float>(asmjit::CallConv::kIdHost));
+                        auto call = cc.call(imm((void *) enoki::half::float32_to_float16),
+                            FuncSignatureT<uint16_t, float>(asmjit::CallConv::kIdHost));
                         call->setArg(0, value.xmm);
                         call->setRet(0, value.gp);
                     #endif
@@ -925,7 +925,7 @@ public:
                 }
 
                 if (bswap) {
-                   X86Gp temp = cc.newUInt16();
+                   x86::Gp temp = cc.newUInt16();
                    cc.mov(temp, value.gp.r16());
                    cc.xchg(temp.r8Lo(), temp.r8Hi());
                    value.gp = temp;
@@ -937,7 +937,7 @@ public:
 
             case Struct::Type::Float32:
                 if (key.type == Struct::Type::Float64) {
-                    X86Xmm temp = cc.newXmm();
+                    x86::Xmm temp = cc.newXmm();
                     #if defined(ENOKI_X86_AVX)
                         cc.vcvtsd2ss(temp, temp, value.xmm);
                     #else
@@ -946,7 +946,7 @@ public:
                     value.xmm = temp;
                 }
                 if (bswap) {
-                    X86Gp temp = cc.newUInt32();
+                    x86::Gp temp = cc.newUInt32();
                     #if defined(ENOKI_X86_AVX)
                         cc.vmovd(temp, value.xmm);
                     #else
@@ -965,7 +965,7 @@ public:
 
             case Struct::Type::Float64:
                 if (key.type == Struct::Type::Float32) {
-                    X86Xmm temp = cc.newXmm();
+                    x86::Xmm temp = cc.newXmm();
                     #if defined(ENOKI_X86_AVX)
                         cc.vcvtss2sd(temp, temp, value.xmm);
                     #else
@@ -974,7 +974,7 @@ public:
                     value.xmm = temp;
                 }
                 if (bswap) {
-                    X86Gp temp = cc.newUInt64();
+                    x86::Gp temp = cc.newUInt64();
                     #if defined(ENOKI_X86_AVX)
                         cc.vmovq(temp, value.xmm);
                     #else
@@ -996,11 +996,11 @@ public:
     }
 private:
     // Cache of all currently loaded/converted variables
-    X86Compiler &cc;
-    X86Gp xp, yp;
+    x86::Compiler &cc;
+    x86::Gp xp, yp;
     bool dither;
     Label err_label;
-    X86Xmm dither_value;
+    x86::Xmm dither_value;
     bool dither_ready = false;
     std::map<Key, Value> cache;
 };
@@ -1238,7 +1238,7 @@ StructConverter::StructConverter(const Struct *source, const Struct *target, boo
     }
 
     CodeHolder code;
-    code.init(jit->runtime.getCodeInfo());
+    code.init(jit->runtime.codeInfo());
     #if MTS_JIT_LOG_ASSEMBLY == 1
         Log(Info, "Converting from %s to %s", source, target);
         StringLogger logger;
@@ -1246,9 +1246,9 @@ StructConverter::StructConverter(const Struct *source, const Struct *target, boo
         code.setLogger(&logger);
     #endif
 
-    X86Compiler cc(&code);
+    x86::Compiler cc(&code);
 
-    cc.addFunc(FuncSignature4<bool, size_t, size_t, const void *, void *>(asmjit::CallConv::kIdHost));
+    cc.addFunc(FuncSignatureT<bool, size_t, size_t, const void *, void *>(asmjit::CallConv::kIdHost));
     auto width = cc.newInt64("width");
     auto height = cc.newInt64("height");
     auto input = cc.newIntPtr("input");
@@ -1312,10 +1312,10 @@ StructConverter::StructConverter(const Struct *source, const Struct *target, boo
             Throw("Internal error: source and target weights have mismatched names!");
     }
 
-    X86Xmm scale_factor;
+    x86::Xmm scale_factor;
     if (source_weight != nullptr && target_weight == nullptr) {
         scale_factor = cc.newXmm();
-        X86Xmm value = sc.linearize(sc.load(source, input, source_weight->name)).second.xmm;
+        x86::Xmm value = sc.linearize(sc.load(source, input, source_weight->name)).second.xmm;
         sc.movs(scale_factor, sc.const_(1.0));
         sc.divs(scale_factor, value);
     }
@@ -1345,20 +1345,20 @@ StructConverter::StructConverter(const Struct *source, const Struct *target, boo
             Throw("Internal error: source and target alpha have mismatched names!");
     }
 
-    X86Xmm alpha, inv_alpha;
+    x86::Xmm alpha, inv_alpha;
     if (source_alpha != nullptr && target_alpha != nullptr) {
         alpha = cc.newXmm();
         inv_alpha = cc.newXmm();
-        X86Xmm value = sc.linearize(sc.load(source, input, source_alpha->name)).second.xmm;
+        x86::Xmm value = sc.linearize(sc.load(source, input, source_alpha->name)).second.xmm;
         sc.movs(alpha, value);
         sc.movs(inv_alpha, sc.const_(1.0));
         sc.divs(inv_alpha, value);
 
         // Check if alpha is zero and set inv_alpha to zero if that is the case
-        X86Xmm zero = cc.newXmm();
+        x86::Xmm zero = cc.newXmm();
         sc.movs(zero, sc.const_(0.0));
 
-        X86Xmm mask = cc.newXmm();
+        x86::Xmm mask = cc.newXmm();
         sc.movs(mask, value);
         sc.cmps(mask, zero, 2);
         sc.blend(inv_alpha, zero, mask);
@@ -1376,7 +1376,7 @@ StructConverter::StructConverter(const Struct *source, const Struct *target, boo
                 Throw("Unable to find field \"%s\"!", f.name);
             }
         } else {
-            X86Xmm accum = cc.newXmm();
+            x86::Xmm accum = cc.newXmm();
             for (size_t i = 0; i<f.blend.size(); ++i) {
                 kv = sc.linearize(sc.load(source, input, f.blend[i].second));
                 if (i == 0)
@@ -1396,7 +1396,7 @@ StructConverter::StructConverter(const Struct *source, const Struct *target, boo
             kv = sc.linearize(kv);
 
         if (source_weight != nullptr && target_weight == nullptr) {
-            X86Xmm result = cc.newXmm();
+            x86::Xmm result = cc.newXmm();
             if (kv.first.type != struct_type_v<Float>)
                 kv = sc.linearize(kv);
             sc.muls(result, kv.second.xmm, scale_factor);
@@ -1411,7 +1411,7 @@ StructConverter::StructConverter(const Struct *source, const Struct *target, boo
             source_premult != target_premult) {
             if (has_multiple_alpha_channels)
                 Throw("Found multiple alpha channels: Alpha (un)premultiplication expects a single alpha channel");
-            X86Xmm result = cc.newXmm();
+            x86::Xmm result = cc.newXmm();
             if (kv.first.type != struct_type_v<Float>)
                 kv = sc.linearize(kv);
             if (target_premult && !source_premult) {
