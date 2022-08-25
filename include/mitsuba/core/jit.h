@@ -11,6 +11,9 @@
 #    pragma warning(push)
 #    pragma warning(disable : 4804) // warning C4804: '~': unsafe use of type 'bool' in operation
 #    pragma warning(disable : 4245) // warning C4245: 'argument': conversion from 'int' to 'uint32_t', signed/unsigned mismatch
+#    if !defined(ASMJIT_STATIC)     // Fix asmjit dll conflicts when loading mitsuba in python
+#      define ASMJIT_STATIC
+#    endif
 #  endif
 
 #  include <asmjit/asmjit.h>
